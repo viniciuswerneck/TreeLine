@@ -1,4 +1,4 @@
-import { RefreshCw, Search } from 'lucide-react'
+import { Cloud, GitBranch, RefreshCw, Search, Tag } from 'lucide-react'
 import { useMemo } from 'react'
 import { DATE_LOCALE } from '../i18n'
 import { layoutGraph, type LaneCommit } from '../lib/graph'
@@ -8,13 +8,13 @@ import { useStore } from '../store'
 const LANE_W = 16
 const ROW_H = 30
 
-/** Paleta por lane, no espírito do Git Graph (cores próprias, fixas). */
+/** Paleta por lane, no espírito do Git Graph (azul, rosa, verde, roxo…). */
 const LANE_COLORS = [
   '#1f9cff',
-  '#22c55e',
-  '#f59e0b',
-  '#a855f7',
   '#ec4899',
+  '#22c55e',
+  '#a855f7',
+  '#f59e0b',
   '#06b6d4',
   '#84cc16',
   '#f97316'
@@ -52,15 +52,17 @@ export function visibleRefs(refs: string[]): string[] {
   return refs.filter((r) => !r.endsWith('/HEAD'))
 }
 
-/** Badge de ref estilo Git Graph: pílula por tipo (HEAD, branch, remoto, tag). */
+/** Badge de ref estilo Git Graph: pílula por tipo (HEAD, branch, remoto, tag), com ícone. */
 export function RefBadge({ name }: { name: string }) {
   const isHead = name === 'HEAD'
   const isTag = name.startsWith('tag: ')
   const isRemote = !isHead && !isTag && name.includes('/')
   const kind = isHead ? 'head' : isTag ? 'tag' : isRemote ? 'remote' : 'branch'
   const label = isTag ? name.slice('tag: '.length) : name
+  const Icon = isHead ? null : isTag ? Tag : isRemote ? Cloud : GitBranch
   return (
     <span className={`ref-badge ${kind}`} title={name}>
+      {Icon && <Icon size={10} />}
       {label}
     </span>
   )
@@ -84,14 +86,15 @@ function GraphCell({ commit, maxLane, isFirst }: { commit: LaneCommit; maxLane: 
           y2={ROW_H}
           stroke={laneColor(l)}
           strokeWidth={2}
+          strokeLinecap="round"
           opacity={0.55}
         />
       ))}
       {!isFirst && (
-        <line x1={cx(commit.lane)} y1={0} x2={cx(commit.lane)} y2={cy} stroke={color} strokeWidth={2} opacity={0.85} />
+        <line x1={cx(commit.lane)} y1={0} x2={cx(commit.lane)} y2={cy} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.85} />
       )}
       {continuesDown && (
-        <line x1={cx(commit.lane)} y1={cy} x2={cx(commit.lane)} y2={ROW_H} stroke={color} strokeWidth={2} opacity={0.85} />
+        <line x1={cx(commit.lane)} y1={cy} x2={cx(commit.lane)} y2={ROW_H} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.85} />
       )}
       {commit.forks.map((f, i) => (
         <path
@@ -99,11 +102,19 @@ function GraphCell({ commit, maxLane, isFirst }: { commit: LaneCommit; maxLane: 
           d={`M ${cx(f.from)},${cy} C ${cx(f.from)},${cy + 9} ${cx(f.to)},${ROW_H - 9} ${cx(f.to)},${ROW_H}`}
           stroke={laneColor(f.from)}
           strokeWidth={2}
+          strokeLinecap="round"
           fill="none"
           opacity={0.85}
         />
       ))}
-      <circle cx={cx(commit.lane)} cy={cy} r={commit.parents.length > 1 ? 5.5 : 4.5} fill={color} stroke="var(--bg-panel)" strokeWidth={1.5} />
+      <circle
+        cx={cx(commit.lane)}
+        cy={cy}
+        r={commit.parents.length > 1 ? 5.5 : 4.5}
+        fill="var(--bg-panel)"
+        stroke={color}
+        strokeWidth={2}
+      />
     </svg>
   )
 }

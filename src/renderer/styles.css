@@ -235,6 +235,7 @@ body {
 .ref-badge.head { background: transparent; border-color: var(--accent); color: var(--accent); }
 .ref-badge.remote { background: rgba(127, 127, 127, 0.16); color: var(--text-2); border-style: dashed; border-color: var(--border-line); }
 .ref-badge.tag { background: rgba(232, 155, 53, 0.2); color: var(--text-1); }
+.ref-badge svg { width: 10px; height: 10px; vertical-align: -1px; margin-right: 3px; }
 .muted { color: var(--text-2); } .mono { font-family: ui-monospace, monospace; font-size: 12px; }
 
 /* ---- Details ---- */
