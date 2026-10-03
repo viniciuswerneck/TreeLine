@@ -272,6 +272,23 @@ body {
 .mini-btn:hover { background: var(--bg-hover); }
 .diff-pane { flex: 1; min-width: 0; overflow: auto; padding: 8px 12px; }
 .diff-pane pre { margin: 0; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+
+/* ---- DiffViewer estilo VS Code ---- */
+.diff-view { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; line-height: 1.55; }
+.diff-line { display: flex; white-space: pre; }
+.diff-line code { flex: 1; min-width: 0; overflow-x: visible; font: inherit; }
+.diff-gutter {
+  width: 40px; flex-shrink: 0; text-align: right; padding-right: 10px;
+  color: var(--text-2); opacity: 0.7; user-select: none;
+}
+.diff-sign { width: 18px; flex-shrink: 0; text-align: center; font-weight: 700; user-select: none; }
+.diff-line.add { background: rgba(46, 160, 67, 0.16); }
+.diff-line.add .diff-sign { color: #3fb950; }
+.diff-line.del { background: rgba(248, 81, 73, 0.16); }
+.diff-line.del .diff-sign { color: #f85149; }
+.diff-line.hunk { color: #79c0ff; background: rgba(56, 139, 253, 0.12); }
+.diff-line.file { color: var(--text-2); }
+.diff-line.note { color: var(--text-2); font-style: italic; }
 .commit-pane { padding: 12px; display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .commit-bar {
   display: flex; gap: 12px; align-items: flex-start; padding: 8px 12px;

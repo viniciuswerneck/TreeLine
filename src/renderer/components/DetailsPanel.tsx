@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import { forwardRef, useEffect, useState } from 'react'
 import { useStore } from '../store'
+import DiffViewer from './DiffViewer'
 import { RefBadge, visibleRefs } from './HistoryGraph'
 
 /**
@@ -92,7 +93,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             {commitDetail && files.length === 0 && <div className="file-empty">No files (merge or empty commit)</div>}
           </div>
           <div className="diff-pane">
-            <pre>{commitDiff || 'Select a file to preview the diff.'}</pre>
+            {commitDiff ? <DiffViewer text={commitDiff} /> : 'Select a file to preview the diff.'}
           </div>
         </div>
       </div>
@@ -191,7 +192,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           {staged.length === 0 && <div className="file-empty">No staged changes</div>}
         </div>
         <div className="diff-pane">
-          <pre>{diff || 'Select a file to preview the diff.'}</pre>
+          {diff ? <DiffViewer text={diff} /> : 'Select a file to preview the diff.'}
         </div>
       </div>
       <div className="commit-bar">
