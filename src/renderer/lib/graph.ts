@@ -30,8 +30,8 @@ export interface LaneCommit extends CommitInfo {
  * 3. Linha principal reta (estilo GitGraph): pais compartilhados ficam com
  *    o filho da spine (first-parent a partir do HEAD, depois outras tips).
  *    Se um filho fora da spine reservar primeiro, o filho da spine ROUBA
- *    (steal) e a linha do outro ganha a curva de divergência. Sem isso a
- *    main pula de lane no ponto do fork.
+ *    (steal) sem desenhar curva de divergência — o trilho do outro segue
+ *    reto pelo trilho aberto. Curvas só no split do merge e no join-back.
  * 4. Trilho aberto: lane nunca fechada por join/merge-back ou root estende
  *    o trilho até o fim do grafo (branch ainda aberto, como no GitGraph).
  */
@@ -119,7 +119,9 @@ export function layoutGraph(commits: CommitInfo[]): LaneCommit[] {
       } else if (existing !== lane) {
         const h = holder.get(p)
         if (h && P(c.hash) < h.prio) {
-          // STEAL: o filho da spine fica com o pai; o outro diverge (trilho segue aberto).
+          // STEAL: o filho da spine fica com o pai. A linha do outro segue
+          // reta para baixo (trilho aberto) SEM curva de divergência — como
+          // no GitGraph, o fork só desenha curva no merge (split) e no join.
           laneOf.set(p, lane as number)
           holder.set(p, { lane: lane as number, row, prio: P(c.hash) })
           const iv = openInterval.get(p)
@@ -127,10 +129,7 @@ export function layoutGraph(commits: CommitInfo[]): LaneCommit[] {
           const niv: Interval = { lane: lane as number, from: row, to: Number.MAX_SAFE_INTEGER }
           intervals.push(niv)
           openInterval.set(p, niv)
-          const hr = rows[h.row]
-          if (hr && !hr.forks.some((f) => f.from === h.lane && f.to === lane)) {
-            hr.forks.push({ from: h.lane, to: lane as number })
-          }
+          // newcomer: no fork (parent now own lane)
         } else {
           // Join-back de verdade: a lane atual fecha aqui.
           forks.push({ from: lane as number, to: existing })
