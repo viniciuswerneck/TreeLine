@@ -9,6 +9,7 @@ import StatusBar from './components/StatusBar'
 import SyncToast from './components/SyncToast'
 import Toolbar from './components/Toolbar'
 import { useStore } from './store'
+import { applyLang } from './i18n'
 import { applyTheme } from './themes'
 
 export default function App() {
@@ -16,11 +17,14 @@ export default function App() {
   const loadRepos = useStore((s) => s.loadRepos)
   const openDialog = useStore((s) => s.openDialog)
   const theme = useStore((s) => s.theme)
+  const lang = useStore((s) => s.lang)
+  const tr = useStore((s) => s.tr)
   const settingsOpen = useStore((s) => s.settingsOpen)
   const commitRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     applyTheme(theme)
+    applyLang(lang)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -35,10 +39,10 @@ export default function App() {
         <Toolbar onCommitFocus={() => undefined} />
         <div className="welcome">
           <GitBranch size={40} color="var(--accent)" />
-          <h1>Welcome to TreeLine</h1>
-          <p>A familiar home for your repositories on Linux. Open a repo to see its graph, stage changes and commit.</p>
+          <h1>{tr('app.welcome')}</h1>
+          <p>{tr('app.welcomeHint')}</p>
           <button className="tool-btn primary" onClick={() => void openDialog()}>
-            Open repository…
+            {tr('app.openRepo')}
           </button>
         </div>
         <StatusBar />

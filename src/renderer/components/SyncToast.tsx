@@ -2,8 +2,6 @@ import { CircleCheck, CircleX, LoaderCircle, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useStore } from '../store'
 
-const OP_LABEL: Record<string, string> = { push: 'Push', pull: 'Pull', fetch: 'Fetch' }
-
 /**
  * Toast de sincronização: mostra spinner durante Push/Pull/Fetch,
  * resumo do resultado em caso de sucesso e o erro com dismiss manual.
@@ -12,6 +10,7 @@ const OP_LABEL: Record<string, string> = { push: 'Push', pull: 'Pull', fetch: 'F
 export default function SyncToast() {
   const sync = useStore((s) => s.sync)
   const clearSync = useStore((s) => s.clearSync)
+  const tr = useStore((s) => s.tr)
 
   useEffect(() => {
     if (sync.phase !== 'success') return
@@ -20,7 +19,7 @@ export default function SyncToast() {
   }, [sync, clearSync])
 
   if (!sync.op || !sync.phase) return null
-  const label = OP_LABEL[sync.op] ?? sync.op
+  const label = sync.op === 'push' ? tr('toolbar.push') : sync.op === 'pull' ? tr('toolbar.pull') : tr('toolbar.fetch')
 
   return (
     <div className={`sync-toast ${sync.phase}`} role="status">
@@ -32,7 +31,7 @@ export default function SyncToast() {
         <span>{sync.message}</span>
       </div>
       {sync.phase !== 'running' && (
-        <button className="sync-toast-close" title="Dismiss" onClick={clearSync}>
+        <button className="sync-toast-close" title={tr('sync.dismiss')} onClick={clearSync}>
           <X size={14} />
         </button>
       )}

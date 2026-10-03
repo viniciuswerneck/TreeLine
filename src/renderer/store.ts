@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { BranchInfo, CommitDetail, CommitInfo, GitIdentity, RepoStatus, SyncOp } from '../shared/types'
 import { applyTheme, loadTheme } from './themes'
+import { applyLang, loadLang, t, type DictKey, type Lang } from './i18n'
 import type { MenuItem } from './components/ContextMenu'
 
 export interface ContextMenuState {
@@ -38,6 +39,7 @@ interface TreeLineState {
   branchFilter: 'all' | 'current'
   sync: SyncState
   theme: string
+  lang: Lang
   loadRepos: () => Promise<void>
   openDialog: () => Promise<void>
   selectRepo: (path: string) => Promise<void>
@@ -57,6 +59,8 @@ interface TreeLineState {
   doFetch: () => Promise<void>
   clearSync: () => void
   setTheme: (t: string) => void
+  setLang: (l: Lang) => void
+  tr: (key: DictKey, vars?: Record<string, string | number>) => string
   settingsOpen: boolean
   identity: GitIdentity
   identitySaving: boolean
@@ -118,6 +122,7 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   branchFilter: 'all',
   sync: { op: null, phase: null, message: '' },
   theme: loadTheme(),
+  lang: loadLang(),
 
   loadRepos: async () => {
     const repos = await window.treeline.listRepos()
@@ -216,10 +221,10 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
 
   doCommit: async () => {
-    const { current, message, amend } = get()
+    const { current, message, amend, lang } = get()
     if (!current) return
     set({ error: null })
-    const ok = await fail(window.treeline.commit(current, message, amend), (e) => set({ error: e }))
+    const ok = await fail(window.treeline.commit(current, message, amend, lang), (e) => set({ error: e }))
     if (ok !== null) {
       set({ message: '', selectedFile: null, diff: '' })
       await get().refresh()
@@ -227,11 +232,11 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
 
   doPush: async () => {
-    const { current } = get()
+    const { current, lang } = get()
     if (!current || get().sync.phase === 'running') return
-    set({ sync: { op: 'push', phase: 'running', message: 'Push em andamento…' }, error: null })
-    const res = await fail(window.treeline.push(current), (e) =>
-      set({ sync: { op: 'push', phase: 'error', message: `Push falhou: ${cleanErr(e)}` } })
+    set({ sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }) }, error: null })
+    const res = await fail(window.treeline.push(current, lang), (e) =>
+      set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }) } })
     )
     if (res !== null) {
       set({ sync: { op: 'push', phase: 'success', message: res.summary } })
@@ -240,11 +245,11 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
 
   doPull: async () => {
-    const { current } = get()
+    const { current, lang } = get()
     if (!current || get().sync.phase === 'running') return
-    set({ sync: { op: 'pull', phase: 'running', message: 'Pull em andamento…' }, error: null })
-    const res = await fail(window.treeline.pull(current), (e) =>
-      set({ sync: { op: 'pull', phase: 'error', message: `Pull falhou: ${cleanErr(e)}` } })
+    set({ sync: { op: 'pull', phase: 'running', message: t(lang, 'sync.running', { op: 'Pull' }) }, error: null })
+    const res = await fail(window.treeline.pull(current, lang), (e) =>
+      set({ sync: { op: 'pull', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Pull', e: cleanErr(e) }) } })
     )
     if (res !== null) {
       set({ sync: { op: 'pull', phase: 'success', message: res.summary } })
@@ -253,11 +258,11 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
 
   doFetch: async () => {
-    const { current } = get()
+    const { current, lang } = get()
     if (!current || get().sync.phase === 'running') return
-    set({ sync: { op: 'fetch', phase: 'running', message: 'Fetch em andamento…' }, error: null })
-    const res = await fail(window.treeline.fetch(current), (e) =>
-      set({ sync: { op: 'fetch', phase: 'error', message: `Fetch falhou: ${cleanErr(e)}` } })
+    set({ sync: { op: 'fetch', phase: 'running', message: t(lang, 'sync.running', { op: 'Fetch' }) }, error: null })
+    const res = await fail(window.treeline.fetch(current, lang), (e) =>
+      set({ sync: { op: 'fetch', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Fetch', e: cleanErr(e) }) } })
     )
     if (res !== null) {
       set({ sync: { op: 'fetch', phase: 'success', message: res.summary } })
@@ -267,10 +272,17 @@ export const useStore = create<TreeLineState>()((set, get) => ({
 
   clearSync: () => set({ sync: { op: null, phase: null, message: '' } }),
 
-  setTheme: (t) => {
-    applyTheme(t)
-    set({ theme: t })
+  setTheme: (themeName) => {
+    applyTheme(themeName)
+    set({ theme: themeName })
   },
+
+  setLang: (l) => {
+    applyLang(l)
+    set({ lang: l })
+  },
+
+  tr: (key, vars) => t(get().lang, key, vars),
 
   settingsOpen: false,
   identity: { name: '', email: '' },
@@ -287,8 +299,17 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   closeSettings: () => set({ settingsOpen: false, identityError: null, identitySaved: false }),
 
   saveIdentity: async (id) => {
+    const lang = get().lang
+    if (!id.name.trim()) {
+      set({ identityError: t(lang, 'settings.nameEmpty') })
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(id.email.trim())) {
+      set({ identityError: t(lang, 'settings.emailInvalid') })
+      return
+    }
     set({ identitySaving: true, identityError: null, identitySaved: false })
-    const ok = await fail(window.treeline.setIdentity(id), (e) => set({ identityError: e }))
+    const ok = await fail(window.treeline.setIdentity(id, get().lang), (e) => set({ identityError: e }))
     set({ identitySaving: false, identitySaved: ok !== null })
     if (ok !== null) set({ identity: { name: id.name.trim(), email: id.email.trim() } })
   },
@@ -348,9 +369,9 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
 
   discardFile: async (path, tracked) => {
-    const { current } = get()
+    const { current, lang } = get()
     if (!current) return
-    await fail(window.treeline.discard(current, path, tracked), (e) => set({ error: e }))
+    await fail(window.treeline.discard(current, path, tracked, lang), (e) => set({ error: e }))
     await get().refresh()
   }
 }))

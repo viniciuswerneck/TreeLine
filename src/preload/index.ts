@@ -13,20 +13,21 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:getDiff', repo, file, staged),
   stage: (repo: string, file: string) => ipcRenderer.invoke('treeline:stage', repo, file),
   unstage: (repo: string, file: string) => ipcRenderer.invoke('treeline:unstage', repo, file),
-  commit: (repo: string, message: string, amend?: boolean) =>
-    ipcRenderer.invoke('treeline:commit', repo, message, amend),
-  push: (repo: string) => ipcRenderer.invoke('treeline:push', repo),
-  pull: (repo: string) => ipcRenderer.invoke('treeline:pull', repo),
-  fetch: (repo: string) => ipcRenderer.invoke('treeline:fetch', repo),
+  commit: (repo: string, message: string, amend?: boolean, lang?: string) =>
+    ipcRenderer.invoke('treeline:commit', repo, message, amend, lang),
+  push: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:push', repo, lang),
+  pull: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:pull', repo, lang),
+  fetch: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:fetch', repo, lang),
   getIdentity: () => ipcRenderer.invoke('treeline:getIdentity'),
-  setIdentity: (id: { name: string; email: string }) => ipcRenderer.invoke('treeline:setIdentity', id),
+  setIdentity: (id: { name: string; email: string }, lang?: string) =>
+    ipcRenderer.invoke('treeline:setIdentity', id, lang),
   getCommitDetail: (repo: string, hash: string) => ipcRenderer.invoke('treeline:getCommitDetail', repo, hash),
   getCommitDiff: (repo: string, hash: string, file: string) =>
     ipcRenderer.invoke('treeline:getCommitDiff', repo, hash, file),
   reveal: (path: string) => ipcRenderer.invoke('treeline:reveal', path),
   removeRecent: (path: string) => ipcRenderer.invoke('treeline:removeRecent', path),
-  discard: (repo: string, file: string, tracked: boolean) =>
-    ipcRenderer.invoke('treeline:discard', repo, file, tracked),
+  discard: (repo: string, file: string, tracked: boolean, lang?: string) =>
+    ipcRenderer.invoke('treeline:discard', repo, file, tracked, lang),
   copyText: (text: string) => ipcRenderer.invoke('treeline:copyText', text)
 }
 

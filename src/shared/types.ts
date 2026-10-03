@@ -59,16 +59,16 @@ export interface TreeLineAPI {
   getDiff(repo: string, file: string, staged: boolean): Promise<string>
   stage(repo: string, file: string): Promise<void>
   unstage(repo: string, file: string): Promise<void>
-  commit(repo: string, message: string, amend?: boolean): Promise<void>
-  push(repo: string): Promise<SyncResult>
-  pull(repo: string): Promise<SyncResult>
-  fetch(repo: string): Promise<SyncResult>
+  commit(repo: string, message: string, amend?: boolean, lang?: string): Promise<void>
+  push(repo: string, lang?: string): Promise<SyncResult>
+  pull(repo: string, lang?: string): Promise<SyncResult>
+  fetch(repo: string, lang?: string): Promise<SyncResult>
   getIdentity(): Promise<GitIdentity>
-  setIdentity(id: GitIdentity): Promise<void>
-  getCommitDetail(repo: string, hash: string): Promise<CommitDetail>
+  setIdentity(id: GitIdentity, lang?: string): Promise<void>
+  getCommitDetail(repo: string, hash: string, lang?: string): Promise<CommitDetail>
   getCommitDiff(repo: string, hash: string, file: string): Promise<string>
   reveal(path: string): Promise<void>
   removeRecent(path: string): Promise<string[]>
-  discard(repo: string, file: string, tracked: boolean): Promise<void>
+  discard(repo: string, file: string, tracked: boolean, lang?: string): Promise<void>
   copyText(text: string): Promise<void>
 }

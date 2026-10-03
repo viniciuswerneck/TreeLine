@@ -5,26 +5,34 @@ export default function StatusBar() {
   const status = useStore((s) => s.status)
   const commits = useStore((s) => s.commits)
   const error = useStore((s) => s.error)
+  const tr = useStore((s) => s.tr)
 
   return (
     <div className="statusbar">
       <span className="dot" />
-      <span title={current ?? ''}>{current ? current.split('/').pop() : 'No repository open'}</span>
+      <span title={current ?? ''}>{current ? current.split('/').pop() : tr('status.noRepo')}</span>
       {status && (
         <>
-          <span title="Current branch">{status.branch}</span>
-          <span title="Ahead / behind the remote">
+          <span title={tr('status.branch')}>{status.branch}</span>
+          <span title={tr('status.aheadBehind')}>
             ↑{status.ahead} ↓{status.behind}
           </span>
-          <span title="Changed files">
-            {status.staged.length} staged · {status.unstaged.length + status.untracked.length} unstaged
+          <span title={tr('status.files')}>
+            {tr('status.stagedUnstaged', {
+              s: status.staged.length,
+              u: status.unstaged.length + status.untracked.length
+            })}
           </span>
         </>
       )}
-      {commits.length > 0 && <span title="Commits loaded">{commits.length} commits</span>}
+      {commits.length > 0 && (
+        <span title={tr('status.loaded')}>
+          {tr('hist.commits', { n: commits.length })}
+        </span>
+      )}
       {error && <span className="error">{error}</span>}
-      <span style={{ marginLeft: 'auto' }} title="TreeLine contributors">
-        Desenvolvido por Werneck Lab
+      <span style={{ marginLeft: 'auto' }} title={tr('status.credit')}>
+        {tr('status.developedBy')}
       </span>
       <span>TreeLine 0.1.0</span>
     </div>

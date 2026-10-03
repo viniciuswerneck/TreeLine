@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
+import { LANGS, type Lang } from '../i18n'
 
 /**
- * Dialog Settings: identidade do autor (git user.name/user.email global).
+ * Dialog Settings: idioma + identidade do autor (git user.name/user.email).
  * Abre com os valores atuais, valida e salva via IPC.
  */
 export default function SettingsDialog() {
@@ -12,6 +13,9 @@ export default function SettingsDialog() {
   const saved = useStore((s) => s.identitySaved)
   const closeSettings = useStore((s) => s.closeSettings)
   const saveIdentity = useStore((s) => s.saveIdentity)
+  const lang = useStore((s) => s.lang)
+  const setLang = useStore((s) => s.setLang)
+  const tr = useStore((s) => s.tr)
 
   const [name, setName] = useState(identity.name)
   const [email, setEmail] = useState(identity.email)
@@ -32,19 +36,29 @@ export default function SettingsDialog() {
   return (
     <div className="modal-backdrop" onClick={closeSettings}>
       <div className="modal" role="dialog" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
-        <h2>Settings</h2>
-        <p className="muted">Author identity used on commits (git global config).</p>
+        <h2>{tr('settings.title')}</h2>
         <label className="field">
-          <span>Name</span>
+          <span>{tr('settings.language')}</span>
+          <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
+            {LANGS.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="muted">{tr('settings.identityHint')}</p>
+        <label className="field">
+          <span>{tr('settings.name')}</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Your Name"
+            placeholder={tr('settings.namePh')}
             autoFocus
           />
         </label>
         <label className="field">
-          <span>Email</span>
+          <span>{tr('settings.email')}</span>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -53,17 +67,17 @@ export default function SettingsDialog() {
           />
         </label>
         {error && <div className="error">{error}</div>}
-        {saved && <div className="success">Saved — new commits will use this author.</div>}
+        {saved && <div className="success">{tr('settings.saved')}</div>}
         <div className="modal-actions">
           <button className="tool-btn" onClick={closeSettings}>
-            Close
+            {tr('settings.close')}
           </button>
           <button
             className="tool-btn primary"
             disabled={saving}
             onClick={() => void saveIdentity({ name, email })}
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? tr('settings.saving') : tr('settings.save')}
           </button>
         </div>
       </div>

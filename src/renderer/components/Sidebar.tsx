@@ -23,12 +23,13 @@ export default function Sidebar() {
   const removeBookmark = useStore((s) => s.removeBookmark)
   const branchFilter = useStore((s) => s.branchFilter)
   const setBranchFilter = useStore((s) => s.setBranchFilter)
+  const tr = useStore((s) => s.tr)
   const dirtyCount =
     (status?.unstaged.length ?? 0) + (status?.staged.length ?? 0) + (status?.untracked.length ?? 0)
 
   return (
     <div className="sidebar">
-      <Section title={`Bookmarks (${repos.length})`}>
+      <Section title={tr('side.bookmarks', { n: repos.length })}>
         {repos.map((r) => (
           <div
             key={r}
@@ -39,11 +40,11 @@ export default function Sidebar() {
             onContextMenu={(e) => {
               e.preventDefault()
               openMenu(e.clientX, e.clientY, [
-                { label: 'Open repository', onClick: () => void selectRepo(r) },
-                { label: 'Reveal in file manager', onClick: () => void revealFullPath(r) },
-                { label: 'Copy path', onClick: () => void copyText(r) },
+                { label: tr('menu.openRepo'), onClick: () => void selectRepo(r) },
+                { label: tr('menu.reveal'), onClick: () => void revealFullPath(r) },
+                { label: tr('menu.copyPath'), onClick: () => void copyText(r) },
                 {
-                  label: 'Remove from bookmarks',
+                  label: tr('menu.removeBookmark'),
                   danger: true,
                   onClick: () => void removeBookmark(r)
                 }
@@ -56,35 +57,35 @@ export default function Sidebar() {
         ))}
         <div className="sidebar-row" onClick={() => void openDialog()}>
           <FolderOpen size={14} />
-          <span className="grow">Open repository…</span>
+          <span className="grow">{tr('side.openRepo')}</span>
         </div>
       </Section>
 
-      <Section title="Workspace">
-        <div className="sidebar-row" aria-selected={false} title="Uncommitted changes in the working copy">
+      <Section title={tr('side.workspace')}>
+        <div className="sidebar-row" aria-selected={false} title={tr('side.workingCopyTitle')}>
           <Globe size={14} />
-          <span className="grow">Working Copy</span>
+          <span className="grow">{tr('side.workingCopy')}</span>
           {dirtyCount > 0 && <span className="sidebar-badge">{dirtyCount}</span>}
         </div>
-        <div className="sidebar-row" aria-selected={false} title="Commit history">
+        <div className="sidebar-row" aria-selected={false} title={tr('side.historyTitle')}>
           <History size={14} />
-          <span className="grow">History</span>
+          <span className="grow">{tr('side.history')}</span>
         </div>
-        <div className="sidebar-row" aria-selected={false} title="Search commits (toolbar filter)">
+        <div className="sidebar-row" aria-selected={false} title={tr('side.searchTitle')}>
           <Search size={14} />
-          <span className="grow">Search</span>
+          <span className="grow">{tr('side.search')}</span>
         </div>
       </Section>
 
-      <Section title={`Branches (${branches.length})`}>
-        <div className="sidebar-row small" title="Toggle: current branch only / all branches">
+      <Section title={tr('side.branches', { n: branches.length })}>
+        <div className="sidebar-row small" title={tr('side.currentOnlyTitle')}>
           <label className="check-row" onClick={(e) => e.stopPropagation()}>
             <input
               type="checkbox"
               checked={branchFilter === 'current'}
               onChange={(e) => setBranchFilter(e.target.checked ? 'current' : 'all')}
             />
-            <span className="grow">Current branch only</span>
+            <span className="grow">{tr('side.currentOnly')}</span>
           </label>
         </div>
         {branches.map((b) => (
@@ -92,7 +93,11 @@ export default function Sidebar() {
             key={b.name}
             className="sidebar-row"
             aria-selected={b.current}
-            title={b.current ? `Current branch — ${status?.ahead ?? 0} ahead, ${status?.behind ?? 0} behind` : `Checkout ${b.name} (Fase 1)`}
+            title={
+              b.current
+                ? tr('side.currentBranch', { a: status?.ahead ?? 0, b: status?.behind ?? 0 })
+                : `${tr('side.checkout', { n: b.name })} (${tr('toolbar.phase', { n: 1 })})`
+            }
           >
             <GitBranch size={14} />
             <span className="grow">{b.name}</span>
@@ -103,27 +108,33 @@ export default function Sidebar() {
             ) : null}
           </div>
         ))}
-        {branches.length === 0 && <div className="sidebar-row muted">No branches yet</div>}
+        {branches.length === 0 && <div className="sidebar-row muted">{tr('side.noBranches')}</div>}
       </Section>
 
-      <Section title="Remotes">
-        <div className="sidebar-row muted" title="Remote manager (Fase 1)">
+      <Section title={tr('side.remotes')}>
+        <div className="sidebar-row muted" title={`${tr('side.remoteManager')} (${tr('toolbar.phase', { n: 1 })})`}>
           <Globe size={14} />
-          <span className="grow">origin (Fase 1)</span>
+          <span className="grow">
+            {tr('side.origin')} ({tr('toolbar.phase', { n: 1 })})
+          </span>
         </div>
       </Section>
 
-      <Section title="Tags">
-        <div className="sidebar-row muted" title="Tag list (Fase 2)">
+      <Section title={tr('side.tags')}>
+        <div className="sidebar-row muted" title={`${tr('side.tagList')} (${tr('toolbar.phase', { n: 2 })})`}>
           <Tag size={14} />
-          <span className="grow">No tags (Fase 2)</span>
+          <span className="grow">
+            {tr('side.noTags')} ({tr('toolbar.phase', { n: 2 })})
+          </span>
         </div>
       </Section>
 
-      <Section title="Stashes">
-        <div className="sidebar-row muted" title="Stash list (Fase 2)">
+      <Section title={tr('side.stashes')}>
+        <div className="sidebar-row muted" title={`${tr('side.stashList')} (${tr('toolbar.phase', { n: 2 })})`}>
           <Archive size={14} />
-          <span className="grow">No stashes (Fase 2)</span>
+          <span className="grow">
+            {tr('side.noStashes')} ({tr('toolbar.phase', { n: 2 })})
+          </span>
         </div>
       </Section>
     </div>

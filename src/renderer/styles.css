@@ -364,6 +364,11 @@ body {
   border: 1px solid var(--border-line); border-radius: var(--radius-sm);
   padding: 8px 10px;
 }
+.field select {
+  font: inherit; color: var(--text-1); background: var(--bg-app);
+  border: 1px solid var(--border-line); border-radius: var(--radius-sm);
+  padding: 8px 10px; cursor: pointer;
+}
 .field input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .success { color: #46a758; font-size: 12px; margin-bottom: 8px; }

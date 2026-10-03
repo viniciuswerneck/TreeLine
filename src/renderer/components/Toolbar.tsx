@@ -51,66 +51,68 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
   const stagedCount = useStore((s) => s.status?.staged.length ?? 0)
   const ahead = useStore((s) => s.status?.ahead ?? 0)
   const openSettings = useStore((s) => s.openSettings)
+  const tr = useStore((s) => s.tr)
+  const phase = (n: number): string => tr('toolbar.phase', { n })
 
   return (
     <div className="toolbar">
       <ToolButton
-        title={stagedCount > 0 ? 'Commit staged changes' : 'Nothing staged — stage files first'}
+        title={stagedCount > 0 ? tr('toolbar.commitStaged') : tr('toolbar.commitEmpty')}
         primary
         disabled={stagedCount === 0}
         onClick={onCommitFocus}
       >
-        <Check size={15} /> Commit
+        <Check size={15} /> {tr('toolbar.commit')}
       </ToolButton>
       <span className="toolbar-sep" />
       <ToolButton
-        title={ahead > 0 ? `Push ${ahead} commit${ahead === 1 ? '' : 's'} to remote` : 'Push to remote'}
+        title={ahead > 0 ? tr('toolbar.pushAhead', { n: ahead }) : tr('toolbar.pushTo')}
         primary={ahead > 0 && !busy}
         disabled={busy}
         onClick={() => void doPush()}
       >
-        <Upload size={15} /> {sync.op === 'push' && busy ? '…' : ahead > 0 ? `Push (${ahead})` : 'Push'}
+        <Upload size={15} /> {sync.op === 'push' && busy ? '…' : ahead > 0 ? `${tr('toolbar.push')} (${ahead})` : tr('toolbar.push')}
       </ToolButton>
-      <ToolButton title="Pull from remote (fast-forward only)" disabled={busy} onClick={() => void doPull()}>
-        <Download size={15} /> {sync.op === 'pull' && busy ? '…' : 'Pull'}
+      <ToolButton title={tr('toolbar.pullFrom')} disabled={busy} onClick={() => void doPull()}>
+        <Download size={15} /> {sync.op === 'pull' && busy ? '…' : tr('toolbar.pull')}
       </ToolButton>
-      <ToolButton title="Fetch from all remotes" disabled={busy} onClick={() => void doFetch()}>
-        <RefreshCw size={15} /> {sync.op === 'fetch' && busy ? '…' : loading ? '…' : 'Fetch'}
-      </ToolButton>
-      <span className="toolbar-sep" />
-      <ToolButton title="Branch (Fase 1)" disabled>
-        <GitBranch size={15} /> Branch
-      </ToolButton>
-      <ToolButton title="Merge (Fase 2)" disabled>
-        <GitMerge size={15} /> Merge
-      </ToolButton>
-      <ToolButton title="Rebase (Fase 3)" disabled>
-        <Repeat size={15} /> Rebase
-      </ToolButton>
-      <ToolButton title="Cherry-Pick (Fase 2)" disabled>
-        <Cherry size={15} /> Cherry-Pick
+      <ToolButton title={tr('toolbar.fetchFrom')} disabled={busy} onClick={() => void doFetch()}>
+        <RefreshCw size={15} /> {sync.op === 'fetch' && busy ? '…' : loading ? '…' : tr('toolbar.fetch')}
       </ToolButton>
       <span className="toolbar-sep" />
-      <ToolButton title="Stash (Fase 2)" disabled>
-        <Archive size={15} /> Stash
+      <ToolButton title={`${tr('toolbar.branch')} (${phase(1)})`} disabled>
+        <GitBranch size={15} /> {tr('toolbar.branch')}
       </ToolButton>
-      <ToolButton title="Tag (Fase 2)" disabled>
-        <Tag size={15} /> Tag
+      <ToolButton title={`${tr('toolbar.merge')} (${phase(2)})`} disabled>
+        <GitMerge size={15} /> {tr('toolbar.merge')}
       </ToolButton>
-      <ToolButton title="Git-flow (Fase 3)" disabled>
-        <Workflow size={15} /> Flow
+      <ToolButton title={`${tr('toolbar.rebase')} (${phase(3)})`} disabled>
+        <Repeat size={15} /> {tr('toolbar.rebase')}
+      </ToolButton>
+      <ToolButton title={`${tr('toolbar.cherryPick')} (${phase(2)})`} disabled>
+        <Cherry size={15} /> {tr('toolbar.cherryPick')}
       </ToolButton>
       <span className="toolbar-sep" />
-      <ToolButton title="History / Reflog (Fase 3)" disabled>
+      <ToolButton title={`${tr('toolbar.stash')} (${phase(2)})`} disabled>
+        <Archive size={15} /> {tr('toolbar.stash')}
+      </ToolButton>
+      <ToolButton title={`${tr('toolbar.tag')} (${phase(2)})`} disabled>
+        <Tag size={15} /> {tr('toolbar.tag')}
+      </ToolButton>
+      <ToolButton title={`${tr('toolbar.gitflow')} (${phase(3)})`} disabled>
+        <Workflow size={15} /> {tr('toolbar.flow')}
+      </ToolButton>
+      <span className="toolbar-sep" />
+      <ToolButton title={`${tr('toolbar.history')} (${phase(3)})`} disabled>
         <History size={15} />
       </ToolButton>
-      <ToolButton title="Sync status (Fase 2)" disabled>
+      <ToolButton title={`${tr('toolbar.syncStatus')} (${phase(2)})`} disabled>
         <ArrowDownUp size={15} />
       </ToolButton>
-      <ToolButton title="Open in Terminal (Fase 3)" disabled>
+      <ToolButton title={`${tr('toolbar.terminal')} (${phase(3)})`} disabled>
         <Terminal size={15} />
       </ToolButton>
-      <ToolButton title="Settings" onClick={() => void openSettings()}>
+      <ToolButton title={tr('toolbar.settings')} onClick={() => void openSettings()}>
         <Settings size={15} />
       </ToolButton>
       <ThemeMenu />

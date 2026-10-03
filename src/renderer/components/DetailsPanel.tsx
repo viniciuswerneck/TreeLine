@@ -37,6 +37,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const commitDiff = useStore((s) => s.commitDiff)
   const selectCommit = useStore((s) => s.selectCommit)
   const selectCommitFile = useStore((s) => s.selectCommitFile)
+  const tr = useStore((s) => s.tr)
   const openMenu = useStore((s) => s.openMenu)
   const copyText = useStore((s) => s.copyText)
   const revealRepoFile = useStore((s) => s.revealRepoFile)
@@ -52,9 +53,9 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
     const toggle = staged ? unstageSelected : stageSelected
     void selectFile({ path, staged }).then(() => {
       openMenu(e.clientX, e.clientY, [
-        { label: staged ? 'Unstage file' : 'Stage file', onClick: () => void toggle() },
-        { label: 'Copy path', onClick: () => void copyText(path) },
-        { label: 'Reveal in file manager', onClick: () => void revealRepoFile(path) },
+        { label: staged ? tr('menu.unstageFile') : tr('menu.stageFile'), onClick: () => void toggle() },
+        { label: tr('menu.copyPath'), onClick: () => void copyText(path) },
+        { label: tr('menu.reveal'), onClick: () => void revealRepoFile(path) },
         {
           label: 'Discard changes…',
           danger: true,
@@ -67,7 +68,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const commitFileMenu = (e: React.MouseEvent, path: string): void => {
     e.preventDefault()
     openMenu(e.clientX, e.clientY, [
-      { label: 'Copy path', onClick: () => void copyText(path) },
+      { label: tr('menu.copyPath'), onClick: () => void copyText(path) },
       { label: 'Reveal in file manager', onClick: () => void revealRepoFile(path) }
     ])
   }
@@ -79,7 +80,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
       <div className="details">
         <div className="details-title commit-title">
           <button className="mini-btn" title="Back to working copy" onClick={() => void selectCommit(null)}>
-            <ArrowLeft size={13} /> Working Copy
+            <ArrowLeft size={13} /> {tr('det.backWc')}
           </button>
           <span className="mono muted">{selectedCommit.slice(0, 7)}</span>
         </div>
@@ -98,13 +99,13 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               </div>
             </>
           ) : (
-            <div className="muted">Loading commit…</div>
+            <div className="muted">{tr('det.loadingCommit')}</div>
           )}
         </div>
         <div className="details-body">
           <div className="file-col">
             <div className="file-col-head">
-              <h4>Files ({files.length})</h4>
+              <h4>{tr('det.files', { n: files.length })}</h4>
             </div>
             {files.map((p) => (
               <div
@@ -120,10 +121,10 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
                 <span className="grow">{p}</span>
               </div>
             ))}
-            {commitDetail && files.length === 0 && <div className="file-empty">No files (merge or empty commit)</div>}
+            {commitDetail && files.length === 0 && <div className="file-empty">{tr('det.noFiles')}</div>}
           </div>
           <div className="diff-pane">
-            {commitDiff ? <DiffViewer text={commitDiff} /> : 'Select a file to preview the diff.'}
+            {commitDiff ? <DiffViewer text={commitDiff} /> : tr('det.selectFile')}
           </div>
         </div>
       </div>
@@ -132,14 +133,14 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
 
   return (
     <div className="details">
-      <div className="details-title">File Status</div>
+      <div className="details-title">{tr('det.fileStatus')}</div>
       <div className="details-body">
         <div className="file-col">
           <div className="file-col-head">
-            <h4>Unstaged ({unstaged.length + untracked.length})</h4>
+            <h4>{tr('det.unstaged', { n: unstaged.length + untracked.length })}</h4>
             {(unstaged.length > 0 || untracked.length > 0) && (
-              <button className="mini-btn" title="Stage all files" onClick={() => void stageAll()}>
-                Stage All
+              <button className="mini-btn" title={tr('det.stageAllTitle')} onClick={() => void stageAll()}>
+                                {tr('det.stageAll')}
               </button>
             )}
           </div>
@@ -155,13 +156,13 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               <span className="grow">{f.path}</span>
               <button
                 className="mini-btn"
-                title="Stage file"
+                title={tr('det.stageFile')}
                 onClick={(e) => {
                   e.stopPropagation()
                   void selectFile({ path: f.path, staged: false }).then(() => stageSelected())
                 }}
               >
-                Stage
+                {tr('det.stage')}
               </button>
             </div>
           ))}
@@ -177,26 +178,26 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               <span className="grow">{p}</span>
               <button
                 className="mini-btn"
-                title="Stage file"
+                title={tr('det.stageFile')}
                 onClick={(e) => {
                   e.stopPropagation()
                   void selectFile({ path: p, staged: false }).then(() => stageSelected())
                 }}
               >
-                Stage
+                {tr('det.stage')}
               </button>
             </div>
           ))}
           {unstaged.length === 0 && untracked.length === 0 && (
-            <div className="file-empty">No unstaged changes</div>
+            <div className="file-empty">{tr('det.noUnstaged')}</div>
           )}
         </div>
         <div className="file-col">
           <div className="file-col-head">
-            <h4>Staged ({staged.length})</h4>
+            <h4>{tr('det.staged', { n: staged.length })}</h4>
             {staged.length > 0 && (
-              <button className="mini-btn" title="Unstage all files" onClick={() => void unstageAll()}>
-                Unstage All
+              <button className="mini-btn" title={tr('det.unstageAllTitle')} onClick={() => void unstageAll()}>
+                                {tr('det.unstageAll')}
               </button>
             )}
           </div>
@@ -212,40 +213,40 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               <span className="grow">{f.path}</span>
               <button
                 className="mini-btn"
-                title="Unstage file"
+                title={tr('det.unstageFile')}
                 onClick={(e) => {
                   e.stopPropagation()
                   void selectFile({ path: f.path, staged: true }).then(() => unstageSelected())
                 }}
               >
-                Unstage
+                {tr('det.unstage')}
               </button>
             </div>
           ))}
-          {staged.length === 0 && <div className="file-empty">No staged changes</div>}
+          {staged.length === 0 && <div className="file-empty">{tr('det.noStaged')}</div>}
         </div>
         <div className="diff-pane">
-          {diff ? <DiffViewer text={diff} /> : 'Select a file to preview the diff.'}
+          {diff ? <DiffViewer text={diff} /> : tr('det.selectFile')}
         </div>
       </div>
       <div className="commit-bar">
         <textarea
           ref={commitRef}
-          placeholder="Commit message"
+          placeholder={tr('det.commitMsgPh')}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
         <div className="commit-row">
           <label>
-            <input type="checkbox" checked={amend} onChange={(e) => setAmend(e.target.checked)} /> Amend
+            <input type="checkbox" checked={amend} onChange={(e) => setAmend(e.target.checked)} /> {tr('det.amend')}
           </label>
           <button
             className="tool-btn primary"
             onClick={() => void doCommit()}
             disabled={!canCommit}
-            title={!canCommit ? 'Stage files first (or type a message)' : 'Commit staged changes'}
+            title={!canCommit ? tr('det.commitHint') : tr('toolbar.commitStaged')}
           >
-            Commit
+            {tr('det.commit')}
           </button>
           {error && <span className="error">{error}</span>}
         </div>

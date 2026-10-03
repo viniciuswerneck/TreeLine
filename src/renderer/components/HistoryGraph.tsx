@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react'
 import { useMemo } from 'react'
+import { DATE_LOCALE } from '../i18n'
 import { layoutGraph, type LaneCommit } from '../lib/graph'
 import { useStore } from '../store'
 
@@ -26,10 +27,8 @@ function shortHash(h: string): string {
   return h.slice(0, 7)
 }
 
-const rtf = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' })
-
 /** Data relativa estilo Git Graph ("há 2 horas"). Cai para ISO se inválida. */
-function relDate(iso: string): string {
+function relDate(rtf: Intl.RelativeTimeFormat, iso: string, nowText: string): string {
   const t = new Date(iso).getTime()
   if (Number.isNaN(t)) return iso.slice(0, 16).replace('T', ' ')
   const s = Math.round((t - Date.now()) / 1000)
@@ -45,7 +44,7 @@ function relDate(iso: string): string {
   for (const [unit, sec] of units) {
     if (a >= sec) return rtf.format(Math.round(s / sec), unit)
   }
-  return a <= 10 ? 'agora' : rtf.format(s, 'second')
+  return a <= 10 ? nowText : rtf.format(s, 'second')
 }
 
 /** Pílulas de ref (HEAD, branch, remoto, tag). Symrefs como origin/HEAD são ruído: fora. */
@@ -119,7 +118,14 @@ export default function HistoryGraph() {
   const selectCommit = useStore((s) => s.selectCommit)
   const copyText = useStore((s) => s.copyText)
   const openMenu = useStore((s) => s.openMenu)
+  const tr = useStore((s) => s.tr)
+  const lang = useStore((s) => s.lang)
   const currentBranch = status?.branch ?? ''
+  const rtf = useMemo(
+    () => new Intl.RelativeTimeFormat(DATE_LOCALE[lang], { numeric: 'auto' }),
+    [lang]
+  )
+  const nowText = lang === 'es' ? 'ahora' : lang === 'pt' ? 'agora' : 'now'
 
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -153,8 +159,8 @@ export default function HistoryGraph() {
     return (
       <div className="history">
         <div className="welcome">
-          <h1>No commits to show</h1>
-          <p className="muted">Open a repository with history, or make your first commit below.</p>
+          <h1>{tr('hist.empty')}</h1>
+          <p className="muted">{tr('hist.emptyHint')}</p>
         </div>
       </div>
     )
@@ -164,33 +170,33 @@ export default function HistoryGraph() {
     <div className="history">
       <div className="history-filter">
         <span className="history-count" title="Commits listed">
-          {rows.length} commit{rows.length === 1 ? '' : 's'}
+          {tr('hist.commits', { n: rows.length })}
         </span>
         {branchFilter === 'current' && currentBranch && (
-          <span className="history-count">on {currentBranch}</span>
+          <span className="history-count">{tr('hist.onBranch', { n: currentBranch })}</span>
         )}
         <span className="history-search">
           <Search size={14} />
-          <input placeholder="Filter commits…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <input placeholder={tr('hist.filterPh')} value={filter} onChange={(e) => setFilter(e.target.value)} />
         </span>
       </div>
       <div className="history-head" style={{ gridTemplateColumns: gridCols }}>
-        <span>Graph</span>
-        <span>Message</span>
-        <span>Date</span>
-        <span>Author</span>
-        <span>Hash</span>
+        <span>{tr('hist.graph')}</span>
+        <span>{tr('hist.message')}</span>
+        <span>{tr('hist.date')}</span>
+        <span>{tr('hist.author')}</span>
+        <span>{tr('hist.hash')}</span>
       </div>
       {dirtyCount > 0 && (
-        <div className="history-row working-copy" style={{ gridTemplateColumns: gridCols }} title="Uncommitted changes — see File Status below">
+        <div className="history-row working-copy" style={{ gridTemplateColumns: gridCols }} title={tr('hist.wcTitle')}>
           <span className="graph-cell">
             <span className="graph-wc-dot" />
           </span>
           <span className="msg">
-            <strong>Working Copy</strong>
+            <strong>{tr('hist.wc')}</strong>
             <span className="muted">
               {' '}
-              — {dirtyCount} uncommitted change{dirtyCount === 1 ? '' : 's'}
+              — {tr('hist.wcChanges', { n: dirtyCount })}
             </span>
           </span>
           <span className="muted">—</span>
@@ -210,9 +216,9 @@ export default function HistoryGraph() {
             e.preventDefault()
             void selectCommit(c.hash)
             openMenu(e.clientX, e.clientY, [
-              { label: 'Copy commit hash', onClick: () => void copyText(c.hash) },
-              { label: 'Copy message', onClick: () => void copyText(c.message) },
-              { label: 'Copy author', onClick: () => void copyText(c.author) }
+              { label: tr('menu.copyHash'), onClick: () => void copyText(c.hash) },
+              { label: tr('menu.copyMsg'), onClick: () => void copyText(c.message) },
+              { label: tr('menu.copyAuthor'), onClick: () => void copyText(c.author) }
             ])
           }}
         >
@@ -226,7 +232,7 @@ export default function HistoryGraph() {
             {c.message}
           </span>
           <span className="muted" title={c.date.slice(0, 16).replace('T', ' ')}>
-            {relDate(c.date)}
+            {relDate(rtf, c.date, nowText)}
           </span>
           <span className="muted">{c.author}</span>
           <span className="mono muted">{shortHash(c.hash)}</span>
