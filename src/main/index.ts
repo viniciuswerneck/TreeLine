@@ -754,6 +754,76 @@ ipcMain.handle('treeline:initRepo', async (event) => {
 })
 
 // ---------------------------------------------------------------------------
+// IPC: Terminal integrado (node-pty, uma sessão por repo).
+// ---------------------------------------------------------------------------
+interface TermSession {
+  proc: import('node-pty').IPty
+  win: BrowserWindow | null
+}
+
+const terms = new Map<string, TermSession>()
+
+function loadPty(): typeof import('node-pty') {
+  // require tardio: erro vira mensagem legível em vez de quebrar o main.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require('node-pty') as typeof import('node-pty')
+  if (!mod?.spawn) throw new Error('node-pty unavailable')
+  return mod
+}
+
+function termStopRepo(repo: string): void {
+  const s = terms.get(repo)
+  if (!s) return
+  terms.delete(repo)
+  try {
+    s.proc.kill()
+  } catch {
+    /* já morreu */
+  }
+}
+
+ipcMain.handle('treeline:termStart', (event, repo: string, cols: number, rows: number) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  termStopRepo(repo)
+  const pty = loadPty()
+  const shell = process.env['SHELL'] || '/bin/bash'
+  const proc = pty.spawn(shell, [], {
+    name: 'xterm-256color',
+    cols: Math.min(Math.max(cols || 80, 20), 500),
+    rows: Math.min(Math.max(rows || 24, 5), 200),
+    cwd: repo,
+    env: { ...(process.env as Record<string, string>), TERM: 'xterm-256color' }
+  })
+  terms.set(repo, { proc, win })
+  proc.onData((data) => {
+    win?.webContents.send('treeline:termData', repo, data)
+  })
+  proc.onExit(() => {
+    terms.delete(repo)
+    win?.webContents.send('treeline:termExit', repo)
+  })
+})
+
+ipcMain.handle('treeline:termWrite', (_event, repo: string, data: string) => {
+  terms.get(repo)?.proc.write(data)
+})
+
+ipcMain.handle('treeline:termResize', (_event, repo: string, cols: number, rows: number) => {
+  try {
+    terms.get(repo)?.proc.resize(
+      Math.min(Math.max(cols, 20), 500),
+      Math.min(Math.max(rows, 5), 200)
+    )
+  } catch {
+    /* sessão já fechada */
+  }
+})
+
+ipcMain.handle('treeline:termStop', (_event, repo: string) => {
+  termStopRepo(repo)
+})
+
+// ---------------------------------------------------------------------------
 // Janela principal.
 // ---------------------------------------------------------------------------
 function createWindow(splash: BrowserWindow | null, splashAt: number): void {

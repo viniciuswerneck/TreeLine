@@ -87,7 +87,23 @@ const api: TreeLineAPI = {
   removeRemote: (repo: string, name: string, lang?: string) =>
     ipcRenderer.invoke('treeline:removeRemote', repo, name, lang),
   cloneRepo: (url: string, lang?: string) => ipcRenderer.invoke('treeline:cloneRepo', url, lang),
-  initRepo: (lang?: string) => ipcRenderer.invoke('treeline:initRepo', lang)
+  initRepo: (lang?: string) => ipcRenderer.invoke('treeline:initRepo', lang),
+  termStart: (repo: string, cols: number, rows: number) =>
+    ipcRenderer.invoke('treeline:termStart', repo, cols, rows),
+  termWrite: (repo: string, data: string) => ipcRenderer.invoke('treeline:termWrite', repo, data),
+  termResize: (repo: string, cols: number, rows: number) =>
+    ipcRenderer.invoke('treeline:termResize', repo, cols, rows),
+  termStop: (repo: string) => ipcRenderer.invoke('treeline:termStop', repo),
+  onTermData: (cb: (repo: string, data: string) => void) => {
+    const fn = (_e: unknown, repo: string, data: string): void => cb(repo, data)
+    ipcRenderer.on('treeline:termData', fn)
+    return () => ipcRenderer.removeListener('treeline:termData', fn)
+  },
+  onTermExit: (cb: (repo: string) => void) => {
+    const fn = (_e: unknown, repo: string): void => cb(repo)
+    ipcRenderer.on('treeline:termExit', fn)
+    return () => ipcRenderer.removeListener('treeline:termExit', fn)
+  }
 }
 
 contextBridge.exposeInMainWorld('treeline', api)

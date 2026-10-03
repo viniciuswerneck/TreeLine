@@ -175,4 +175,11 @@ export interface TreeLineAPI {
   removeRemote(repo: string, name: string, lang?: string): Promise<void>
   cloneRepo(url: string, lang?: string): Promise<string | null>
   initRepo(lang?: string): Promise<string | null>
+  // Terminal integrado (pty por repo; eventos chegam via onTermData/onTermExit)
+  termStart(repo: string, cols: number, rows: number): Promise<void>
+  termWrite(repo: string, data: string): Promise<void>
+  termResize(repo: string, cols: number, rows: number): Promise<void>
+  termStop(repo: string): Promise<void>
+  onTermData(cb: (repo: string, data: string) => void): () => void
+  onTermExit(cb: (repo: string) => void): () => void
 }

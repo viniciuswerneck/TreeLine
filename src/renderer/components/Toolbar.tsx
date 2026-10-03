@@ -15,7 +15,7 @@ import {
   Upload,
   Workflow
 } from 'lucide-react'
-import { dialogOps, useStore } from '../store'
+import { useStore } from '../store'
 
 // Barra superior padrão SourceTree moderno: mesma ordem e terminologia da
 // visão (`01-visao.md` §4.2), arte própria TreeLine com ícones Lucide.
@@ -37,6 +37,8 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
   const pickBusy = useStore((s) => s.pickState.inProgress)
   const openSettings = useStore((s) => s.openSettings)
   const openDlg = useStore((s) => s.openDlg)
+  const toggleTerminal = useStore((s) => s.toggleTerminal)
+  const terminalOpen = useStore((s) => s.terminalOpen)
   const current = useStore((s) => s.current)
   const tr = useStore((s) => s.tr)
   const ready = !!current && !busy
@@ -153,9 +155,9 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
         <IconButton title={tr('toolbar.syncStatus')} disabled={!ready} onClick={() => openDlg('remotes')}>
           <ArrowDownUp size={16} />
         </IconButton>
-        <IconButton title={tr('toolbar.terminal')} disabled={!ready} onClick={() => void dialogOps.openTerminal()}>
-          <Terminal size={16} />
-        </IconButton>
+      <IconButton title={tr('toolbar.terminal')} disabled={!ready} onClick={toggleTerminal}>
+        <Terminal size={16} />
+      </IconButton>
         <IconButton title={tr('toolbar.settings')} onClick={() => void openSettings()}>
           <Settings size={16} />
         </IconButton>

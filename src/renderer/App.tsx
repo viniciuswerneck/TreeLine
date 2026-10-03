@@ -16,6 +16,7 @@ import StashDialog from './components/StashDialog'
 import StatusBar from './components/StatusBar'
 import SyncToast from './components/SyncToast'
 import TagDialog from './components/TagDialog'
+import TerminalPanel from './components/TerminalPanel'
 import Toolbar from './components/Toolbar'
 import { useStore } from './store'
 import { applyLang } from './i18n'
@@ -30,6 +31,7 @@ export default function App() {
   const tr = useStore((s) => s.tr)
   const settingsOpen = useStore((s) => s.settingsOpen)
   const dialog = useStore((s) => s.dialog)
+  const terminalOpen = useStore((s) => s.terminalOpen)
   const commitRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -98,6 +100,7 @@ export default function App() {
           <DetailsPanel ref={commitRef} />
         </div>
       </div>
+      {terminalOpen && <TerminalPanel />}
       <StatusBar />
       <SyncToast />
       {settingsOpen && <SettingsDialog />}

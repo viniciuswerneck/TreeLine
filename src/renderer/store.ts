@@ -101,6 +101,10 @@ interface TreeLineState {
   runOp: (op: (repo: string, lang: Lang) => Promise<unknown>) => Promise<boolean>
   cloneRepo: (url: string) => Promise<boolean>
   initRepo: () => Promise<boolean>
+  terminalOpen: boolean
+  toggleTerminal: () => void
+  openTerminalDrawer: () => void
+  closeTerminalDrawer: () => void
 }
 
 async function fail<T>(p: Promise<T>, set: (e: string | null) => void): Promise<T | null> {
@@ -415,6 +419,10 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   dialog: null,
   openDlg: (kind) => set({ dialog: kind }),
   closeDlg: () => set({ dialog: null }),
+  terminalOpen: false,
+  toggleTerminal: () => set({ terminalOpen: !get().terminalOpen }),
+  openTerminalDrawer: () => set({ terminalOpen: true }),
+  closeTerminalDrawer: () => set({ terminalOpen: false }),
   stashes: [],
   tags: [],
   remotes: [],

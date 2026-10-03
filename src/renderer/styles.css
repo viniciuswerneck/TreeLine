@@ -319,6 +319,27 @@ body {
 }
 .pane-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.4); }
 
+/* ---- Terminal integrado (drawer inferior, expansível) ---- */
+.terminal-drawer {
+  height: 300px; flex-shrink: 0; display: flex; flex-direction: column;
+  background: #16161e; border-top: 1px solid var(--border-line);
+}
+.terminal-head {
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.terminal-title { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #9a9ab0; }
+.terminal-head .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.terminal-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+.terminal-actions .pane-expand { color: #9a9ab0; }
+.terminal-actions .pane-expand:hover { background: rgba(127, 127, 127, 0.2); color: #fff; }
+.terminal-actions .mini-btn { color: #d5d5dc; }
+.terminal-body { flex: 1; min-height: 0; padding: 6px 8px; overflow: hidden; }
+.terminal-body .xterm { height: 100%; }
+.terminal-note { padding: 4px 12px; font-size: 12px; color: #e59400; border-top: 1px solid rgba(255,255,255,.08); }
+.terminal-drawer.expanded { background: #16161e; padding: 0; }
+.terminal-drawer.expanded .terminal-body { padding: 8px 12px; }
+
 /* ---- DiffViewer estilo VS Code ---- */
 .diff-view { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; line-height: 1.55; }
 .diff-line { display: flex; white-space: pre; }
