@@ -94,7 +94,7 @@ Não. Sem telemetria por padrão; credenciais ficam no credential helper do seu 
 
 ## Licença
 
-A definir.
+MIT — ver [`LICENSE`](LICENSE). Open source: pode usar, modificar e distribuir.
 
 ---
 *Desenvolvido por **Werneck Lab**.*

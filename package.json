@@ -8,6 +8,7 @@
     "email": "contact@treeline.dev"
   },
   "homepage": "https://treeline.dev",
+  "license": "MIT",
   "desktopName": "dev.treeline.app",
   "main": "out/main/index.js",
   "scripts": {
