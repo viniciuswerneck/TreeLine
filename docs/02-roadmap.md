@@ -75,7 +75,7 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | Recurso SourceTree | TreeLine Fase | Status |
 |---|---|---|
 | Bookmarks/Open/Clone/Init | 0-1 | ☑ (open/list/clone/init + remote manager) |
-| Graph + History + Search | 1 | ☑ (SVG colorido, datas relativas, filtro; virtualização 10k+ pendente) |
+| Graph + History + Search | 1 | ☑ (paridade GitGraph: dots cheios, split/join, spine-first + steal, datas absolutas, badges por branch; virtualização 10k+ pendente) |
 | Stage arquivo/hunk/linha | 1-2 | ◐ (arquivo + all ok; hunk/linha pendentes) |
 | Commit/Amend/Push/Pull/Fetch | 1 | ☑ (com toast, timeout, ff-only no pull) |
 | Branch/Merge/Tag | 1-2 | ☑ (dialogs + sidebar; revert e reset direto pendentes) |

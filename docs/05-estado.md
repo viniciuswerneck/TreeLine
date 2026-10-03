@@ -14,6 +14,7 @@
 - [x] 10 temas + System (seletor no Settings), Settings com identidade do autor, busca/filtro de commits, linha Working Copy, datas relativas.
 - [x] `dist/treeline_0.1.0_amd64.deb` + AppImage gerados, `.desktop` validado (Exec, WMClass). App roda de `dist/linux-unpacked` com as flags Wayland (`--no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto`).
 - [x] Toolbar 100% funcional (2026-10-03): Branch (create/checkout/rename/delete + force-retry), Merge (preview + --no-ff + continue/abort), Stash (create -u/apply/pop/drop), Tag (create/push/delete + remota), Rebase simples, Cherry-Pick, Git-flow (start/finish, com/sem `git flow`), Terminal, Reflog + Undo (bundle backup), Remote manager (add/remove/clone/init). 9 dialogs + sidebar viva (dbl-clique checkout, listas reais). i18n en/pt/es completo.
+- [x] Grafo paridade GitGraph (2026-10-03): dots cheios, split/join, spine-first + steal, datas absolutas, badges por branch, detalhe com meta + numstat. 17 asserts (`/tmp/opencode/graphtest.ts`).
 - [ ] Ícone próprio (usa padrão Electron — criar asset original).
 - [ ] Fase 1 restante: dialogs Branch/Merge, remote manager (clone/init), stage por hunk/linha.
 - [ ] Testes automatizados (Vitest p/ lane engine + parsers; Playwright p/ fluxo) — Fase 1/2.

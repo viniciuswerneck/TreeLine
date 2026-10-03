@@ -8,7 +8,7 @@
 - **Por quê:** Não existe SourceTree oficial para Linux. Usuário quer paridade de uso intuitiva.
 - **Onde:** `/home/vinicius/gitnest/` | docs em `/home/vinicius/gitnest/docs/`
 - **Idioma do usuário:** português brasileiro. Responder em pt-BR, curto e direto, sem emoji. Termos de Git/UI em inglês (Commit, Push, Branch) como no SourceTree.
-- **Status 2026-10-03:** Fase 0 + extras prontos e rodando: scaffold Electron, UI 4 regiões, Push/Pull/Fetch reais com toast, grafo SVG estilo Git Graph, 10 temas, Settings (identidade), Stage All/Unstage All. Detalhe em `05-estado.md`. Próximo: dialogs Branch/Merge (Fase 1 restante).
+- **Status 2026-10-03:** Fase 0 + Fase 1 (toolbar 100%: Branch/Merge/Stash/Tag/Rebase/Cherry-Pick/Flow/Terminal/Reflog/Remotes) + extras, rodando de `dist/linux-unpacked` com flags Wayland. Grafo com paridade GitGraph (spine-first + steal, split/join). Detalhe em `05-estado.md`. Próximo: stage por hunk/linha, Revert/Reset direto, Ours/Theirs.
 
 ## 2. Decisões travadas (não reabrir sem motivo)
 

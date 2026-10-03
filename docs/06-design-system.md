@@ -118,7 +118,7 @@ Comportamento (paridade SourceTree): duplo-clique = checkout; botão direito = m
 ## 3. Componentes implementados (2026-10-03)
 
 1. ~~Sidebar~~ ☑ → 2. Toolbar completa ☑ → 3. Modal Settings ☑ → 4. SyncToast ☑ → 5. ~~ThemeMenu~~ (movido p/ Settings) ☑ → 6. Grafo SVG ☑.
-- **Grafo estilo Git Graph**: SVG por linha (lane 16px, altura 30px), paleta fixa de 8 cores por lane (`LANE_COLORS` em `HistoryGraph.tsx`), curvas Bézier nos merges/forks, dots com borda do bg, badges de ref por tipo (HEAD/branch/remoto/tag), datas relativas pt-BR com tooltip ISO.
+- **Grafo estilo Git Graph**: SVG por linha (lane 16px, altura 30px), paleta fixa de 8 cores por lane (`LANE_COLORS` em `HistoryGraph.tsx`, rosa 2ª cor), curvas Bézier split (do dot, cor da lane nova) / join (entrando no dot por cima, cor do branch), dots cheios (r 4.5, 5.5 em merge), badges de ref por tipo com ícone Lucide e cor estável por branch, datas absolutas localizadas.
 - **SyncToast**: canto inferior direito, borda lateral por fase (accent/verde/vermelho), spinner CSS, auto-dismiss do sucesso em 5s.
 - **Modal Settings**: seguem radius/shadow/tokens; `backdrop-filter` só na sidebar e modais, nunca no grafo/diff.
 
