@@ -97,7 +97,7 @@ function GraphCell({ commit, maxLane, isFirst }: { commit: LaneCommit; maxLane: 
         <path
           key={`f${i}`}
           d={`M ${cx(f.from)},${cy} C ${cx(f.from)},${cy + 9} ${cx(f.to)},${ROW_H - 9} ${cx(f.to)},${ROW_H}`}
-          stroke={laneColor(f.from)}
+          stroke={laneColor(Math.max(f.from, f.to))}
           strokeWidth={2}
           strokeLinecap="round"
           fill="none"
