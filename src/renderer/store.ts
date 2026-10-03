@@ -279,7 +279,9 @@ export const useStore = create<TreeLineState>()((set, get) => ({
 
   setLang: (l) => {
     applyLang(l)
-    set({ lang: l })
+    // Troca a identidade do `tr` de propósito: componentes assinam `s.tr`,
+    // e só re-renderizam quando a referência muda. Sem isso o texto não atualiza.
+    set({ lang: l, tr: (key, vars) => t(l, key, vars) })
   },
 
   tr: (key, vars) => t(get().lang, key, vars),
