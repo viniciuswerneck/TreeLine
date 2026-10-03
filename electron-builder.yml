@@ -8,6 +8,7 @@ files:
 linux:
   category: Development
   executableName: treeline
+  icon: build/icon.png
   syncDesktopName: true
   target:
     - deb

@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { simpleGit } from 'simple-git'
 import type { BranchInfo, CommitDetail, CommitInfo, GitIdentity, RepoStatus, SyncResult } from '../shared/types'
+import { SPLASH_HTML } from './splash'
 
 // ---------------------------------------------------------------------------
 // Bookmarks persistidos em JSON no userData.
@@ -98,7 +99,7 @@ function friendlySyncError(op: string, e: unknown): Error {
 // ---------------------------------------------------------------------------
 // Janela principal.
 // ---------------------------------------------------------------------------
-function createWindow(): void {
+function createWindow(splash: BrowserWindow | null, splashAt: number): void {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -107,6 +108,7 @@ function createWindow(): void {
     title: 'TreeLine',
     autoHideMenuBar: true,
     backgroundColor: '#202020',
+    show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -119,6 +121,35 @@ function createWindow(): void {
   } else {
     void win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  // Splash fica no mínimo 900ms para não piscar; fecha ao mostrar a janela.
+  win.once('ready-to-show', () => {
+    const wait = Math.max(0, 900 - (Date.now() - splashAt))
+    setTimeout(() => {
+      splash?.close()
+      win.show()
+    }, wait)
+  })
+}
+
+function createSplash(): { win: BrowserWindow; at: number } {
+  const win = new BrowserWindow({
+    width: 380,
+    height: 500,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    center: true,
+    show: false,
+    webPreferences: { contextIsolation: true, nodeIntegration: false }
+  })
+  const html = SPLASH_HTML.replace('__VERSION__', `v${app.getVersion()}`)
+  void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+  win.once('ready-to-show', () => win.show())
+  return { win, at: Date.now() }
 }
 
 // ---------------------------------------------------------------------------
@@ -348,9 +379,13 @@ ipcMain.handle('treeline:getCommitDiff', (_event, repo: string, hash: string, fi
 
 // ---------------------------------------------------------------------------
 void app.whenReady().then(() => {
-  createWindow()
+  const { win: splash, at } = createSplash()
+  createWindow(splash, at)
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      const s = createSplash()
+      createWindow(s.win, s.at)
+    }
   })
 })
 

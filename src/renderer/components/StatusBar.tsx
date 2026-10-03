@@ -23,7 +23,10 @@ export default function StatusBar() {
       )}
       {commits.length > 0 && <span title="Commits loaded">{commits.length} commits</span>}
       {error && <span className="error">{error}</span>}
-      <span style={{ marginLeft: 'auto' }}>TreeLine 0.1.0</span>
+      <span style={{ marginLeft: 'auto' }} title="TreeLine contributors">
+        Desenvolvido por Werneck Lab
+      </span>
+      <span>TreeLine 0.1.0</span>
     </div>
   )
 }
