@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react'
+import { RefreshCw, Search } from 'lucide-react'
 import { useMemo } from 'react'
 import { DATE_LOCALE } from '../i18n'
 import { layoutGraph, type LaneCommit } from '../lib/graph'
@@ -118,6 +118,8 @@ export default function HistoryGraph() {
   const selectCommit = useStore((s) => s.selectCommit)
   const copyText = useStore((s) => s.copyText)
   const openMenu = useStore((s) => s.openMenu)
+  const refresh = useStore((s) => s.refresh)
+  const loading = useStore((s) => s.loading)
   const tr = useStore((s) => s.tr)
   const lang = useStore((s) => s.lang)
   const currentBranch = status?.branch ?? ''
@@ -179,6 +181,9 @@ export default function HistoryGraph() {
           <Search size={14} />
           <input placeholder={tr('hist.filterPh')} value={filter} onChange={(e) => setFilter(e.target.value)} />
         </span>
+        <button className="mini-btn" title={`${tr('common.refresh')} (F5)`} onClick={() => void refresh()}>
+          <RefreshCw size={13} className={loading ? 'spin' : undefined} /> {tr('common.refresh')}
+        </button>
       </div>
       <div className="history-head" style={{ gridTemplateColumns: gridCols }}>
         <span>{tr('hist.graph')}</span>

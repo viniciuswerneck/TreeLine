@@ -1,5 +1,5 @@
 import { Archive, Bookmark, FolderOpen, GitBranch, Globe, History, Search, Tag } from 'lucide-react'
-import { useStore } from '../store'
+import { dialogOps, useStore } from '../store'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -15,12 +15,17 @@ export default function Sidebar() {
   const current = useStore((s) => s.current)
   const branches = useStore((s) => s.branches)
   const status = useStore((s) => s.status)
+  const stashes = useStore((s) => s.stashes)
+  const tags = useStore((s) => s.tags)
+  const remotes = useStore((s) => s.remotes)
   const selectRepo = useStore((s) => s.selectRepo)
   const openDialog = useStore((s) => s.openDialog)
+  const openDlg = useStore((s) => s.openDlg)
   const openMenu = useStore((s) => s.openMenu)
   const copyText = useStore((s) => s.copyText)
   const revealFullPath = useStore((s) => s.revealFullPath)
   const removeBookmark = useStore((s) => s.removeBookmark)
+  const confirmAction = useStore((s) => s.confirmAction)
   const branchFilter = useStore((s) => s.branchFilter)
   const setBranchFilter = useStore((s) => s.setBranchFilter)
   const tr = useStore((s) => s.tr)
@@ -96,8 +101,34 @@ export default function Sidebar() {
             title={
               b.current
                 ? tr('side.currentBranch', { a: status?.ahead ?? 0, b: status?.behind ?? 0 })
-                : `${tr('side.checkout', { n: b.name })} (${tr('toolbar.phase', { n: 1 })})`
+                : tr('side.checkout', { n: b.name })
             }
+            onDoubleClick={() => {
+              if (!b.current) void dialogOps.checkoutBranch(b.name)
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              if (b.current) return
+              openMenu(e.clientX, e.clientY, [
+                { label: tr('dlg.checkout'), onClick: () => void dialogOps.checkoutBranch(b.name) },
+                { label: tr('toolbar.merge'), onClick: () => openDlg('merge') },
+                { label: tr('toolbar.rebase'), onClick: () => openDlg('rebase') },
+                {
+                  label: tr('dlg.delete'),
+                  danger: true,
+                  onClick: () =>
+                    void (async () => {
+                      const ok = await confirmAction(
+                        tr('branch.delT'),
+                        tr('branch.delM', { n: b.name }),
+                        tr('branch.delD'),
+                        tr('dlg.delete')
+                      )
+                      if (ok) await dialogOps.deleteBranch(b.name, false)
+                    })()
+                }
+              ])
+            }}
           >
             <GitBranch size={14} />
             <span className="grow">{b.name}</span>
@@ -112,30 +143,48 @@ export default function Sidebar() {
       </Section>
 
       <Section title={tr('side.remotes')}>
-        <div className="sidebar-row muted" title={`${tr('side.remoteManager')} (${tr('toolbar.phase', { n: 1 })})`}>
-          <Globe size={14} />
-          <span className="grow">
-            {tr('side.origin')} ({tr('toolbar.phase', { n: 1 })})
-          </span>
-        </div>
+        {remotes.map((r) => (
+          <div key={r.name} className="sidebar-row" title={r.url} onClick={() => openDlg('remotes')}>
+            <Globe size={14} />
+            <span className="grow">{r.name}</span>
+          </div>
+        ))}
+        {remotes.length === 0 && (
+          <div className="sidebar-row muted" title={tr('side.remoteManager')} onClick={() => openDlg('remotes')}>
+            <Globe size={14} />
+            <span className="grow">{tr('side.remoteManager')}</span>
+          </div>
+        )}
       </Section>
 
       <Section title={tr('side.tags')}>
-        <div className="sidebar-row muted" title={`${tr('side.tagList')} (${tr('toolbar.phase', { n: 2 })})`}>
-          <Tag size={14} />
-          <span className="grow">
-            {tr('side.noTags')} ({tr('toolbar.phase', { n: 2 })})
-          </span>
-        </div>
+        {tags.map((t) => (
+          <div key={t.name} className="sidebar-row" title={t.date} onClick={() => openDlg('tag')}>
+            <Tag size={14} />
+            <span className="grow">{t.name}</span>
+          </div>
+        ))}
+        {tags.length === 0 && (
+          <div className="sidebar-row muted" title={tr('side.tagList')} onClick={() => openDlg('tag')}>
+            <Tag size={14} />
+            <span className="grow">{tr('side.noTags')}</span>
+          </div>
+        )}
       </Section>
 
       <Section title={tr('side.stashes')}>
-        <div className="sidebar-row muted" title={`${tr('side.stashList')} (${tr('toolbar.phase', { n: 2 })})`}>
-          <Archive size={14} />
-          <span className="grow">
-            {tr('side.noStashes')} ({tr('toolbar.phase', { n: 2 })})
-          </span>
-        </div>
+        {stashes.map((st) => (
+          <div key={st.ref} className="sidebar-row" title={st.message} onClick={() => openDlg('stash')}>
+            <Archive size={14} />
+            <span className="grow">{st.message || st.ref}</span>
+          </div>
+        ))}
+        {stashes.length === 0 && (
+          <div className="sidebar-row muted" title={tr('side.stashList')} onClick={() => openDlg('stash')}>
+            <Archive size={14} />
+            <span className="grow">{tr('side.noStashes')}</span>
+          </div>
+        )}
       </Section>
     </div>
   )

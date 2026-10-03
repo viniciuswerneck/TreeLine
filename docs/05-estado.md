@@ -12,7 +12,8 @@
 - [x] UI 4 regiões (toolbar/sidebar/history/details/statusbar) com dados reais: status, log com grafo SVG, branches, diff, stage/unstage (+all), commit (+amend, com guarda e botão desabilitado sem stage).
 - [x] Push/Pull (`--ff-only`)/Fetch (`--all --prune`) reais com toast, timeout 120s, erros amigáveis; auth via credential helper do sistema.
 - [x] 10 temas + System (seletor no Settings), Settings com identidade do autor, busca/filtro de commits, linha Working Copy, datas relativas.
-- [x] `dist/treeline_0.1.0_amd64.deb` + AppImage gerados, `.desktop` validado (Exec, WMClass). App roda de `dist/linux-unpacked` com `--no-sandbox`.
+- [x] `dist/treeline_0.1.0_amd64.deb` + AppImage gerados, `.desktop` validado (Exec, WMClass). App roda de `dist/linux-unpacked` com as flags Wayland (`--no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto`).
+- [x] Toolbar 100% funcional (2026-10-03): Branch (create/checkout/rename/delete + force-retry), Merge (preview + --no-ff + continue/abort), Stash (create -u/apply/pop/drop), Tag (create/push/delete + remota), Rebase simples, Cherry-Pick, Git-flow (start/finish, com/sem `git flow`), Terminal, Reflog + Undo (bundle backup), Remote manager (add/remove/clone/init). 9 dialogs + sidebar viva (dbl-clique checkout, listas reais). i18n en/pt/es completo.
 - [ ] Ícone próprio (usa padrão Electron — criar asset original).
 - [ ] Fase 1 restante: dialogs Branch/Merge, remote manager (clone/init), stage por hunk/linha.
 - [ ] Testes automatizados (Vitest p/ lane engine + parsers; Playwright p/ fluxo) — Fase 1/2.
@@ -23,10 +24,9 @@
 
 ## Próximo passo imediato
 
-1. Dialogs Branch (create/checkout/rename/delete) e remote manager (clone por URL, init) — resto da Fase 1.
-2. Stage por hunk/linha no diff.
-3. Ícone próprio + `.deb` final da 0.5.0.
-4. Vitest (lane engine, parsers) + Playwright (open → stage → commit → push em fixture).
+1. Stage por hunk/linha no diff + Discard por hunk/linha.
+2. Revert de commit, Reset direto (soft/mixed/hard com confirmação + bundle), Ours/Theirs por arquivo.
+3. Ícone final + `.deb` da 0.5.0 + Vitest (lane engine, parsers) + Playwright (fluxo em fixture).
 
 ## Riscos/pendências
 
@@ -55,3 +55,8 @@
 - 2026-10-03: menus de botão direito (`ContextMenu.tsx` + `menu` no store): commits (copiar hash/mensagem/autor), arquivos (stage/unstage, copiar path, revelar, discard com confirmação nativa — tracked restaura, untracked vai pra lixeira), bookmarks (abrir, revelar, remover). IPC novo: `reveal/removeRecent/discard/copyText`. Push no GitHub.
 - 2026-10-03: i18n en/pt/es sem dependências (`renderer/i18n.ts`: dict tipado com fallback en, detecção por `navigator.language`, persistência, `DATE_LOCALE` p/ datas relativas): UI inteira traduzida (7 componentes + menus + toasts), resumos/erros do main por idioma (lang passado no IPC), validação de identidade bilíngue, seletor no Settings. Push no GitHub.
 - 2026-10-03: fix troca de idioma sem efeito: componentes assinavam `s.tr` (referência estável, sem re-render). `setLang` agora publica um novo closure de `tr`, forçando a atualização de todos os textos na hora.
+- 2026-10-03: comando certo para abrir o app nesta máquina (Wayland, sem GPU): `./dist/linux-unpacked/treeline --no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto`. Só `--no-sandbox` deixava o processo GPU em 100% CPU sem abrir janela. Para matar, `pkill -x treeline` (nunca `pkill -f` com padrão que case a própria linha do shell — mata o próprio shell). Documentado em `AGENTS.md` + `00-referencia-assistente.md`.
+- 2026-10-03: travado no splash corrigido: a janela principal (`show: false`) só aparecia no `ready-to-show`, que não disparava no asar empacotado antigo. Fix em `src/main/index.ts` (`createWindow`): fallback que mostra a main e fecha o splash em `SPLASH_MIN_MS + 8s` mesmo sem o evento + logs `did-finish-load`/`did-fail-load`/`ready-to-show`. Rebuild + `electron-builder --linux dir` + relançado com as flags Wayland — `ready-to-show` disparou e a main abriu após o splash.
+- 2026-10-03: toolbar 100% funcional — 10 funções em 9 dialogs (`Branch/Merge/Stash/Tag/Rebase/Pick/Flow/Reflog/RemotesDialog.tsx` + `Dialog.tsx` shell): ~30 IPC novos (`shared/types.ts`, `main/index.ts`, `preload`), store (`dialog`, listas, `runOp`/`dialogOps`, `confirmAction`), sidebar viva, i18n en/pt/es (~75 chaves), CSS `.dlg-*`. Mecânicas validadas em fixture via CLI (MERGE_HEAD, abort, check-ref-format, remote -v, reflog, -d unmerged). `typecheck` + `build` + `--linux dir` OK, app relançado sem erros. Docs: paridade em `02-roadmap.md`, canais em `03-arquitetura.md`.
+- 2026-10-03: fix "arquivo externo não aparece" — app não tinha watcher nem refresh manual: branch/arquivo criados no terminal não apareciam. Implementado refresh ao focar a janela (throttle 2s) + F5 + botões Refresh no histórico e no File Status (`App.tsx`, `HistoryGraph.tsx`, `DetailsPanel.tsx`, `common.refresh` i18n). Rebuild + relançado. Nota: `03-arquitetura.md` corrigido (chokidar era plano, não implementado).
+- 2026-10-03: via screenshot, achado bug de contagem dupla — untracked (??) entrava em `unstaged` E em `untracked` (`main/index.ts` `getStatus`), então contava/renderizava 2× (38 em vez de 26). Fix: `unstaged` exclui `index === '?'`. Rebuild + relançado; `docs/teste.txt` aparece no fim da coluna Unstaged (seção `?`, após os modificados).

@@ -39,12 +39,12 @@
 1. Ler este arquivo + `05-estado.md`.
 2. `ls /home/vinicius/gitnest` para confirmar estrutura.
 3. Não scaffolding sem confirmação se `05-estado.md` disser "aguardando usuário".
-4. Ao terminar mudança: `npm run typecheck`, `npm run build`, reempacotar (`npx electron-builder --linux dir`), reiniciar o app (`pkill -f "[l]inux-unpacked/treeline"` + `DISPLAY=:0 nohup ./dist/linux-unpacked/treeline --no-sandbox &`) e atualizar `05-estado.md` + `02-roadmap.md`.
+4. Ao terminar mudança: `npm run typecheck`, `npm run build`, reempacotar (`npx electron-builder --linux dir`), reiniciar o app (`pkill -x treeline` + `setsid nohup ./dist/linux-unpacked/treeline --no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto > /tmp/opencode/treeline.log 2>&1 < /dev/null &`) e atualizar `05-estado.md` + `02-roadmap.md`.
 5. Responder em pt-BR, objetivo, com caminho:linha quando citar código.
 
 ## 6. Comandos-chave (quando houver código)
 
-- `npm run dev` — Vite + Electron hot reload (precisa `ELECTRON_DISABLE_SANDBOX=1` ou `--no-sandbox` nesta máquina)
+- `npm run dev` — Vite + Electron hot reload (nesta máquina Wayland sem GPU, exportar `ELECTRON_DISABLE_SANDBOX=1` não basta: passar `--no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto` ao binário; sem `--disable-gpu` o processo GPU trava em 100% CPU e nenhuma janela aparece)
 - `npm run dist` — `.deb` + AppImage (ou `npx electron-builder --linux dir` para só atualizar `dist/linux-unpacked`)
 - Pré-req runtime: `git >= 2.40` (sistema). Opcional: `git-lfs`, `git-flow`.
 - Armadilhas reais já mordidas (detalhe em `04-decisoes.md` ADR-006/007/008): simple-git `.env()` apaga o env do filho; `git log` precisa `--topo-order`; parser precisa `trim()` no hash (`\n` entre registros).

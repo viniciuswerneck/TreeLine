@@ -1,8 +1,12 @@
 import { create } from 'zustand'
-import type { BranchInfo, CommitDetail, CommitInfo, GitIdentity, RepoStatus, SyncOp } from '../shared/types'
+import type { BranchInfo, CommitDetail, CommitInfo, FlowType, GitIdentity, OpState, ReflogEntry, RemoteInfo, RepoStatus, StashInfo, SyncOp, TagInfo } from '../shared/types'
 import { applyTheme, loadTheme } from './themes'
 import { applyLang, loadLang, t, type DictKey, type Lang } from './i18n'
 import type { MenuItem } from './components/ContextMenu'
+
+export type DialogKind =
+  | 'branch' | 'merge' | 'stash' | 'tag' | 'rebase'
+  | 'pick' | 'flow' | 'reflog' | 'remotes'
 
 export interface ContextMenuState {
   x: number
@@ -82,6 +86,21 @@ interface TreeLineState {
   revealFullPath: (path: string) => Promise<void>
   removeBookmark: (path: string) => Promise<void>
   discardFile: (path: string, tracked: boolean) => Promise<void>
+  dialog: DialogKind | null
+  openDlg: (kind: DialogKind) => void
+  closeDlg: () => void
+  stashes: StashInfo[]
+  tags: TagInfo[]
+  remotes: RemoteInfo[]
+  reflog: ReflogEntry[]
+  mergeState: OpState
+  rebaseState: OpState
+  pickState: OpState
+  flowInstalled: boolean
+  confirmAction: (title: string, message: string, detail: string, ok: string) => Promise<boolean>
+  runOp: (op: (repo: string, lang: Lang) => Promise<unknown>) => Promise<boolean>
+  cloneRepo: (url: string) => Promise<boolean>
+  initRepo: () => Promise<boolean>
 }
 
 async function fail<T>(p: Promise<T>, set: (e: string | null) => void): Promise<T | null> {
@@ -141,7 +160,7 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
 
   selectRepo: async (path: string) => {
-    set({ current: path, status: null, commits: [], branches: [], selectedFile: null, diff: '', error: null, selectedCommit: null, commitDetail: null, commitDiff: '' })
+    set({ current: path, status: null, commits: [], branches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, selectedFile: null, diff: '', error: null, selectedCommit: null, commitDetail: null, commitDiff: '', dialog: null })
     await window.treeline.addRecent(path)
     await get().refresh()
   },
@@ -150,15 +169,31 @@ export const useStore = create<TreeLineState>()((set, get) => ({
     const { current } = get()
     if (!current) return
     set({ loading: true, error: null })
-    const [status, commits, branches] = await Promise.all([
+    const [status, commits, branches, stashes, tags, remotes, reflog, mergeState, rebaseState, pickState, flow] = await Promise.all([
       fail(window.treeline.getStatus(current), (e) => set({ error: e })),
       fail(window.treeline.getLog(current, 300), (e) => set({ error: e })),
-      fail(window.treeline.getBranches(current), (e) => set({ error: e }))
+      fail(window.treeline.getBranches(current), (e) => set({ error: e })),
+      fail(window.treeline.getStashes(current), (e) => set({ error: e })),
+      fail(window.treeline.getTags(current), (e) => set({ error: e })),
+      fail(window.treeline.getRemotes(current), (e) => set({ error: e })),
+      fail(window.treeline.getReflog(current, 50), (e) => set({ error: e })),
+      fail(window.treeline.getMergeState(current), (e) => set({ error: e })),
+      fail(window.treeline.getRebaseState(current), (e) => set({ error: e })),
+      fail(window.treeline.getCherryPickState(current), (e) => set({ error: e })),
+      fail(window.treeline.detectFlow(current), (e) => set({ error: e }))
     ])
     set({
       status: status ?? get().status,
       commits: commits ?? get().commits,
       branches: branches ?? get().branches,
+      stashes: stashes ?? get().stashes,
+      tags: tags ?? get().tags,
+      remotes: remotes ?? get().remotes,
+      reflog: reflog ?? get().reflog,
+      mergeState: mergeState ?? get().mergeState,
+      rebaseState: rebaseState ?? get().rebaseState,
+      pickState: pickState ?? get().pickState,
+      flowInstalled: flow?.installed ?? get().flowInstalled,
       loading: false
     })
     const sel = get().selectedFile
@@ -375,5 +410,129 @@ export const useStore = create<TreeLineState>()((set, get) => ({
     if (!current) return
     await fail(window.treeline.discard(current, path, tracked, lang), (e) => set({ error: e }))
     await get().refresh()
+  },
+
+  dialog: null,
+  openDlg: (kind) => set({ dialog: kind }),
+  closeDlg: () => set({ dialog: null }),
+  stashes: [],
+  tags: [],
+  remotes: [],
+  reflog: [],
+  mergeState: { inProgress: false },
+  rebaseState: { inProgress: false },
+  pickState: { inProgress: false },
+  flowInstalled: false,
+
+  confirmAction: async (title, message, detail, ok) => {
+    const cancel = t(get().lang, 'dlg.cancel')
+    try {
+      return await window.treeline.confirm(title, message, detail, ok, cancel)
+    } catch (e) {
+      set({ error: cleanErr(e) })
+      return false
+    }
+  },
+
+  runOp: async (op) => {
+    const { current, lang } = get()
+    if (!current) return false
+    set({ error: null })
+    try {
+      await op(current, lang)
+    } catch (e) {
+      set({ error: cleanErr(e) })
+      return false
+    }
+    await get().refresh()
+    return true
+  },
+
+  cloneRepo: async (url) => {
+    const { lang } = get()
+    set({ error: null })
+    let target: string | null = null
+    try {
+      target = await window.treeline.cloneRepo(url, lang)
+    } catch (e) {
+      set({ error: cleanErr(e) })
+      return false
+    }
+    if (!target) return false
+    await get().selectRepo(target)
+    set({ repos: [target, ...get().repos.filter((r) => r !== target)] })
+    return true
+  },
+
+  initRepo: async () => {
+    const { lang } = get()
+    set({ error: null })
+    let target: string | null = null
+    try {
+      target = await window.treeline.initRepo(lang)
+    } catch (e) {
+      set({ error: cleanErr(e) })
+      return false
+    }
+    if (!target) return false
+    await get().selectRepo(target)
+    set({ repos: [target, ...get().repos.filter((r) => r !== target)] })
+    return true
   }
 }))
+
+/** Atalhos de operação para os dialogs (retornam true = OK, pode fechar). */
+export const dialogOps = {
+  createBranch: (name: string, from: string, checkout: boolean) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.createBranch(repo, name, from, checkout, lang)),
+  checkoutBranch: (name: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.checkoutBranch(repo, name, lang)),
+  renameBranch: (oldName: string, newName: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.renameBranch(repo, oldName, newName, lang)),
+  deleteBranch: (name: string, force: boolean) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.deleteBranch(repo, name, force, lang)),
+  mergeBranch: (ref: string, noFf: boolean) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.mergeBranch(repo, ref, noFf, lang)),
+  mergeContinue: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.mergeContinue(repo, lang)),
+  abortMerge: () =>
+    useStore.getState().runOp((repo) => window.treeline.abortMerge(repo)),
+  createStash: (message: string, includeUntracked: boolean) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.createStash(repo, message, includeUntracked, lang)),
+  applyStash: (ref: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.applyStash(repo, ref, lang)),
+  popStash: (ref: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.popStash(repo, ref, lang)),
+  dropStash: (ref: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.dropStash(repo, ref, lang)),
+  createTag: (name: string, message: string, commit: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.createTag(repo, name, message, commit, lang)),
+  pushTag: (name: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.pushTag(repo, name, lang)),
+  deleteTag: (name: string, remoteToo: boolean) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.deleteTag(repo, name, remoteToo, lang)),
+  rebaseOnto: (ref: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.rebaseOnto(repo, ref, lang)),
+  rebaseContinue: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.rebaseContinue(repo, lang)),
+  abortRebase: () =>
+    useStore.getState().runOp((repo) => window.treeline.abortRebase(repo)),
+  cherryPick: (hash: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.cherryPick(repo, hash, lang)),
+  cherryPickContinue: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.cherryPickContinue(repo, lang)),
+  abortCherryPick: () =>
+    useStore.getState().runOp((repo) => window.treeline.abortCherryPick(repo)),
+  flowStart: (type: FlowType, name: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.flowStart(repo, type, name, lang)),
+  flowFinish: (type: FlowType, name: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.flowFinish(repo, type, name, lang)),
+  openTerminal: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.openTerminal(repo, lang)),
+  undoToReflog: (ref: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.undoToReflog(repo, ref, lang)),
+  addRemote: (name: string, url: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.addRemote(repo, name, url, lang)),
+  removeRemote: (name: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.removeRemote(repo, name, lang))
+}

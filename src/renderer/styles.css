@@ -240,6 +240,7 @@ body {
 /* ---- Details ---- */
 .details { height: 42%; min-height: 240px; display: flex; flex-direction: column; background: var(--bg-app); }
 .details-title {
+  display: flex; align-items: center; gap: 8px;
   font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
   color: var(--text-2); padding: 8px 12px 4px;
 }
@@ -378,6 +379,7 @@ body {
 .sync-toast .fail { color: #e5484d; flex-shrink: 0; margin-top: 1px; }
 .sync-toast .spin { color: var(--accent); flex-shrink: 0; margin-top: 1px; animation: sync-spin 1s linear infinite; }
 @keyframes sync-spin { to { transform: rotate(360deg); } }
+.spin { animation: sync-spin 1s linear infinite; }
 .sync-toast-close {
   border: none; background: transparent; color: var(--text-2);
   cursor: pointer; padding: 2px; border-radius: 6px; flex-shrink: 0;
@@ -394,3 +396,26 @@ body {
 .welcome { margin: auto; text-align: center; max-width: 440px; padding: 32px; }
 .welcome h1 { font-size: 22px; margin: 12px 0 8px; }
 .welcome p { color: var(--text-2); }
+
+/* ---- Dialogs de operação (Branch/Merge/Stash/…) ---- */
+.modal.wide { width: 560px; max-height: calc(100vh - 96px); overflow-y: auto; }
+.dlg-section { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); margin: 14px 0 6px; }
+.dlg-list { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; margin-bottom: 8px; }
+.dlg-row {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 32px; padding: 4px 8px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  font-size: 12.5px;
+}
+.dlg-row:hover { background: var(--bg-hover); }
+.dlg-row .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlg-row .sub { color: var(--text-2); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
+.dlg-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.dlg-inline { display: flex; gap: 4px; flex: 1; min-width: 0; }
+.dlg-inline input {
+  flex: 1; min-width: 0; font: inherit; color: var(--text-1); background: var(--bg-app);
+  border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 4px 8px;
+}
+.dlg-hint { font-size: 12px; color: var(--text-2); margin: 0 0 12px; }
+.field-row { display: flex; gap: 8px; }
+.field-row .field { flex: 1; min-width: 0; }

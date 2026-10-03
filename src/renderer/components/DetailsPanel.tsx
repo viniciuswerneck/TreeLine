@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { forwardRef, useEffect, useState } from 'react'
 import { useStore } from '../store'
 import DiffViewer from './DiffViewer'
@@ -42,6 +42,8 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const copyText = useStore((s) => s.copyText)
   const revealRepoFile = useStore((s) => s.revealRepoFile)
   const discardFile = useStore((s) => s.discardFile)
+  const refresh = useStore((s) => s.refresh)
+  const loading = useStore((s) => s.loading)
   const [commitFile, setCommitFile] = useState<string | null>(null)
 
   useEffect(() => {
@@ -133,7 +135,12 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
 
   return (
     <div className="details">
-      <div className="details-title">{tr('det.fileStatus')}</div>
+      <div className="details-title">
+        {tr('det.fileStatus')}
+        <button className="mini-btn" title={`${tr('common.refresh')} (F5)`} onClick={() => void refresh()}>
+          <RefreshCw size={12} className={loading ? 'spin' : undefined} /> {tr('common.refresh')}
+        </button>
+      </div>
       <div className="details-body">
         <div className="file-col">
           <div className="file-col-head">

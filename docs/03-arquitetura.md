@@ -42,7 +42,7 @@ treeline/
 - Renderer: só UI + estado. Sem `child_process`, sem acesso a fs direto.
 
 Canais IPC implementados (2026-10-03):
-`treeline:listRepos`, `treeline:openRepo`, `treeline:addRecent`, `treeline:getStatus`, `treeline:getLog`, `treeline:getBranches`, `treeline:getDiff`, `treeline:stage`, `treeline:unstage`, `treeline:commit` (recusa stage vazio sem amend), `treeline:push`, `treeline:pull` (`--ff-only`), `treeline:fetch` (`--all --prune`), `treeline:getIdentity`, `treeline:setIdentity` (valida email).
+`treeline:listRepos`, `treeline:openRepo`, `treeline:addRecent`, `treeline:getStatus` (incl. `conflicted`), `treeline:getLog`, `treeline:getBranches`, `treeline:getDiff`, `treeline:stage`, `treeline:unstage`, `treeline:commit` (recusa stage vazio sem amend), `treeline:push`, `treeline:pull` (`--ff-only`), `treeline:fetch` (`--all --prune`), `treeline:getIdentity`, `treeline:setIdentity` (valida email), `treeline:confirm` (confirmação nativa genérica, textos do renderer), Branch (`createBranch/checkoutBranch/renameBranch/deleteBranch`), Merge (`getMergeState/mergePreview/mergeBranch/mergeContinue/abortMerge`), Stash (`getStashes/createStash/applyStash/popStash/dropStash`), Tag (`getTags/createTag/pushTag/deleteTag`), Rebase (`getRebaseState/rebaseOnto/rebaseContinue/abortRebase`), Cherry-pick (`getCherryPickState/cherryPick/cherryPickContinue/abortCherryPick`), Flow (`detectFlow/flowStart/flowFinish`), `treeline:openTerminal` (detecção gnome-terminal/kgx/konsole/xfce4/xterm), Reflog (`getReflog/undoToReflog` com bundle em `.git/treeline-backups`), Remotes (`getRemotes/addRemote/removeRemote/cloneRepo/initRepo`).
 
 ## 3.1 Sincronização remota e feedback (Fase 1 parcial)
 
@@ -60,7 +60,7 @@ Canais IPC implementados (2026-10-03):
 - Status: `git status --porcelain=v2 -b --untracked-files=all` -> { branch, ahead/behind, unstaged[], staged[], untracked[] }.
 - Log: `git log --all --topo-order --date=iso --pretty=format:%H%x00%P%x00%an%x00%ad%x00%D%x00%s%x1e`. Parser faz `hash.trim()` (git emite `\n` entre registros) e split de pais por `/\s+/`; `HEAD -> x` vira 2 refs. Lane engine calcula `lane/through/forks` no renderer com SVG colorido por lane, datas relativas pt-BR. **Layout sempre sobre a lista completa, filtro depois** (filtrar antes quebra elos e staircasa — ver ADR-007).
 - Diff: `git diff --unified=3` e `git diff --cached` + `diff --numstat`. Stage de hunk por `git apply --cached`, stage de linha montando patch parcial.
-- Watcher: `chokidar` em `.git/index`, `HEAD`, `refs/` com debounce 300ms -> re-fetch status/log.
+- Watcher: sem chokidar por enquanto — refresh automático ao focar a janela (throttle 2s, pausa durante sync) + F5 + botões Refresh no histórico e no File Status. Mudança externa (terminal) aparece ao voltar o foco.
 - Credenciais: reaproveita `credential.helper`, `ssh-agent`, GitHub CLI se presente. Token nunca em `config.json` em claro.
 
 ## 5. UI técnica

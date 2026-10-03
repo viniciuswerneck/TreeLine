@@ -107,7 +107,37 @@ const STR: Record<string, Record<UILang, string>> = {
     es: 'Archivo no rastreado: lo mueve a la Papelera. Puedes restaurarlo desde allí.'
   },
   btnCancel: { en: 'Cancel', pt: 'Cancelar', es: 'Cancelar' },
-  btnDiscard: { en: 'Discard', pt: 'Descartar', es: 'Descartar' }
+  btnDiscard: { en: 'Discard', pt: 'Descartar', es: 'Descartar' },
+  nameInvalid: {
+    en: 'Invalid name for git: {x}',
+    pt: 'Nome inválido para o git: {x}',
+    es: 'Nombre inválido para git: {x}'
+  },
+  mergeConflicts: {
+    en: 'Merge stopped on conflicts — resolve the files, then Continue, or Abort. {d}',
+    pt: 'Merge parou em conflitos — resolva os arquivos, depois Continue, ou Abort. {d}',
+    es: 'Merge detenido por conflictos — resuelve los archivos, luego Continue, o Abort. {d}'
+  },
+  rebaseConflicts: {
+    en: 'Rebase stopped on conflicts — resolve the files, then Continue, or Abort. {d}',
+    pt: 'Rebase parou em conflitos — resolva os arquivos, depois Continue, ou Abort. {d}',
+    es: 'Rebase detenido por conflictos — resuelve los archivos, luego Continue, o Abort. {d}'
+  },
+  pickConflicts: {
+    en: 'Cherry-pick stopped on conflicts — resolve the files, then Continue, or Abort. {d}',
+    pt: 'Cherry-pick parou em conflitos — resolva os arquivos, depois Continue, ou Abort. {d}',
+    es: 'Cherry-pick detenido por conflictos — resuelve los archivos, luego Continue, o Abort. {d}'
+  },
+  noTerminal: {
+    en: 'No terminal emulator found (looked for gnome-terminal, kgx, konsole, xfce4-terminal, x-terminal-emulator, xterm).',
+    pt: 'Nenhum emulador de terminal encontrado (procurei gnome-terminal, kgx, konsole, xfce4-terminal, x-terminal-emulator, xterm).',
+    es: 'Ningún emulador de terminal encontrado (busqué gnome-terminal, kgx, konsole, xfce4-terminal, x-terminal-emulator, xterm).'
+  },
+  flowNoBase: {
+    en: 'No base branch (develop/main) found for {t} {n}.',
+    pt: 'Branch base (develop/main) não encontrado para {t} {n}.',
+    es: 'Rama base (develop/main) no encontrada para {t} {n}.'
+  }
 }
 
 function mx(lang: UILang, key: string, vars?: Record<string, string | number>): string {
@@ -183,6 +213,11 @@ function enqueue<T>(repo: string, fn: () => Promise<T>): Promise<T> {
 if (!process.env['GIT_TERMINAL_PROMPT']) {
   process.env['GIT_TERMINAL_PROMPT'] = '0'
 }
+// Operações como `rebase --continue` ou `git flow finish` podem abrir editor:
+// sem TTY no Electron isso travaria o main. `true` fecha o editor na hora.
+if (!process.env['GIT_EDITOR']) {
+  process.env['GIT_EDITOR'] = 'true'
+}
 
 // Rede pode pendurar (DNS, auth lenta): timeout explícito com erro legível.
 const SYNC_TIMEOUT_MS = 120_000
@@ -207,6 +242,516 @@ function friendlySyncError(op: string, e: unknown, lang: UILang = 'en'): Error {
   }
   return e instanceof Error ? e : new Error(msg)
 }
+
+// ---------------------------------------------------------------------------
+// IPC genérico: confirmação nativa (operações destrutivas).
+// Textos vêm do renderer (i18n); o main só exibe. Retorna true = confirmar.
+// ---------------------------------------------------------------------------
+ipcMain.handle(
+  'treeline:confirm',
+  async (event, title: string, message: string, detail: string, ok: string, cancel: string) => {
+    const opts = {
+      type: 'question' as const,
+      title,
+      message,
+      detail,
+      buttons: [cancel, ok],
+      defaultId: 0,
+      cancelId: 0
+    }
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const res = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
+    return res.response === 1
+  }
+)
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await fs.stat(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Valida nome de branch/tag no git; erro legível no idioma da UI. */
+async function assertRefName(repo: string, kind: 'branch' | 'tag', name: string, lang: UILang): Promise<void> {
+  const target = kind === 'branch' ? name : `refs/tags/${name}`
+  try {
+    await simpleGit(repo).raw(['check-ref-format', '--branch', target])
+  } catch {
+    throw new Error(mx(lang, 'nameInvalid', { x: name }))
+  }
+}
+
+/** Erro do git vira orientação de conflito (merge/rebase/pick) quando for o caso. */
+function conflictErr(key: string, e: unknown, lang: UILang): Error {
+  const msg = e instanceof Error ? e.message : String(e)
+  if (/CONFLICT|conflict|needs merge|failed to merge/i.test(msg)) {
+    return new Error(mx(lang, key, { d: msg.split('\n')[0] as string }))
+  }
+  return e instanceof Error ? e : new Error(msg)
+}
+
+// ---------------------------------------------------------------------------
+// IPC: Branch (create/checkout/rename/delete).
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:createBranch', (_event, repo: string, name: string, from: string, checkout: boolean, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    const n = name.trim()
+    await assertRefName(repo, 'branch', n, l)
+    const start = from.trim() || 'HEAD'
+    if (checkout) await simpleGit(repo).checkoutBranch(n, start)
+    else await simpleGit(repo).branch([n, start])
+  })
+)
+
+ipcMain.handle('treeline:checkoutBranch', (_event, repo: string, name: string) =>
+  enqueue(repo, () => simpleGit(repo).checkout(name).then(() => undefined))
+)
+
+ipcMain.handle('treeline:renameBranch', (_event, repo: string, oldName: string, newName: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    const n = newName.trim()
+    await assertRefName(repo, 'branch', n, l)
+    await simpleGit(repo).branch(['-m', oldName, n])
+  })
+)
+
+ipcMain.handle('treeline:deleteBranch', (_event, repo: string, name: string, force: boolean) =>
+  enqueue(repo, () => simpleGit(repo).branch([force ? '-D' : '-d', name]).then(() => undefined))
+)
+
+// ---------------------------------------------------------------------------
+// IPC: Merge (preview, merge, continue, abort).
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:getMergeState', (_event, repo: string) =>
+  enqueue(repo, async (): Promise<import('../shared/types').OpState> => {
+    if (!(await exists(join(repo, '.git', 'MERGE_HEAD')))) return { inProgress: false }
+    let target: string | undefined
+    try {
+      const msg = await fs.readFile(join(repo, '.git', 'MERGE_MSG'), 'utf-8')
+      target = msg.match(/Merge (?:branch|remote-tracking branch|tag) '([^']+)'/)?.[1]
+    } catch {
+      /* alvo desconhecido */
+    }
+    return { inProgress: true, target }
+  })
+)
+
+ipcMain.handle('treeline:mergePreview', (_event, repo: string, ref: string) =>
+  enqueue(repo, async (): Promise<import('../shared/types').MergePreview> => {
+    const git = simpleGit(repo)
+    const [filesRaw, countRaw] = await Promise.all([
+      git.raw(['diff', '--name-only', `HEAD...${ref}`]),
+      git.raw(['rev-list', '--count', `HEAD..${ref}`])
+    ])
+    return {
+      files: filesRaw.split('\n').map((f) => f.trim()).filter(Boolean),
+      commits: Number.parseInt(countRaw.trim(), 10) || 0
+    }
+  })
+)
+
+ipcMain.handle('treeline:mergeBranch', (_event, repo: string, ref: string, noFf: boolean, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).merge([ref, ...(noFf ? ['--no-ff'] : [])])
+    } catch (e) {
+      throw conflictErr('mergeConflicts', e, l)
+    }
+  })
+)
+
+ipcMain.handle('treeline:mergeContinue', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).raw(['commit', '--no-edit'])
+    } catch (e) {
+      throw conflictErr('mergeConflicts', e, l)
+    }
+  })
+)
+
+ipcMain.handle('treeline:abortMerge', (_event, repo: string) =>
+  enqueue(repo, () => simpleGit(repo).merge(['--abort']).then(() => undefined))
+)
+
+// ---------------------------------------------------------------------------
+// IPC: Stash (list/create/apply/pop/drop).
+// ---------------------------------------------------------------------------
+function parseStashList(raw: string): import('../shared/types').StashInfo[] {
+  if (!raw.trim()) return []
+  return raw.split('\x1e').flatMap((block) => {
+    const parts = block.split('\0')
+    if (parts.length < 3) return []
+    const [ref, hash, ...rest] = parts
+    if (!ref?.trim()) return []
+    return [{ ref: ref.trim(), hash: (hash ?? '').trim(), message: rest.join('\0').trim() }]
+  })
+}
+
+ipcMain.handle('treeline:getStashes', (_event, repo: string) =>
+  enqueue(repo, async () => parseStashList(await simpleGit(repo).raw(['stash', 'list', '--pretty=format:%gd%x00%H%x00%s%x1e'])))
+)
+
+ipcMain.handle('treeline:createStash', (_event, repo: string, message: string, includeUntracked: boolean) =>
+  enqueue(repo, async () => {
+    const args = ['stash', 'push']
+    if (includeUntracked) args.push('-u')
+    if (message.trim()) args.push('-m', message.trim())
+    await simpleGit(repo).raw(args)
+  })
+)
+
+ipcMain.handle('treeline:applyStash', (_event, repo: string, ref: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    try {
+      await simpleGit(repo).raw(['stash', 'apply', ref])
+    } catch (e) {
+      throw conflictErr('mergeConflicts', e, asLang(lang))
+    }
+  })
+)
+
+ipcMain.handle('treeline:popStash', (_event, repo: string, ref: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    try {
+      await simpleGit(repo).raw(['stash', 'pop', ref])
+    } catch (e) {
+      throw conflictErr('mergeConflicts', e, asLang(lang))
+    }
+  })
+)
+
+ipcMain.handle('treeline:dropStash', (_event, repo: string, ref: string) =>
+  enqueue(repo, () => simpleGit(repo).raw(['stash', 'drop', ref]).then(() => undefined))
+)
+
+// ---------------------------------------------------------------------------
+// IPC: Tag (list/create/push/delete).
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:getTags', (_event, repo: string) =>
+  enqueue(repo, async (): Promise<import('../shared/types').TagInfo[]> => {
+    const raw = await simpleGit(repo).raw(['for-each-ref', '--sort=-creatordate', '--format=%(refname:short)%09%(creatordate:iso)', 'refs/tags'])
+    if (!raw.trim()) return []
+    return raw.split('\n').flatMap((line) => {
+      const [name, date] = line.split('\t')
+      return name?.trim() ? [{ name: name.trim(), date: (date ?? '').trim() }] : []
+    })
+  })
+)
+
+ipcMain.handle('treeline:createTag', (_event, repo: string, name: string, message: string, commit: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    const n = name.trim()
+    await assertRefName(repo, 'tag', n, l)
+    const args = ['tag']
+    if (message.trim()) args.push('-a', n, '-m', message.trim())
+    else args.push(n)
+    if (commit.trim()) args.push(commit.trim())
+    await simpleGit(repo).raw(args)
+  })
+)
+
+ipcMain.handle('treeline:pushTag', (_event, repo: string, name: string, lang?: unknown) =>
+  enqueue(repo, (): Promise<import('../shared/types').SyncResult> =>
+    withTimeout('Push', (async () => {
+      const l = asLang(lang)
+      await simpleGit(repo).push('origin', name)
+      return { summary: mx(l, 'pushDone', { x: name }) }
+    })().catch((e: unknown): never => {
+      throw friendlySyncError('Push', e, asLang(lang))
+    }), asLang(lang))
+  )
+)
+
+ipcMain.handle('treeline:deleteTag', (_event, repo: string, name: string, remoteToo: boolean, lang?: unknown) =>
+  enqueue(repo, async () => {
+    await simpleGit(repo).raw(['tag', '-d', name])
+    if (remoteToo) {
+      const l = asLang(lang)
+      try {
+        await simpleGit(repo).raw(['push', 'origin', `:refs/tags/${name}`])
+      } catch (e) {
+        throw friendlySyncError('Push', e, l)
+      }
+    }
+  })
+)
+
+// ---------------------------------------------------------------------------
+// IPC: Rebase (onto/continue/abort) — rebase simples; interativo é Fase 3.
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:getRebaseState', (_event, repo: string) =>
+  enqueue(repo, async (): Promise<import('../shared/types').OpState> => {
+    const dir = (await exists(join(repo, '.git', 'rebase-merge')))
+      ? join(repo, '.git', 'rebase-merge')
+      : (await exists(join(repo, '.git', 'rebase-apply')))
+        ? join(repo, '.git', 'rebase-apply')
+        : null
+    if (!dir) return { inProgress: false }
+    let target: string | undefined
+    try {
+      const head = (await fs.readFile(join(dir, 'head-name'), 'utf-8')).trim()
+      target = head.replace(/^refs\/heads\//, '')
+    } catch {
+      /* alvo desconhecido */
+    }
+    return { inProgress: true, target }
+  })
+)
+
+ipcMain.handle('treeline:rebaseOnto', (_event, repo: string, ref: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).rebase([ref])
+    } catch (e) {
+      throw conflictErr('rebaseConflicts', e, l)
+    }
+  })
+)
+
+ipcMain.handle('treeline:rebaseContinue', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).raw(['rebase', '--continue'])
+    } catch (e) {
+      throw conflictErr('rebaseConflicts', e, l)
+    }
+  })
+)
+
+ipcMain.handle('treeline:abortRebase', (_event, repo: string) =>
+  enqueue(repo, () => simpleGit(repo).raw(['rebase', '--abort']).then(() => undefined))
+)
+
+// ---------------------------------------------------------------------------
+// IPC: Cherry-pick (pick/continue/abort).
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:getCherryPickState', (_event, repo: string) =>
+  enqueue(repo, async (): Promise<import('../shared/types').OpState> => ({
+    inProgress: await exists(join(repo, '.git', 'CHERRY_PICK_HEAD'))
+  }))
+)
+
+ipcMain.handle('treeline:cherryPick', (_event, repo: string, hash: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).raw(['cherry-pick', hash.trim()])
+    } catch (e) {
+      throw conflictErr('pickConflicts', e, l)
+    }
+  })
+)
+
+ipcMain.handle('treeline:cherryPickContinue', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).raw(['cherry-pick', '--continue'])
+    } catch (e) {
+      throw conflictErr('pickConflicts', e, l)
+    }
+  })
+)
+
+ipcMain.handle('treeline:abortCherryPick', (_event, repo: string) =>
+  enqueue(repo, () => simpleGit(repo).raw(['cherry-pick', '--abort']).then(() => undefined))
+)
+
+// ---------------------------------------------------------------------------
+// IPC: Git-flow (usa `git flow` se instalado, senão convenção de branches).
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:detectFlow', (_event, repo: string) =>
+  enqueue(repo, async () => {
+    try {
+      await simpleGit(repo).raw(['flow', 'version'])
+      return { installed: true }
+    } catch {
+      return { installed: false }
+    }
+  })
+)
+
+async function flowBase(repo: string, type: import('../shared/types').FlowType): Promise<string> {
+  const want = type === 'hotfix' ? ['main', 'master'] : ['develop', 'main', 'master']
+  const b = await simpleGit(repo).branchLocal()
+  for (const name of want) {
+    if (b.all.includes(name)) return name
+  }
+  throw new Error('no-base')
+}
+
+ipcMain.handle('treeline:flowStart', (_event, repo: string, type: import('../shared/types').FlowType, name: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    const n = name.trim().replace(/^\w+\//, '')
+    await assertRefName(repo, 'branch', `${type}/${n}`, l)
+    const flow = await simpleGit(repo).raw(['flow', 'version']).then(() => true).catch(() => false)
+    if (flow) {
+      await simpleGit(repo).raw(['flow', type, 'start', n])
+    } else {
+      const base = await flowBase(repo, type).catch((): never => {
+        throw new Error(mx(l, 'flowNoBase', { t: type, n }))
+      })
+      await simpleGit(repo).checkoutBranch(`${type}/${n}`, base)
+    }
+    return `${type}/${n}`
+  })
+)
+
+ipcMain.handle('treeline:flowFinish', (_event, repo: string, type: import('../shared/types').FlowType, name: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    const flow = await simpleGit(repo).raw(['flow', 'version']).then(() => true).catch(() => false)
+    if (flow) {
+      try {
+        await simpleGit(repo).raw(['flow', type, 'finish', '-m', `Finish ${type}/${name}`, name])
+      } catch (e) {
+        throw conflictErr('mergeConflicts', e, l)
+      }
+      return
+    }
+    const branch = `${type}/${name}`
+    const base = await flowBase(repo, type).catch((): never => {
+      throw new Error(mx(l, 'flowNoBase', { t: type, n: name }))
+    })
+    const git = simpleGit(repo)
+    await git.checkout(base)
+    try {
+      await git.merge([branch, '--no-ff'])
+    } catch (e) {
+      throw conflictErr('mergeConflicts', e, l)
+    }
+    await git.branch(['-d', branch])
+  })
+)
+
+// ---------------------------------------------------------------------------
+// IPC: Terminal — abre emulador na pasta do repo (detecção de instalados).
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:openTerminal', (_event, repo: string, lang?: unknown) =>
+  (async () => {
+    const l = asLang(lang)
+    const cp = await import('node:child_process')
+    const candidates: Array<{ cmd: string; args: (dir: string) => string[] }> = [
+      { cmd: 'gnome-terminal', args: (d) => [`--working-directory=${d}`] },
+      { cmd: 'kgx', args: (d) => [`--working-directory=${d}`] },
+      { cmd: 'konsole', args: (d) => ['--workdir', d] },
+      { cmd: 'xfce4-terminal', args: (d) => [`--working-directory=${d}`] },
+      { cmd: 'x-terminal-emulator', args: (d) => [`--working-directory=${d}`] },
+      { cmd: 'xterm', args: () => [] }
+    ]
+    const which = (cmd: string): Promise<boolean> =>
+      new Promise((resolve) => cp.execFile('command', ['-v', cmd], (err) => resolve(!err)))
+    for (const c of candidates) {
+      if (await which(c.cmd)) {
+        cp.spawn(c.cmd, c.args(repo), { cwd: repo, detached: true, stdio: 'ignore' }).unref()
+        return
+      }
+    }
+    throw new Error(mx(l, 'noTerminal'))
+  })()
+)
+
+// ---------------------------------------------------------------------------
+// IPC: Reflog + Undo (reset --hard com confirmação prévia na UI e backup).
+// ---------------------------------------------------------------------------
+function parseReflog(raw: string): import('../shared/types').ReflogEntry[] {
+  if (!raw.trim()) return []
+  return raw.split('\x1e').flatMap((block) => {
+    const parts = block.split('\0')
+    if (parts.length < 6) return []
+    const [hashRaw, ref, author, date, ...rest] = parts
+    const hash = (hashRaw ?? '').trim()
+    if (!hash) return []
+    return [{ hash, ref: (ref ?? '').trim(), author: author ?? '', date: date ?? '', message: rest.join('\0').trim() }]
+  })
+}
+
+ipcMain.handle('treeline:getReflog', (_event, repo: string, limit?: number) =>
+  enqueue(repo, async () => {
+    const n = Math.min(Math.max(limit ?? 100, 1), 500)
+    return parseReflog(
+      await simpleGit(repo).raw(['reflog', `--max-count=${n}`, '--date=iso', '--pretty=format:%H%x00%gd%x00%an%x00%ad%x00%s%x1e'])
+    )
+  })
+)
+
+ipcMain.handle('treeline:undoToReflog', (_event, repo: string, ref: string) =>
+  enqueue(repo, async () => {
+    // Backup automático antes do reset destrutivo (exigência Fase 3).
+    const dir = join(repo, '.git', 'treeline-backups')
+    await fs.mkdir(dir, { recursive: true })
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    await simpleGit(repo).raw(['bundle', 'create', join(dir, `${stamp}.bundle`), '--all'])
+    await simpleGit(repo).raw(['reset', '--hard', ref])
+  })
+)
+
+// ---------------------------------------------------------------------------
+// IPC: Remotes (list/add/remove) + Clone + Init.
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:getRemotes', (_event, repo: string) =>
+  enqueue(repo, async (): Promise<import('../shared/types').RemoteInfo[]> => {
+    const raw = await simpleGit(repo).raw(['remote', '-v'])
+    const seen = new Map<string, string>()
+    for (const line of raw.split('\n')) {
+      const m = line.match(/^(\S+)\t(\S+) \(fetch\)$/)
+      if (m?.[1] && m?.[2] && !seen.has(m[1])) seen.set(m[1], m[2])
+    }
+    return [...seen].map(([name, url]) => ({ name, url }))
+  })
+)
+
+ipcMain.handle('treeline:addRemote', (_event, repo: string, name: string, url: string) =>
+  enqueue(repo, () => simpleGit(repo).addRemote(name.trim(), url.trim()).then(() => undefined))
+)
+
+ipcMain.handle('treeline:removeRemote', (_event, repo: string, name: string) =>
+  enqueue(repo, () => simpleGit(repo).removeRemote(name).then(() => undefined))
+)
+
+ipcMain.handle('treeline:cloneRepo', async (event, url: string, lang?: unknown) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const opts = { properties: ['openDirectory' as const], title: 'Clone destination' }
+  const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
+  if (res.canceled || res.filePaths.length === 0) return null
+  const parent = res.filePaths[0] as string
+  const base = url.trim().replace(/\/$/, '').split('/').pop() ?? 'repo'
+  const name = base.replace(/\.git$/, '') || 'repo'
+  const target = join(parent, name)
+  const l = asLang(lang)
+  try {
+    await withTimeout('Clone', simpleGit().clone(url.trim(), target), l)
+  } catch (e) {
+    throw friendlySyncError('Clone', e, l)
+  }
+  const list = [target, ...(await readBookmarks()).filter((p) => p !== target)]
+  await writeBookmarks(list)
+  return target
+})
+
+ipcMain.handle('treeline:initRepo', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const opts = { properties: ['openDirectory' as const], title: 'Init location' }
+  const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
+  if (res.canceled || res.filePaths.length === 0) return null
+  const target = res.filePaths[0] as string
+  await simpleGit(target).init()
+  const list = [target, ...(await readBookmarks()).filter((p) => p !== target)]
+  await writeBookmarks(list)
+  return target
+})
 
 // ---------------------------------------------------------------------------
 // Janela principal.
@@ -235,13 +780,23 @@ function createWindow(splash: BrowserWindow | null, splashAt: number): void {
   }
 
   // Splash fica 3s na tela (SPLASH_MIN_MS) para não piscar; fecha ao mostrar a janela.
+  // Fallback: em Wayland sem GPU (--disable-gpu) o 'ready-to-show' pode nunca
+  // disparar e o usuário ficaria preso no splash; o timeout garante a saída.
+  let shown = false
+  const showMain = (): void => {
+    if (shown) return
+    shown = true
+    splash?.close()
+    win.show()
+  }
   win.once('ready-to-show', () => {
+    console.log('[treeline] main ready-to-show')
     const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashAt))
-    setTimeout(() => {
-      splash?.close()
-      win.show()
-    }, wait)
+    setTimeout(showMain, wait)
   })
+  setTimeout(showMain, SPLASH_MIN_MS + 8000)
+  win.webContents.on('did-finish-load', () => console.log('[treeline] main did-finish-load'))
+  win.webContents.on('did-fail-load', (_e, code, desc) => console.error(`[treeline] main did-fail-load ${code} ${desc}`))
 }
 
 function createSplash(): { win: BrowserWindow; at: number } {
@@ -324,7 +879,8 @@ ipcMain.handle('treeline:getStatus', ( _event, repo: string) =>
   enqueue(repo, async (): Promise<RepoStatus> => {
     const s = await simpleGit(repo).status()
     const staged = s.files.filter((f) => f.index !== ' ' && f.index !== '?').map((f) => ({ path: f.path, code: `${f.index}${f.working_dir}` }))
-    const unstaged = s.files.filter((f) => f.working_dir !== ' ').map((f) => ({ path: f.path, code: `${f.index}${f.working_dir}` }))
+    // Untracked (??) sai em lista própria: se ficar aqui, conta e renderiza em dobro.
+    const unstaged = s.files.filter((f) => f.working_dir !== ' ' && f.index !== '?').map((f) => ({ path: f.path, code: `${f.index}${f.working_dir}` }))
     const untracked = s.files.filter((f) => f.index === '?' && f.working_dir === '?').map((f) => f.path)
     return {
       branch: s.current ?? '(detached)',
@@ -332,7 +888,8 @@ ipcMain.handle('treeline:getStatus', ( _event, repo: string) =>
       behind: s.behind ?? 0,
       staged,
       unstaged,
-      untracked
+      untracked,
+      conflicted: s.conflicted ?? []
     }
   })
 )
