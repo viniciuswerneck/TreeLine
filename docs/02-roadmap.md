@@ -23,7 +23,7 @@ Paridade do loop básico do SourceTree.
 - [ ] Branch: create/checkout/rename/delete a partir de sidebar e de commit
 - [ ] Remote manager: add/list, clone por URL, init local
 - [x] Search local de commits (toolbar filtra a lista)
-- [x] Extras além do plano: 10 temas (5 light + 5 dark + System), Settings com identidade do autor (user.name/email), statusbar com staged/unstaged
+- [x] Extras além do plano: 10 temas (5 light + 5 dark + System), Settings com identidade do autor (user.name/email), statusbar com staged/unstaged, i18n en/pt/es, menus de botão direito, diff colorido, splash + ícone próprio
 
 Aceite: usuário faz clone -> branch -> stage hunk -> commit -> push sem terminal.
 

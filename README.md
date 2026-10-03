@@ -27,7 +27,10 @@ Outras alternativas que as pessoas comparam: GitKraken, GitHub Desktop (sem vers
 - **Grafo estilo Git Graph**: lanes coloridas, curvas de merge, badges por tipo de ref, datas relativas
 - **Fluxo completo**: Stage/Unstage (por arquivo + Stage All), Commit com Amend, **Push / Pull (`--ff-only`) / Fetch** com toast de progresso e resumo
 - **Busca de commits**, filtro por branch atual, clique no commit mostra arquivos + diff
+- **Diff colorido estilo VS Code** (verde/vermelho, hunk em azul, números old/new)
+- **Botão direito** com menus: copiar hash/mensagem, stage/discard com confirmação, bookmarks
 - **10 temas** (5 claros + 5 escuros + System) e **Settings** com identidade do autor (nome/email)
+- **3 idiomas**: English, Português e Español (detecta o sistema, troca no Settings)
 - Sempre via **git do sistema** (hooks, LFS, flow e credential helpers funcionam igual ao terminal)
 
 ## Instalar no Ubuntu/Debian (SourceTree Linux download alternativo)
