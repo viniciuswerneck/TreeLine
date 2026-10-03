@@ -1,9 +1,15 @@
 import type { CommitInfo } from '../../shared/types'
 
 export interface GraphFork {
-  /** Curva do dot (from) até a lane do pai na base da linha (to). */
+  /** Lane de origem da curva. */
   from: number
+  /** Lane de destino da curva. */
   to: number
+  /**
+   * split: merge abrindo lane nova — curva sai DO dot para baixo.
+   * join: branch voltando (ou steal) — curva ENTRA no dot vindo de cima.
+   */
+  kind: 'split' | 'join'
 }
 
 export interface LaneCommit extends CommitInfo {
@@ -30,10 +36,11 @@ export interface LaneCommit extends CommitInfo {
  * 3. Linha principal reta (estilo GitGraph): pais compartilhados ficam com
  *    o filho da spine (first-parent a partir do HEAD, depois outras tips).
  *    Se um filho fora da spine reservar primeiro, o filho da spine ROUBA
- *    (steal) sem desenhar curva de divergência — o trilho do outro segue
- *    reto pelo trilho aberto. Curvas só no split do merge e no join-back.
- * 4. Trilho aberto: lane nunca fechada por join/merge-back ou root estende
- *    o trilho até o fim do grafo (branch ainda aberto, como no GitGraph).
+ *    (steal): a lane do outro fecha ali, com join desenhado entrando no
+ *    dot por cima, e o trilho lateral NÃO passa disso — igual ao GitGraph.
+ * 4. Curvas: split sai do dot para baixo (cor da lane nova); join entra no
+ *    dot vindo de cima (cor da lane do branch). Divergência sem merge NÃO
+ *    desenha curva no holder — o trilho só passa reto.
  */
 export function layoutGraph(commits: CommitInfo[]): LaneCommit[] {
   const byHash = new Map<string, CommitInfo>()
@@ -72,14 +79,9 @@ export function layoutGraph(commits: CommitInfo[]): LaneCommit[] {
   const laneOf = new Map<string, number>()
   const holder = new Map<string, { lane: number; row: number; prio: number }>()
   const free: number[] = []
-  const closedAt = new Map<number, number>()
   let next = 0
   const take = (): number => {
-    if (free.length > 0) {
-      const l = free.pop() as number
-      closedAt.delete(l)
-      return l
-    }
+    if (free.length > 0) return free.pop() as number
     return next++
   }
 
@@ -115,13 +117,13 @@ export function layoutGraph(commits: CommitInfo[]): LaneCommit[] {
         const iv: Interval = { lane: nl, from: row, to: Number.MAX_SAFE_INTEGER }
         intervals.push(iv)
         openInterval.set(p, iv)
-        if (i > 0) forks.push({ from: lane as number, to: nl })
+        if (i > 0) forks.push({ from: lane as number, to: nl, kind: 'split' })
       } else if (existing !== lane) {
         const h = holder.get(p)
         if (h && P(c.hash) < h.prio) {
-          // STEAL: o filho da spine fica com o pai. A linha do outro segue
-          // reta para baixo (trilho aberto) SEM curva de divergência — como
-          // no GitGraph, o fork só desenha curva no merge (split) e no join.
+          // STEAL: o filho da spine fica com o pai. A lane do outro fecha
+          // aqui: join desenhado entrando NESTE dot por cima, e o trilho
+          // lateral não passa disso — igual ao GitGraph.
           laneOf.set(p, lane as number)
           holder.set(p, { lane: lane as number, row, prio: P(c.hash) })
           const iv = openInterval.get(p)
@@ -129,52 +131,35 @@ export function layoutGraph(commits: CommitInfo[]): LaneCommit[] {
           const niv: Interval = { lane: lane as number, from: row, to: Number.MAX_SAFE_INTEGER }
           intervals.push(niv)
           openInterval.set(p, niv)
-          // newcomer: no fork (parent now own lane)
+          forks.push({ from: h.lane, to: lane as number, kind: 'join' })
+          free.push(h.lane)
         } else {
-          // Join-back de verdade: a lane atual fecha aqui.
-          forks.push({ from: lane as number, to: existing })
-          closedAt.set(lane as number, row)
+          // Join-back de verdade: a lane atual fecha aqui (curva por cima).
+          forks.push({ from: lane as number, to: existing, kind: 'join' })
           if (i === 0) free.push(lane as number)
         }
       }
     })
     if (c.parents.length === 0) {
-      closedAt.set(lane as number, row)
       free.push(lane as number)
     }
 
     rows.push({ ...c, lane: lane as number, through: [], forks })
   })
 
-  // Pós-passe: through a partir dos intervalos + trilho aberto até o fim.
+  // Pós-passe: through a partir dos intervalos; lane do join não atravessa
+  // a própria linha (a curva cobre a metade de cima, embaixo fecha).
   const bottom = rows.length
-  const lastUse = new Map<number, number>()
-  const touch = (lane: number, row: number): void => {
-    const prev = lastUse.get(lane)
-    if (prev === undefined || row > prev) lastUse.set(lane, row)
-  }
-  rows.forEach((r, i) => {
-    touch(r.lane, i)
-    for (const f of r.forks) {
-      touch(f.from, i)
-      touch(f.to, i)
-    }
-  })
   for (const iv of intervals) {
     const to = iv.to === Number.MAX_SAFE_INTEGER ? bottom : iv.to
     for (let r = iv.from + 1; r < to; r++) {
       const row = rows[r]
       if (row && row.lane !== iv.lane && !row.through.includes(iv.lane)) row.through.push(iv.lane)
     }
-    touch(iv.lane, Math.max(iv.from, Math.min(to, bottom) - 1))
   }
-  // Trilho aberto: lane nunca fechada estende até o fim do grafo.
-  for (const [lane, last] of lastUse) {
-    if (!closedAt.has(lane)) {
-      for (let r = last + 1; r < bottom; r++) {
-        const row = rows[r]
-        if (row && row.lane !== lane && !row.through.includes(lane)) row.through.push(lane)
-      }
+  for (const r of rows) {
+    for (const f of r.forks) {
+      if (f.kind === 'join') r.through = r.through.filter((l) => l !== f.from)
     }
   }
   for (const r of rows) r.through.sort((a, b) => a - b)

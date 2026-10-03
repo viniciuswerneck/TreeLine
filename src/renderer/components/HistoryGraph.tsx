@@ -69,8 +69,7 @@ export function RefBadge({ name }: { name: string }) {
 function GraphCell({ commit, maxLane, isFirst }: { commit: LaneCommit; maxLane: number; isFirst: boolean }) {
   const cy = ROW_H / 2
   const color = laneColor(commit.lane)
-  const continuesDown =
-    commit.parents.length > 0 && !commit.forks.some((f) => f.from === commit.lane && f.to !== commit.lane)
+  const continuesDown = commit.parents.length > 0
 
   return (
     <svg className="graph-svg" width={(maxLane + 1) * LANE_W} height={ROW_H} aria-hidden="true">
@@ -93,24 +92,34 @@ function GraphCell({ commit, maxLane, isFirst }: { commit: LaneCommit; maxLane: 
       {continuesDown && (
         <line x1={cx(commit.lane)} y1={cy} x2={cx(commit.lane)} y2={ROW_H} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.85} />
       )}
-      {commit.forks.map((f, i) => (
-        <path
-          key={`f${i}`}
-          d={`M ${cx(f.from)},${cy} C ${cx(f.from)},${cy + 9} ${cx(f.to)},${ROW_H - 9} ${cx(f.to)},${ROW_H}`}
-          stroke={laneColor(Math.max(f.from, f.to))}
-          strokeWidth={2}
-          strokeLinecap="round"
-          fill="none"
-          opacity={0.85}
-        />
-      ))}
+      {commit.forks.map((f, i) =>
+        f.kind === 'split' ? (
+          <path
+            key={`f${i}`}
+            d={`M ${cx(f.from)},${cy} C ${cx(f.from)},${cy + 9} ${cx(f.to)},${ROW_H - 9} ${cx(f.to)},${ROW_H}`}
+            stroke={laneColor(f.to)}
+            strokeWidth={2}
+            strokeLinecap="round"
+            fill="none"
+            opacity={0.85}
+          />
+        ) : (
+          <path
+            key={`f${i}`}
+            d={`M ${cx(f.from)},0 C ${cx(f.from)},${cy - 9} ${cx(f.to)},${cy - 9} ${cx(f.to)},${cy}`}
+            stroke={laneColor(f.from)}
+            strokeWidth={2}
+            strokeLinecap="round"
+            fill="none"
+            opacity={0.85}
+          />
+        )
+      )}
       <circle
         cx={cx(commit.lane)}
         cy={cy}
         r={commit.parents.length > 1 ? 5.5 : 4.5}
-        fill="var(--bg-panel)"
-        stroke={color}
-        strokeWidth={2}
+        fill={color}
       />
     </svg>
   )
