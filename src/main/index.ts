@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { simpleGit } from 'simple-git'
 import type { BranchInfo, CommitDetail, CommitInfo, GitIdentity, RepoStatus, SyncResult } from '../shared/types'
-import { SPLASH_HTML } from './splash'
+import { SPLASH_HTML, SPLASH_MIN_MS } from './splash'
 
 // ---------------------------------------------------------------------------
 // Bookmarks persistidos em JSON no userData.
@@ -122,9 +122,9 @@ function createWindow(splash: BrowserWindow | null, splashAt: number): void {
     void win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  // Splash fica no mínimo 900ms para não piscar; fecha ao mostrar a janela.
+  // Splash fica 3s na tela (SPLASH_MIN_MS) para não piscar; fecha ao mostrar a janela.
   win.once('ready-to-show', () => {
-    const wait = Math.max(0, 900 - (Date.now() - splashAt))
+    const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashAt))
     setTimeout(() => {
       splash?.close()
       win.show()
@@ -134,8 +134,8 @@ function createWindow(splash: BrowserWindow | null, splashAt: number): void {
 
 function createSplash(): { win: BrowserWindow; at: number } {
   const win = new BrowserWindow({
-    width: 380,
-    height: 500,
+    width: 460,
+    height: 400,
     resizable: false,
     minimizable: false,
     maximizable: false,
