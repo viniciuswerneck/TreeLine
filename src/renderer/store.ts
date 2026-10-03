@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import type { BranchInfo, CommitDetail, CommitInfo, GitIdentity, RepoStatus, SyncOp } from '../shared/types'
 import { applyTheme, loadTheme } from './themes'
+import type { MenuItem } from './components/ContextMenu'
+
+export interface ContextMenuState {
+  x: number
+  y: number
+  items: MenuItem[]
+}
 
 export interface SelectedFile {
   path: string
@@ -63,6 +70,14 @@ interface TreeLineState {
   commitDiff: string
   selectCommit: (hash: string | null) => Promise<void>
   selectCommitFile: (path: string) => Promise<void>
+  menu: ContextMenuState | null
+  openMenu: (x: number, y: number, items: MenuItem[]) => void
+  closeMenu: () => void
+  copyText: (text: string) => Promise<void>
+  revealRepoFile: (path: string) => Promise<void>
+  revealFullPath: (path: string) => Promise<void>
+  removeBookmark: (path: string) => Promise<void>
+  discardFile: (path: string, tracked: boolean) => Promise<void>
 }
 
 async function fail<T>(p: Promise<T>, set: (e: string | null) => void): Promise<T | null> {
@@ -301,5 +316,41 @@ export const useStore = create<TreeLineState>()((set, get) => ({
       set({ error: e })
     )
     set({ commitDiff: diff ?? '' })
+  },
+
+  menu: null,
+  openMenu: (x, y, items) => set({ menu: { x, y, items } }),
+  closeMenu: () => set({ menu: null }),
+
+  copyText: async (text) => {
+    await fail(window.treeline.copyText(text), (e) => set({ error: e }))
+  },
+
+  revealRepoFile: async (path) => {
+    const { current } = get()
+    if (!current) return
+    await fail(window.treeline.reveal(`${current}/${path}`), (e) => set({ error: e }))
+  },
+
+  revealFullPath: async (path) => {
+    await fail(window.treeline.reveal(path), (e) => set({ error: e }))
+  },
+
+  removeBookmark: async (path) => {
+    const repos = await fail(window.treeline.removeRecent(path), (e) => set({ error: e }))
+    if (repos !== null) {
+      set({ repos })
+      if (get().current === path) {
+        if (repos.length > 0) await get().selectRepo(repos[0] as string)
+        else set({ current: null, status: null, commits: [], branches: [] })
+      }
+    }
+  },
+
+  discardFile: async (path, tracked) => {
+    const { current } = get()
+    if (!current) return
+    await fail(window.treeline.discard(current, path, tracked), (e) => set({ error: e }))
+    await get().refresh()
   }
 }))

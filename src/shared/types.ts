@@ -67,4 +67,8 @@ export interface TreeLineAPI {
   setIdentity(id: GitIdentity): Promise<void>
   getCommitDetail(repo: string, hash: string): Promise<CommitDetail>
   getCommitDiff(repo: string, hash: string, file: string): Promise<string>
+  reveal(path: string): Promise<void>
+  removeRecent(path: string): Promise<string[]>
+  discard(repo: string, file: string, tracked: boolean): Promise<void>
+  copyText(text: string): Promise<void>
 }

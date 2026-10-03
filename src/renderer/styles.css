@@ -368,6 +368,24 @@ body {
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .success { color: #46a758; font-size: 12px; margin-bottom: 8px; }
 
+/* ---- Context menu (botão direito) ---- */
+.ctx-menu {
+  position: fixed; z-index: 70; min-width: 210px; max-width: 300px;
+  background: var(--bg-panel); border: 1px solid var(--border-line);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-1); padding: 6px;
+}
+.ctx-row {
+  display: flex; align-items: center; width: 100%;
+  border: none; background: transparent; color: var(--text-1);
+  border-radius: var(--radius-sm); padding: 8px 10px; font: inherit; font-size: 12.5px;
+  cursor: pointer; text-align: left;
+}
+.ctx-row:hover:not(:disabled) { background: var(--bg-hover); }
+.ctx-row:disabled { opacity: 0.4; cursor: default; }
+.ctx-row.danger { color: #e5484d; }
+.ctx-row.danger:hover { background: rgba(229, 72, 77, 0.12); }
+.ctx-sep { height: 1px; background: var(--border-line); margin: 5px 4px; }
+
 /* ---- Sync toast (Push/Pull/Fetch) ---- */
 .sync-toast {
   position: fixed; right: 16px; bottom: 40px; z-index: 50;

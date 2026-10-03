@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { simpleGit } from 'simple-git'
@@ -376,6 +376,46 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string) 
 ipcMain.handle('treeline:getCommitDiff', (_event, repo: string, hash: string, file: string) =>
   enqueue(repo, async () => simpleGit(repo).raw(['show', hash, '--unified=3', '--', file]))
 )
+
+// ---------------------------------------------------------------------------
+// IPC: utilidades de SO (reveal, clipboard, bookmarks) e descarte seguro.
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:reveal', (_event, path: string) => {
+  shell.showItemInFolder(path)
+})
+
+ipcMain.handle('treeline:copyText', (_event, text: string) => {
+  clipboard.writeText(text)
+})
+
+ipcMain.handle('treeline:removeRecent', async (_event, path: string) => {
+  const list = (await readBookmarks()).filter((p) => p !== path)
+  return writeBookmarks(list)
+})
+
+ipcMain.handle('treeline:discard', async (event, repo: string, file: string, tracked: boolean) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const opts = {
+    type: 'warning' as const,
+    title: 'Discard changes',
+    message: `Discard changes in ${file}?`,
+    detail: tracked
+      ? 'Tracked file: restores the last committed version. Cannot be undone.'
+      : 'Untracked file: moves it to the Trash. You can restore it from there.',
+    buttons: ['Cancel', 'Discard'],
+    defaultId: 0,
+    cancelId: 0
+  }
+  const res = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
+  if (res.response !== 1) return
+  await enqueue(repo, async () => {
+    if (tracked) {
+      await simpleGit(repo).raw(['checkout', '--', file])
+    } else {
+      await shell.trashItem(join(repo, file))
+    }
+  })
+})
 
 // ---------------------------------------------------------------------------
 void app.whenReady().then(() => {

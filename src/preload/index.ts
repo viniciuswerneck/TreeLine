@@ -22,7 +22,12 @@ const api: TreeLineAPI = {
   setIdentity: (id: { name: string; email: string }) => ipcRenderer.invoke('treeline:setIdentity', id),
   getCommitDetail: (repo: string, hash: string) => ipcRenderer.invoke('treeline:getCommitDetail', repo, hash),
   getCommitDiff: (repo: string, hash: string, file: string) =>
-    ipcRenderer.invoke('treeline:getCommitDiff', repo, hash, file)
+    ipcRenderer.invoke('treeline:getCommitDiff', repo, hash, file),
+  reveal: (path: string) => ipcRenderer.invoke('treeline:reveal', path),
+  removeRecent: (path: string) => ipcRenderer.invoke('treeline:removeRecent', path),
+  discard: (repo: string, file: string, tracked: boolean) =>
+    ipcRenderer.invoke('treeline:discard', repo, file, tracked),
+  copyText: (text: string) => ipcRenderer.invoke('treeline:copyText', text)
 }
 
 contextBridge.exposeInMainWorld('treeline', api)

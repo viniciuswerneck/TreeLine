@@ -17,6 +17,10 @@ export default function Sidebar() {
   const status = useStore((s) => s.status)
   const selectRepo = useStore((s) => s.selectRepo)
   const openDialog = useStore((s) => s.openDialog)
+  const openMenu = useStore((s) => s.openMenu)
+  const copyText = useStore((s) => s.copyText)
+  const revealFullPath = useStore((s) => s.revealFullPath)
+  const removeBookmark = useStore((s) => s.removeBookmark)
   const branchFilter = useStore((s) => s.branchFilter)
   const setBranchFilter = useStore((s) => s.setBranchFilter)
   const dirtyCount =
@@ -32,6 +36,19 @@ export default function Sidebar() {
             aria-selected={r === current}
             title={r}
             onClick={() => void selectRepo(r)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              openMenu(e.clientX, e.clientY, [
+                { label: 'Open repository', onClick: () => void selectRepo(r) },
+                { label: 'Reveal in file manager', onClick: () => void revealFullPath(r) },
+                { label: 'Copy path', onClick: () => void copyText(r) },
+                {
+                  label: 'Remove from bookmarks',
+                  danger: true,
+                  onClick: () => void removeBookmark(r)
+                }
+              ])
+            }}
           >
             <Bookmark size={14} />
             <span className="grow">{r.split('/').pop() ?? r}</span>

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { GitBranch } from 'lucide-react'
 import DetailsPanel from './components/DetailsPanel'
+import ContextMenu from './components/ContextMenu'
 import HistoryGraph from './components/HistoryGraph'
 import SettingsDialog from './components/SettingsDialog'
 import Sidebar from './components/Sidebar'
@@ -60,6 +61,7 @@ export default function App() {
       <StatusBar />
       <SyncToast />
       {settingsOpen && <SettingsDialog />}
+      <ContextMenu />
     </div>
   )
 }

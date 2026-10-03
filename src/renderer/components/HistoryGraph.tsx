@@ -117,6 +117,8 @@ export default function HistoryGraph() {
   const branchFilter = useStore((s) => s.branchFilter)
   const selectedCommit = useStore((s) => s.selectedCommit)
   const selectCommit = useStore((s) => s.selectCommit)
+  const copyText = useStore((s) => s.copyText)
+  const openMenu = useStore((s) => s.openMenu)
   const currentBranch = status?.branch ?? ''
 
   const visible = useMemo(() => {
@@ -204,6 +206,15 @@ export default function HistoryGraph() {
           aria-selected={selectedCommit === c.hash}
           title={`${c.message}\n${c.hash}`}
           onClick={() => void selectCommit(selectedCommit === c.hash ? null : c.hash)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            void selectCommit(c.hash)
+            openMenu(e.clientX, e.clientY, [
+              { label: 'Copy commit hash', onClick: () => void copyText(c.hash) },
+              { label: 'Copy message', onClick: () => void copyText(c.message) },
+              { label: 'Copy author', onClick: () => void copyText(c.author) }
+            ])
+          }}
         >
           <span className="graph-cell">
             <GraphCell commit={c} maxLane={maxLane} isFirst={i === 0} />

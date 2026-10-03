@@ -37,11 +37,40 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const commitDiff = useStore((s) => s.commitDiff)
   const selectCommit = useStore((s) => s.selectCommit)
   const selectCommitFile = useStore((s) => s.selectCommitFile)
+  const openMenu = useStore((s) => s.openMenu)
+  const copyText = useStore((s) => s.copyText)
+  const revealRepoFile = useStore((s) => s.revealRepoFile)
+  const discardFile = useStore((s) => s.discardFile)
   const [commitFile, setCommitFile] = useState<string | null>(null)
 
   useEffect(() => {
     setCommitFile(null)
   }, [selectedCommit])
+
+  const fileMenu = (e: React.MouseEvent, path: string, staged: boolean, tracked: boolean): void => {
+    e.preventDefault()
+    const toggle = staged ? unstageSelected : stageSelected
+    void selectFile({ path, staged }).then(() => {
+      openMenu(e.clientX, e.clientY, [
+        { label: staged ? 'Unstage file' : 'Stage file', onClick: () => void toggle() },
+        { label: 'Copy path', onClick: () => void copyText(path) },
+        { label: 'Reveal in file manager', onClick: () => void revealRepoFile(path) },
+        {
+          label: 'Discard changes…',
+          danger: true,
+          onClick: () => void discardFile(path, tracked)
+        }
+      ])
+    })
+  }
+
+  const commitFileMenu = (e: React.MouseEvent, path: string): void => {
+    e.preventDefault()
+    openMenu(e.clientX, e.clientY, [
+      { label: 'Copy path', onClick: () => void copyText(path) },
+      { label: 'Reveal in file manager', onClick: () => void revealRepoFile(path) }
+    ])
+  }
 
   // Vista de commit selecionado no histórico: meta + arquivos + diff.
   if (selectedCommit) {
@@ -86,6 +115,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
                   setCommitFile(p)
                   void selectCommitFile(p)
                 }}
+                onContextMenu={(e) => commitFileMenu(e, p)}
               >
                 <span className="grow">{p}</span>
               </div>
@@ -119,6 +149,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               className="file-row"
               aria-selected={selectedFile?.path === f.path && !selectedFile.staged}
               onClick={() => void selectFile({ path: f.path, staged: false })}
+              onContextMenu={(e) => fileMenu(e, f.path, false, true)}
             >
               <span className="code">{f.code.trim() || '?'}</span>
               <span className="grow">{f.path}</span>
@@ -140,6 +171,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               className="file-row"
               aria-selected={selectedFile?.path === p && !selectedFile.staged}
               onClick={() => void selectFile({ path: p, staged: false })}
+              onContextMenu={(e) => fileMenu(e, p, false, false)}
             >
               <span className="code">?</span>
               <span className="grow">{p}</span>
@@ -174,6 +206,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               className="file-row"
               aria-selected={selectedFile?.path === f.path && selectedFile.staged}
               onClick={() => void selectFile({ path: f.path, staged: true })}
+              onContextMenu={(e) => fileMenu(e, f.path, true, true)}
             >
               <span className="code">{f.code.trim() || '+'}</span>
               <span className="grow">{f.path}</span>
