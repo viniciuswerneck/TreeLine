@@ -296,8 +296,28 @@ body {
   border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;
 }
 .mini-btn:hover { background: var(--bg-hover); }
-.diff-pane { flex: 1; min-width: 0; overflow: auto; padding: 8px 12px; }
+.diff-pane { position: relative; flex: 1; min-width: 0; overflow: auto; padding: 8px 12px; }
 .diff-pane pre { margin: 0; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+
+/* ---- Painel expandido (tela cheia): um botão por painel (arquivos/diff) ---- */
+.expandable { position: relative; }
+.pane-expand {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; flex-shrink: 0;
+  border: 1px solid transparent; background: transparent; color: var(--text-2);
+  border-radius: var(--radius-sm); cursor: pointer;
+}
+.pane-expand:hover { background: var(--bg-hover); color: var(--text-1); border-color: var(--border-hl); }
+.pane-expand:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pane-expand svg { width: 14px; height: 14px; }
+.diff-pane > .pane-expand { position: sticky; float: right; top: 0; margin-left: 8px; background: var(--bg-panel); border-color: var(--border-line); }
+.expandable.expanded {
+  position: fixed; inset: 12px; z-index: 80; width: auto;
+  background: var(--bg-panel); color: var(--text-1);
+  border: 1px solid var(--border-line); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1); overflow: auto; padding: 12px;
+}
+.pane-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.4); }
 
 /* ---- DiffViewer estilo VS Code ---- */
 .diff-view { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; line-height: 1.55; }

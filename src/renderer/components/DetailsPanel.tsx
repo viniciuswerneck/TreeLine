@@ -1,4 +1,4 @@
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { forwardRef, useEffect, useState } from 'react'
 import { useStore } from '../store'
 import DiffViewer from './DiffViewer'
@@ -45,10 +45,38 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const refresh = useStore((s) => s.refresh)
   const loading = useStore((s) => s.loading)
   const [commitFile, setCommitFile] = useState<string | null>(null)
+  // Painel expandido (tela cheia): um por vez; Esc recolhe.
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   useEffect(() => {
     setCommitFile(null)
   }, [selectedCommit])
+
+  useEffect(() => {
+    if (!expanded) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setExpanded(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [expanded])
+
+  const expandBtn = (id: string): React.ReactNode => {
+    const open = expanded === id
+    return (
+      <button
+        className="pane-expand"
+        title={open ? tr('det.collapse') : tr('det.expand')}
+        onClick={(e) => {
+          e.stopPropagation()
+          setExpanded(open ? null : id)
+        }}
+      >
+        {open ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+      </button>
+    )
+  }
+  const expandedClass = (id: string): string => `expandable${expanded === id ? ' expanded' : ''}`
 
   const fileMenu = (e: React.MouseEvent, path: string, staged: boolean, tracked: boolean): void => {
     e.preventDefault()
@@ -80,6 +108,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
     const files = commitDetail?.files ?? []
     return (
       <div className="details">
+        {expanded && <div className="pane-backdrop" onClick={() => setExpanded(null)} />}
         <div className="details-title commit-title">
           <button className="mini-btn" title="Back to working copy" onClick={() => void selectCommit(null)}>
             <ArrowLeft size={13} /> {tr('det.backWc')}
@@ -117,9 +146,10 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           )}
         </div>
         <div className="details-body">
-          <div className="file-col">
+          <div className={`file-col ${expandedClass('cfiles')}`}>
             <div className="file-col-head">
               <h4>{tr('det.files', { n: files.length })}</h4>
+              {expandBtn('cfiles')}
             </div>
             {files.map((p) => {
               const st = commitDetail?.stats.find((s) => s.path === p)
@@ -145,7 +175,8 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             })}
             {commitDetail && files.length === 0 && <div className="file-empty">{tr('det.noFiles')}</div>}
           </div>
-          <div className="diff-pane">
+          <div className={`diff-pane ${expandedClass('cdiff')}`}>
+            {expandBtn('cdiff')}
             {commitDiff ? <DiffViewer text={commitDiff} /> : tr('det.selectFile')}
           </div>
         </div>
@@ -155,6 +186,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
 
   return (
     <div className="details">
+      {expanded && <div className="pane-backdrop" onClick={() => setExpanded(null)} />}
       <div className="details-title">
         {tr('det.fileStatus')}
         <button className="mini-btn" title={`${tr('common.refresh')} (F5)`} onClick={() => void refresh()}>
@@ -162,7 +194,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
         </button>
       </div>
       <div className="details-body">
-        <div className="file-col">
+        <div className={`file-col ${expandedClass('unstaged')}`}>
           <div className="file-col-head">
             <h4>{tr('det.unstaged', { n: unstaged.length + untracked.length })}</h4>
             {(unstaged.length > 0 || untracked.length > 0) && (
@@ -170,6 +202,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
                                 {tr('det.stageAll')}
               </button>
             )}
+            {expandBtn('unstaged')}
           </div>
           {unstaged.map((f) => (
             <div
@@ -219,7 +252,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             <div className="file-empty">{tr('det.noUnstaged')}</div>
           )}
         </div>
-        <div className="file-col">
+        <div className={`file-col ${expandedClass('staged')}`}>
           <div className="file-col-head">
             <h4>{tr('det.staged', { n: staged.length })}</h4>
             {staged.length > 0 && (
@@ -227,6 +260,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
                                 {tr('det.unstageAll')}
               </button>
             )}
+            {expandBtn('staged')}
           </div>
           {staged.map((f) => (
             <div
@@ -252,7 +286,8 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           ))}
           {staged.length === 0 && <div className="file-empty">{tr('det.noStaged')}</div>}
         </div>
-        <div className="diff-pane">
+        <div className={`diff-pane ${expandedClass('diff')}`}>
+          {expandBtn('diff')}
           {diff ? <DiffViewer text={diff} /> : tr('det.selectFile')}
         </div>
       </div>
