@@ -133,26 +133,45 @@ body {
 .body { display: flex; flex: 1; min-height: 0; }
 .main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 
-/* ---- Toolbar ---- */
+/* ---- Toolbar padrão SourceTree moderno: anatomia única, grupos, badges ---- */
 .toolbar {
-  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-  padding: 8px 12px; background: var(--bg-panel);
-  border-bottom: 1px solid var(--border-line);
+  display: flex; align-items: center; gap: 2px; flex-wrap: nowrap;
+  overflow-x: auto; min-height: 50px; padding: 6px 12px;
+  background: var(--bg-panel); border-bottom: 1px solid var(--border-line);
 }
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; margin-right: 12px; }
-.brand svg { color: var(--accent); }
-.toolbar-sep { width: 1px; height: 24px; background: var(--border-line); margin: 0 6px; }
+.toolbar-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.toolbar-right { margin-left: auto; }
+.toolbar-sep { width: 1px; height: 24px; background: var(--border-line); margin: 0 8px; flex-shrink: 0; }
 .tool-btn {
-  display: inline-flex; align-items: center; gap: 6px;
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  height: 34px; padding: 0 11px; flex-shrink: 0;
   border: 1px solid transparent; background: transparent; color: var(--text-1);
-  border-radius: var(--radius-sm); padding: 6px 10px; font-size: 12.5px; cursor: pointer;
-  transition: background var(--motion-fast), transform var(--motion-fast);
+  border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 500; white-space: nowrap;
+  cursor: pointer; user-select: none;
+  transition: background var(--motion-fast), border-color var(--motion-fast),
+    transform var(--motion-fast);
 }
-.tool-btn:hover:not(:disabled) { background: var(--bg-hover); }
-.tool-btn:active:not(:disabled) { transform: scale(0.98); }
-.tool-btn:disabled { opacity: 0.4; cursor: default; }
-.tool-btn.primary { background: var(--accent); color: var(--accent-text); font-weight: 600; }
-.tool-btn svg { width: 15px; height: 15px; }
+.tool-btn:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--border-hl); }
+.tool-btn:active:not(:disabled) { transform: scale(0.97); }
+.tool-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tool-btn:disabled { opacity: 0.38; cursor: default; }
+.tool-btn.primary { background: var(--accent); border-color: transparent; color: var(--accent-text); font-weight: 600; }
+.tool-btn.primary:hover:not(:disabled) { background: var(--accent); border-color: var(--border-hl); filter: brightness(1.08); }
+.tool-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.tool-btn.icon-only { width: 34px; padding: 0; }
+.tool-btn.attention::after {
+  content: ''; position: absolute; top: 5px; right: 5px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #e59400; border: 2px solid var(--bg-panel);
+}
+.count-badge {
+  min-width: 19px; height: 19px; padding: 0 6px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--accent-text);
+  border-radius: 999px; font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 .toolbar-search { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--text-2); }
 .toolbar-search input {
   border: 1px solid var(--border-line); border-radius: var(--radius-sm);
