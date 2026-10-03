@@ -55,7 +55,7 @@ O que diferencia o SourceTree para experts.
 - [ ] LFS: detecta, mostra badge, pull/push transparente
 - [ ] Reflog browser + Undo de reset/rebase
 - [ ] Custom Actions (comandos externos configuráveis, como no SourceTree)
-- [ ] Terminal integrado abrindo na pasta do repo
+- [x] Terminal integrado abrindo na pasta do repo (drawer xterm + node-pty, expansível, pop-out externo)
 - [ ] Multi-repo tabs
 
 Aceite: teste roteirizado SourceTree -> TreeLine com mesmo repo resulta no mesmo `git log --graph`.
@@ -85,7 +85,7 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | Git-flow | 3 | ☑ (start/finish feature/release/hotfix, com e sem `git flow`) |
 | LFS/Submodules | 2-3 | ☐ |
 | Remote manager | 1 | ☑ |
-| Custom Actions/Terminal | 3 | ◐ (terminal ok; custom actions pendente) |
+| Custom Actions/Terminal | 3 | ◐ (terminal integrado ok; custom actions pendente) |
 | Temas claro/escuro | extra | ☑ (10 temas + System) |
 | Settings identidade autor | extra | ☑ |
 
