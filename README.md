@@ -94,7 +94,14 @@ Não. Sem telemetria por padrão; credenciais ficam no credential helper do seu 
 
 ## Licença
 
-MIT — ver [`LICENSE`](LICENSE). Open source: pode usar, modificar e distribuir.
+MIT — ver [`LICENSE`](LICENSE). Open source: pode usar, modificar e distribuir,
+desde que mantidos os créditos (aviso de copyright da Werneck Lab).
+
+## Contribuindo
+
+Pull requests são bem-vindos. Ao contribuir, mantenha o aviso de copyright
+MIT em `LICENSE` e não inclua assets de terceiros com licença incompatível
+(nada da Atlassian/SourceTree: ícones e textos devem ser originais).
 
 ---
 *Desenvolvido por **Werneck Lab**.*

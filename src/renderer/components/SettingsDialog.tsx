@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { LANGS, type Lang } from '../i18n'
+import { THEMES } from '../themes'
 
 /**
  * Dialog Settings: idioma + identidade do autor (git user.name/user.email).
@@ -15,6 +16,8 @@ export default function SettingsDialog() {
   const saveIdentity = useStore((s) => s.saveIdentity)
   const lang = useStore((s) => s.lang)
   const setLang = useStore((s) => s.setLang)
+  const theme = useStore((s) => s.theme)
+  const setTheme = useStore((s) => s.setTheme)
   const tr = useStore((s) => s.tr)
 
   const [name, setName] = useState(identity.name)
@@ -45,6 +48,28 @@ export default function SettingsDialog() {
                 {l.name}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>{tr('toolbar.theme')}</span>
+          <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+            <optgroup label={tr('theme.system')}>
+              <option value="system">{tr('theme.system')}</option>
+            </optgroup>
+            <optgroup label={tr('theme.light')}>
+              {THEMES.filter((t) => t.mode === 'light').map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label={tr('theme.dark')}>
+              {THEMES.filter((t) => t.mode === 'dark').map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </label>
         <p className="muted">{tr('settings.identityHint')}</p>
