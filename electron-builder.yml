@@ -1,0 +1,16 @@
+appId: dev.treeline.app
+productName: TreeLine
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+linux:
+  category: Development
+  executableName: treeline
+  syncDesktopName: true
+  target:
+    - deb
+    - AppImage
+deb:
+  packageCategory: devel
