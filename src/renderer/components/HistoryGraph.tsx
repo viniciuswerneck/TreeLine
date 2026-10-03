@@ -27,24 +27,20 @@ function shortHash(h: string): string {
   return h.slice(0, 7)
 }
 
-/** Data relativa estilo Git Graph ("há 2 horas"). Cai para ISO se inválida. */
-function relDate(rtf: Intl.RelativeTimeFormat, iso: string, nowText: string): string {
-  const t = new Date(iso).getTime()
-  if (Number.isNaN(t)) return iso.slice(0, 16).replace('T', ' ')
-  const s = Math.round((t - Date.now()) / 1000)
-  const a = Math.abs(s)
-  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-    ['year', 31536000],
-    ['month', 2592000],
-    ['week', 604800],
-    ['day', 86400],
-    ['hour', 3600],
-    ['minute', 60]
-  ]
-  for (const [unit, sec] of units) {
-    if (a >= sec) return rtf.format(Math.round(s / sec), unit)
-  }
-  return a <= 10 ? nowText : rtf.format(s, 'second')
+/** Data absoluta estilo Git Graph ("3 Oct 2026 13:02"). Cai para ISO se inválida. */
+function absDate(lang: string, iso: string): string {
+  const t = new Date(iso)
+  if (Number.isNaN(t.getTime())) return iso.slice(0, 16).replace('T', ' ')
+  const date = new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'short', year: 'numeric' }).format(t)
+  const time = new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit', hour12: false }).format(t)
+  return `${date} ${time}`
+}
+
+/** Cor estável por branch (hash do nome → paleta), como no Git Graph. */
+export function branchColor(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return LANE_COLORS[h % LANE_COLORS.length] as string
 }
 
 /** Pílulas de ref (HEAD, branch, remoto, tag). Symrefs como origin/HEAD são ruído: fora. */
@@ -60,8 +56,9 @@ export function RefBadge({ name }: { name: string }) {
   const kind = isHead ? 'head' : isTag ? 'tag' : isRemote ? 'remote' : 'branch'
   const label = isTag ? name.slice('tag: '.length) : name
   const Icon = isHead ? null : isTag ? Tag : isRemote ? Cloud : GitBranch
+  const style = kind === 'branch' ? { background: branchColor(label), color: '#fff', borderColor: 'transparent' } : undefined
   return (
-    <span className={`ref-badge ${kind}`} title={name}>
+    <span className={`ref-badge ${kind}`} title={name} style={style}>
       {Icon && <Icon size={10} />}
       {label}
     </span>
@@ -87,7 +84,7 @@ function GraphCell({ commit, maxLane, isFirst }: { commit: LaneCommit; maxLane: 
           stroke={laneColor(l)}
           strokeWidth={2}
           strokeLinecap="round"
-          opacity={0.55}
+          opacity={0.8}
         />
       ))}
       {!isFirst && (
@@ -134,11 +131,6 @@ export default function HistoryGraph() {
   const tr = useStore((s) => s.tr)
   const lang = useStore((s) => s.lang)
   const currentBranch = status?.branch ?? ''
-  const rtf = useMemo(
-    () => new Intl.RelativeTimeFormat(DATE_LOCALE[lang], { numeric: 'auto' }),
-    [lang]
-  )
-  const nowText = lang === 'es' ? 'ahora' : lang === 'pt' ? 'agora' : 'now'
 
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -248,7 +240,7 @@ export default function HistoryGraph() {
             {c.message}
           </span>
           <span className="muted" title={c.date.slice(0, 16).replace('T', ' ')}>
-            {relDate(rtf, c.date, nowText)}
+            {absDate(DATE_LOCALE[lang], c.date)}
           </span>
           <span className="muted">{c.author}</span>
           <span className="mono muted">{shortHash(c.hash)}</span>

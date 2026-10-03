@@ -40,6 +40,15 @@ export interface GitIdentity {
 /** Detalhe de um commit para o painel inferior (meta + arquivos tocados). */
 export interface CommitDetail extends CommitInfo {
   files: string[]
+  committer: string
+  stats: FileStat[]
+}
+
+/** Linhas de `--numstat`: adições/remoções por arquivo. */
+export interface FileStat {
+  path: string
+  added: number
+  deleted: number
 }
 
 /** Resultado resumido de Push/Pull/Fetch para exibir no toast. */

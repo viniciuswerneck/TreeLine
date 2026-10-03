@@ -251,6 +251,11 @@ body {
 }
 .commit-meta { padding: 0 12px 8px; display: flex; flex-direction: column; gap: 2px; }
 .commit-meta .msg { font-size: 13px; }
+.meta-grid {
+  display: grid; grid-template-columns: auto 1fr; gap: 1px 10px;
+  font-size: 12px; margin-top: 6px;
+}
+.stat-add { color: #46a758; } .stat-del { color: #e5484d; }
 .tabs { display: flex; gap: 2px; padding: 6px 12px 0; }
 .tab {
   border: 1px solid transparent; border-bottom: none; background: transparent; color: var(--text-2);

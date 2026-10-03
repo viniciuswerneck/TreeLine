@@ -1031,19 +1031,51 @@ ipcMain.handle('treeline:setIdentity', async (_event, id: GitIdentity, lang?: un
 
 ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, lang?: unknown) =>
   enqueue(repo, async (): Promise<CommitDetail> => {
+    const l = asLang(lang)
     const out = await simpleGit(repo).raw([
       'show', '--name-only', '--date=iso',
-      '--pretty=format:%H%x00%P%x00%an%x00%ad%x00%D%x00%s%x1e', hash
+      '--pretty=format:%H%x00%P%x00%an%x00%cn%x00%ad%x00%D%x00%s%x1e', hash
     ])
     const [head, ...rest] = out.split('\x1e')
-    const info = head ? parseLogBlock(head) : null
-    if (!info) throw new Error(mx(asLang(lang), 'commitNotFound'))
+    const parts = (head ?? '').split('\0')
+    if (parts.length < 7) throw new Error(mx(l, 'commitNotFound'))
+    const [hashRaw, parentStr, author, committer, date, refStr, message] = parts as [string, string, string, string, string, string, string]
+    const h = hashRaw.trim()
+    if (!h) throw new Error(mx(l, 'commitNotFound'))
+    const refs = (refStr ? refStr.split(', ') : []).flatMap((r) => {
+      if (r.startsWith('HEAD -> ')) return ['HEAD', r.slice('HEAD -> '.length)]
+      if (r === 'HEAD') return ['HEAD']
+      return [r]
+    })
     const files = rest
       .join('\x1e')
       .split('\n')
       .map((f) => f.trim())
       .filter((f) => f.length > 0)
-    return { ...info, files }
+    // +/- por arquivo (merge sem diff próprio pode vir vazio: sem stats).
+    let stats: import('../shared/types').FileStat[] = []
+    try {
+      const ns = await simpleGit(repo).raw(['show', '--numstat', '--format=', hash])
+      stats = ns.split('\n').flatMap((line) => {
+        const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/)
+        if (!m?.[3]) return []
+        const num = (v: string): number => (v === '-' ? 0 : Number.parseInt(v, 10) || 0)
+        return [{ path: (m[3] as string).trim(), added: num(m[1] as string), deleted: num(m[2] as string) }]
+      })
+    } catch {
+      /* sem stats */
+    }
+    return {
+      hash: h,
+      parents: parentStr ? parentStr.split(/\s+/).map((p) => p.trim()).filter((p) => p.length > 0) : [],
+      author,
+      committer,
+      date,
+      message: message ?? '',
+      refs,
+      files,
+      stats
+    }
   })
 )
 

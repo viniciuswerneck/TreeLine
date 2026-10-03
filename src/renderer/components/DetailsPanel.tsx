@@ -95,9 +95,21 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
                 ))}
                 {commitDetail.message}
               </div>
-              <div className="muted">
-                {commitDetail.author} · {commitDetail.date.slice(0, 16).replace('T', ' ')} ·{' '}
-                {files.length} file{files.length === 1 ? '' : 's'}
+              <div className="meta-grid">
+                <span className="muted">{tr('det.author')}</span>
+                <span>{commitDetail.author}</span>
+                <span className="muted">{tr('det.committer')}</span>
+                <span>{commitDetail.committer}</span>
+                <span className="muted">{tr('det.date')}</span>
+                <span>{commitDetail.date.slice(0, 16).replace('T', ' ')}</span>
+                <span className="muted">Commit</span>
+                <span className="mono">{commitDetail.hash}</span>
+                {commitDetail.parents.length > 0 && (
+                  <>
+                    <span className="muted">{tr('det.parents')}</span>
+                    <span className="mono">{commitDetail.parents.map((p) => p.slice(0, 7)).join(' ')}</span>
+                  </>
+                )}
               </div>
             </>
           ) : (
@@ -109,20 +121,28 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             <div className="file-col-head">
               <h4>{tr('det.files', { n: files.length })}</h4>
             </div>
-            {files.map((p) => (
-              <div
-                key={p}
-                className="file-row"
-                aria-selected={commitFile === p}
-                onClick={() => {
-                  setCommitFile(p)
-                  void selectCommitFile(p)
-                }}
-                onContextMenu={(e) => commitFileMenu(e, p)}
-              >
-                <span className="grow">{p}</span>
-              </div>
-            ))}
+            {files.map((p) => {
+              const st = commitDetail?.stats.find((s) => s.path === p)
+              return (
+                <div
+                  key={p}
+                  className="file-row"
+                  aria-selected={commitFile === p}
+                  onClick={() => {
+                    setCommitFile(p)
+                    void selectCommitFile(p)
+                  }}
+                  onContextMenu={(e) => commitFileMenu(e, p)}
+                >
+                  <span className="grow">{p}</span>
+                  {st && (
+                    <span className="mono muted">
+                      (<span className="stat-add">+{st.added}</span> <span className="stat-del">−{st.deleted}</span>)
+                    </span>
+                  )}
+                </div>
+              )
+            })}
             {commitDetail && files.length === 0 && <div className="file-empty">{tr('det.noFiles')}</div>}
           </div>
           <div className="diff-pane">
