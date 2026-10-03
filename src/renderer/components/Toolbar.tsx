@@ -16,7 +16,6 @@ import {
   Workflow
 } from 'lucide-react'
 import { useStore } from '../store'
-import ThemeMenu from './ThemeMenu'
 
 function ToolButton(props: {
   title: string
@@ -115,7 +114,6 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
       <ToolButton title={tr('toolbar.settings')} onClick={() => void openSettings()}>
         <Settings size={15} />
       </ToolButton>
-      <ThemeMenu />
     </div>
   )
 }

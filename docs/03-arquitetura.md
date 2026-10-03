@@ -29,7 +29,7 @@ treeline/
         graph.ts   # lane engine puro-TS (lane/through/forks), testável
       components/
         Toolbar/ Sidebar/ HistoryGraph(SVG)/ DetailsPanel/ StatusBar/
-        SyncToast/ ThemeMenu/ SettingsDialog/
+        SyncToast/ SettingsDialog/
     shared/        # tipos IPC + constantes
       types.ts
   electron-builder.yml
@@ -52,7 +52,7 @@ Canais IPC implementados (2026-10-03):
 
 ## 3.2 Temas e Settings
 
-- `themes.ts`: ids `system` + 5 light (`treeline-light, paper, sandstone, mint, sky`) + 5 dark (`treeline-dark, midnight, forest, graphite, plum`); tokens em `styles.css` via `:root[data-theme]`; `ThemeMenu` na toolbar; persistido em `localStorage`.
+- `themes.ts`: ids `system` + 5 light (`treeline-light, paper, sandstone, mint, sky`) + 5 dark (`treeline-dark, midnight, forest, graphite, plum`); tokens em `styles.css` via `:root[data-theme]`; seletor no Settings; persistido em `localStorage`.
 - `SettingsDialog`: edita `user.name`/`user.email` global com validação; aberto pela engrenagem da toolbar e pelo welcome.
 
 ## 4. Modelo de dados Git

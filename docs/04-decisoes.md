@@ -60,7 +60,7 @@ Formato curto: Contexto -> Decisão -> Consequência. Não reabrir sem fato novo
 ## ADR-010 — 10 temas próprios + System (2026-10-03)
 
 - Contexto: Usuário pediu 5 temas claros e 5 escuros.
-- Decisão: Tokens em `styles.css` via `:root[data-theme]` (System = sem atributo, segue `prefers-color-scheme`); `themes.ts` + `ThemeMenu`; persistência em `localStorage`. Nomes e paletas originais (TreeLine Light/Dark, Paper, Sandstone, Mint, Sky, Midnight, Forest, Graphite, Plum).
+- Decisão: Tokens em `styles.css` via `:root[data-theme]` (System = sem atributo, segue `prefers-color-scheme`); `themes.ts` + seletor no Settings; persistência em `localStorage`. Nomes e paletas originais (TreeLine Light/Dark, Paper, Sandstone, Mint, Sky, Midnight, Forest, Graphite, Plum).
 - Consequência: Troca instantânea sem reload; grafo usa paleta própria fixa legível nos 11 modos.
 
 ## ADR-011 — Rename GitNest -> TreeLine (2026-10-03)

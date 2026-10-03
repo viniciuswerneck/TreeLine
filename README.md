@@ -65,7 +65,7 @@ Para rodar o binário local sem instalar:
 src/
   main/       # Electron/Node: git via CLI, IPC, bookmarks, splash
   preload/    # bridge segura (contextIsolation on)
-  renderer/   # React + zustand: Toolbar/Sidebar/HistoryGraph/DetailsPanel/StatusBar/SyncToast/ThemeMenu/SettingsDialog
+  renderer/   # React + zustand: Toolbar/Sidebar/HistoryGraph/DetailsPanel/StatusBar/SyncToast/SettingsDialog
   shared/     # tipos do IPC
 docs/         # visão, roadmap, arquitetura, ADRs, estado, design system
 ```

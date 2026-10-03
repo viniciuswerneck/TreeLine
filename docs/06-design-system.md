@@ -4,7 +4,7 @@
 
 ## 1. Tokens e temas (implementado 2026-10-03)
 
-11 modos: `system` (sem `data-theme`, segue `prefers-color-scheme`) + 5 light + 5 dark via `:root[data-theme="id"]`, com `color-scheme` correspondente. Troca via `ThemeMenu`, persistida em `localStorage` (`themes.ts`).
+11 modos: `system` (sem `data-theme`, segue `prefers-color-scheme`) + 5 light + 5 dark via `:root[data-theme="id"]`, com `color-scheme` correspondente. Troca no Settings (antes `ThemeMenu` na toolbar, removido), persistida em `localStorage` (`themes.ts`).
 
 | Tema | bg-app | bg-panel | text-1 | accent |
 |---|---|---|---|---|
@@ -117,10 +117,10 @@ Comportamento (paridade SourceTree): duplo-clique = checkout; botão direito = m
 
 ## 3. Componentes implementados (2026-10-03)
 
-1. ~~Sidebar~~ ☑ → 2. Toolbar completa ☑ → 3. Modal Settings ☑ → 4. SyncToast ☑ → 5. ThemeMenu ☑ → 6. Grafo SVG ☑.
+1. ~~Sidebar~~ ☑ → 2. Toolbar completa ☑ → 3. Modal Settings ☑ → 4. SyncToast ☑ → 5. ~~ThemeMenu~~ (movido p/ Settings) ☑ → 6. Grafo SVG ☑.
 - **Grafo estilo Git Graph**: SVG por linha (lane 16px, altura 30px), paleta fixa de 8 cores por lane (`LANE_COLORS` em `HistoryGraph.tsx`), curvas Bézier nos merges/forks, dots com borda do bg, badges de ref por tipo (HEAD/branch/remoto/tag), datas relativas pt-BR com tooltip ISO.
 - **SyncToast**: canto inferior direito, borda lateral por fase (accent/verde/vermelho), spinner CSS, auto-dismiss do sucesso em 5s.
-- **Modal Settings/ThemeMenu**: seguem radius/shadow/tokens; `backdrop-filter` só na sidebar e modais, nunca no grafo/diff.
+- **Modal Settings**: seguem radius/shadow/tokens; `backdrop-filter` só na sidebar e modais, nunca no grafo/diff.
 
 ## 4. Próximo
 
