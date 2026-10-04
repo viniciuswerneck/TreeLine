@@ -7,7 +7,7 @@ const api: TreeLineAPI = {
   openRepo: () => ipcRenderer.invoke('treeline:openRepo'),
   addRecent: (path: string) => ipcRenderer.invoke('treeline:addRecent', path),
   getStatus: (repo: string) => ipcRenderer.invoke('treeline:getStatus', repo),
-  getLog: (repo: string, limit?: number) => ipcRenderer.invoke('treeline:getLog', repo, limit),
+  getLog: (repo: string, limit?: number, skip?: number, ref?: string) => ipcRenderer.invoke('treeline:getLog', repo, limit, skip, ref),
   getBranches: (repo: string) => ipcRenderer.invoke('treeline:getBranches', repo),
   getDiff: (repo: string, file: string, staged: boolean) =>
     ipcRenderer.invoke('treeline:getDiff', repo, file, staged),
@@ -29,6 +29,7 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:resolveTheirs', repo, file, lang),
   pushForce: (repo: string, forceLease: boolean, lang?: string) =>
     ipcRenderer.invoke('treeline:pushForce', repo, forceLease, lang),
+  cancelSync: (repo: string, op: string) => ipcRenderer.invoke('treeline:cancelSync', repo, op),
   getBranchesDetailed: (repo: string) => ipcRenderer.invoke('treeline:getBranchesDetailed', repo),
   getRemoteBranches: (repo: string) => ipcRenderer.invoke('treeline:getRemoteBranches', repo),
   setUpstream: (repo: string, branch: string, upstream: string, lang?: string) =>
@@ -57,6 +58,8 @@ const api: TreeLineAPI = {
   getIdentity: () => ipcRenderer.invoke('treeline:getIdentity'),
   setIdentity: (id: { name: string; email: string }, lang?: string) =>
     ipcRenderer.invoke('treeline:setIdentity', id, lang),
+  setLang: (lang: string) => ipcRenderer.invoke('treeline:setLang', lang),
+  getVersion: () => ipcRenderer.invoke('treeline:getVersion'),
   getCommitDetail: (repo: string, hash: string) => ipcRenderer.invoke('treeline:getCommitDetail', repo, hash),
   getCommitDiff: (repo: string, hash: string, file: string) =>
     ipcRenderer.invoke('treeline:getCommitDiff', repo, hash, file),
@@ -124,6 +127,9 @@ const api: TreeLineAPI = {
   getReflog: (repo: string, limit?: number) => ipcRenderer.invoke('treeline:getReflog', repo, limit),
   undoToReflog: (repo: string, ref: string, lang?: string) =>
     ipcRenderer.invoke('treeline:undoToReflog', repo, ref, lang),
+  listBackups: (repo: string) => ipcRenderer.invoke('treeline:listBackups', repo),
+  restoreBackup: (repo: string, file: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:restoreBackup', repo, file, lang),
   getRemotes: (repo: string) => ipcRenderer.invoke('treeline:getRemotes', repo),
   addRemote: (repo: string, name: string, url: string, lang?: string) =>
     ipcRenderer.invoke('treeline:addRemote', repo, name, url, lang),
@@ -137,6 +143,7 @@ const api: TreeLineAPI = {
   termResize: (repo: string, cols: number, rows: number) =>
     ipcRenderer.invoke('treeline:termResize', repo, cols, rows),
   termStop: (repo: string) => ipcRenderer.invoke('treeline:termStop', repo),
+  termAlive: (repo: string) => ipcRenderer.invoke('treeline:termAlive', repo),
   onTermData: (cb: (repo: string, data: string) => void) => {
     const fn = (_e: unknown, repo: string, data: string): void => cb(repo, data)
     ipcRenderer.on('treeline:termData', fn)

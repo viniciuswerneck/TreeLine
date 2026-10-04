@@ -8,6 +8,7 @@ import {
   GitBranch,
   GitMerge,
   History,
+  Info,
   RefreshCw,
   Repeat,
   Settings,
@@ -171,6 +172,9 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
       <IconButton title={tr('toolbar.terminal')} disabled={!ready} onClick={toggleTerminal}>
         <Terminal size={16} />
       </IconButton>
+        <IconButton title={tr('about.title')} onClick={() => openDlg('about')}>
+          <Info size={16} />
+        </IconButton>
         <IconButton title={tr('toolbar.settings')} onClick={() => void openSettings()}>
           <Settings size={16} />
         </IconButton>

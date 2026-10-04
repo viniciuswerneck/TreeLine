@@ -24,7 +24,6 @@ export default function TerminalPanel() {
   useEffect(() => {
     const box = boxRef.current
     if (!current || !box) return
-    setDead(false)
     setFailed(null)
 
     const term = new Terminal({
@@ -61,9 +60,18 @@ export default function TerminalPanel() {
     } catch {
       /* usa o padrão */
     }
-    window.treeline.termStart(current, dims.cols, dims.rows).catch((e: unknown) => {
-      setFailed(e instanceof Error ? e.message : String(e))
-    })
+    // Sessão por repo sobrevive à troca de repo: só cria se não houver viva.
+    window.treeline
+      .termAlive(current)
+      .then((alive) => {
+        setDead(!alive)
+        if (!alive) {
+          return window.treeline.termStart(current, dims.cols, dims.rows).catch((e: unknown) => {
+            setFailed(e instanceof Error ? e.message : String(e))
+          })
+        }
+      })
+      .catch(() => setDead(true))
 
     const input = term.onData((data) => {
       void window.treeline.termWrite(current, data).catch(() => undefined)
@@ -80,7 +88,8 @@ export default function TerminalPanel() {
       input.dispose()
       offData()
       offExit()
-      void window.treeline.termStop(current).catch(() => undefined)
+      // NÃO mata o pty ao trocar de repo/fechar o drawer: a sessão continua
+      // viva e é reanexada ao voltar (botão Restart recria se morreu).
       term.dispose()
       termRef.current = null
       fitRef.current = null

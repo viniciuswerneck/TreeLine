@@ -17,23 +17,32 @@ export default function BlameDialog() {
         <p className="dlg-hint">{tr('blame.empty')}</p>
       ) : (
         <div className="dlg-list">
-          {blame.map((b) => (
-            <div key={b.line} className="dlg-row">
-              <span className="muted">{b.line}</span>
-              <button
-                className="mini-btn mono"
-                onClick={() => {
-                  void selectCommit(b.hash)
-                  closeBlame()
-                  closeDlg()
-                }}
-              >
-                {b.hash.slice(0, 7)}
-              </button>
-              <span className="muted">{b.author}</span>
-              <span className="grow">{b.content}</span>
-            </div>
-          ))}
+          {blame.map((b) => {
+            const pending = /^0+$/.test(b.hash)
+            return (
+              <div key={b.line} className={`dlg-row${pending ? ' blame-pending' : ''}`}>
+                <span className="muted">{b.line}</span>
+                {pending ? (
+                  <span className="mini-btn mono" title={tr('blame.uncommitted')}>
+                    ✎
+                  </span>
+                ) : (
+                  <button
+                    className="mini-btn mono"
+                    onClick={() => {
+                      void selectCommit(b.hash)
+                      closeBlame()
+                      closeDlg()
+                    }}
+                  >
+                    {b.hash.slice(0, 7)}
+                  </button>
+                )}
+                <span className="muted">{pending ? tr('blame.uncommitted') : b.author}</span>
+                <span className="grow">{b.content}</span>
+              </div>
+            )
+          })}
         </div>
       )}
     </Dialog>

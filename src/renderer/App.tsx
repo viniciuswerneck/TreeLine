@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { GitBranch } from 'lucide-react'
+import AboutDialog from './components/AboutDialog'
 import BlameDialog from './components/BlameDialog'
 import BranchDialog from './components/BranchDialog'
 import CommandPalette from './components/CommandPalette'
@@ -44,6 +45,7 @@ export default function App() {
   useEffect(() => {
     applyTheme(theme)
     applyLang(lang)
+    document.title = tr('app.title')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -135,6 +137,7 @@ export default function App() {
       {dialog === 'blame' && <BlameDialog />}
       {dialog === 'fileHistory' && <FileHistoryDialog />}
       {dialog === 'compare' && <CompareDialog />}
+      {dialog === 'about' && <AboutDialog />}
       <CommandPalette />
       <ConfirmDialog />
       <ContextMenu />

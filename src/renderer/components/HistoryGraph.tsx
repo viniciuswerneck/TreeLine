@@ -1,7 +1,7 @@
 import { Cloud, GitBranch, RefreshCw, Search, Tag } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DATE_LOCALE } from '../i18n'
-import { layoutGraph, type LaneCommit } from '../lib/graph'
+import { layoutGraph, topTouches, bottomTouches, type LaneCommit } from '../lib/graph'
 import { dialogOps, useStore } from '../store'
 
 /** Largura por lane e altura da linha — espelham o CSS (.history-row height). */
@@ -80,8 +80,16 @@ export function RefBadge({ name }: { name: string }) {
   )
 }
 
-/** Grafo estilo Git Graph: linhas curvas coloridas por lane + dot do commit. */
-function GraphCell({ commit, maxLane, isFirst }: { commit: LaneCommit; maxLane: number; isFirst: boolean }) {
+/**
+ * Grafo estilo Git Graph: linhas curvas coloridas por lane + dot do commit.
+ *
+ * Regra de continuidade (acaba com "pontinha pendurada"): cada segmento/curva
+ * só é desenhado se a lane toca a borda da linha vizinha visível —
+ * `above`/`below` vêm das linhas ao redor (`topTouches`/`bottomTouches`).
+ * Lane que nasce aqui (sem trilho acima) começa no dot; lane que morre aqui
+ * termina no dot. Trilhos retos de passagem (through) sempre desenham.
+ */
+function GraphCell({ commit, maxLane, above, below }: { commit: LaneCommit; maxLane: number; above: number[]; below: number[] }) {
   const cy = ROW_H / 2
   const color = laneColor(commit.lane)
   const continuesDown = commit.parents.length > 0
@@ -101,24 +109,28 @@ function GraphCell({ commit, maxLane, isFirst }: { commit: LaneCommit; maxLane: 
           opacity={0.8}
         />
       ))}
-      {!isFirst && (
+      {above.includes(commit.lane) && (
         <line x1={cx(commit.lane)} y1={0} x2={cx(commit.lane)} y2={cy} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.85} />
       )}
-      {continuesDown && (
+      {continuesDown && below.includes(commit.lane) && (
         <line x1={cx(commit.lane)} y1={cy} x2={cx(commit.lane)} y2={ROW_H} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.85} />
       )}
       {commit.forks.map((f, i) =>
         f.kind === 'split' ? (
-          <path
-            key={`f${i}`}
-            d={`M ${cx(f.from)},${cy} C ${cx(f.from)},${cy + 9} ${cx(f.to)},${ROW_H - 9} ${cx(f.to)},${ROW_H}`}
-            stroke={laneColor(f.to)}
-            strokeWidth={2}
-            strokeLinecap="round"
-            fill="none"
-            opacity={0.85}
-          />
-        ) : (
+          // split: curva sai do dot p/ baixo — só se a lane chega na linha de baixo
+          !below.includes(f.to) ? null : (
+            <path
+              key={`f${i}`}
+              d={`M ${cx(f.from)},${cy} C ${cx(f.from)},${cy + 9} ${cx(f.to)},${ROW_H - 9} ${cx(f.to)},${ROW_H}`}
+              stroke={laneColor(f.to)}
+              strokeWidth={2}
+              strokeLinecap="round"
+              fill="none"
+              opacity={0.85}
+            />
+          )
+        ) : // join: curva entra no dot vindo de cima — só se a lane vem da linha de cima
+        !above.includes(f.from) ? null : (
           <path
             key={`f${i}`}
             d={`M ${cx(f.from)},0 C ${cx(f.from)},${cy - 9} ${cx(f.to)},${cy - 9} ${cx(f.to)},${cy}`}
@@ -163,6 +175,9 @@ export default function HistoryGraph() {
   const openDlg = useStore((s) => s.openDlg)
   const setRefPreset = useStore((s) => s.setRefPreset)
   const headPing = useStore((s) => s.headPing)
+  const hasMoreCommits = useStore((s) => s.hasMoreCommits)
+  const loadingMore = useStore((s) => s.loadingMore)
+  const loadMoreCommits = useStore((s) => s.loadMoreCommits)
   const [headFlash, setHeadFlash] = useState(0)
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -191,10 +206,7 @@ export default function HistoryGraph() {
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase()
     return (c: LaneCommit): boolean => {
-      if (branchFilter === 'current' && currentBranch && !c.refs.includes(currentBranch)) {
-        // sem info de branch por commit no IPC atual: mantém os que citam o branch ou sem refs
-        if (c.refs.length > 0) return false
-      }
+      // Modo current: o servidor já mandou só ancestry do branch; aqui só texto.
       if (!q) return true
       return (
         c.message.toLowerCase().includes(q) ||
@@ -204,7 +216,7 @@ export default function HistoryGraph() {
         c.refs.some((r) => r.toLowerCase().includes(q))
       )
     }
-  }, [filter, branchFilter, currentBranch])
+  }, [filter])
 
   const commitMenu = (e: React.MouseEvent, hash: string, message: string, author: string): void => {
     e.preventDefault()
@@ -276,7 +288,13 @@ export default function HistoryGraph() {
   }
 
   return (
-    <div className="history">
+    <div
+      className="history"
+      onScroll={(e) => {
+        const el = e.currentTarget
+        if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) void loadMoreCommits()
+      }}
+    >
       <div className="history-filter">
         <span className="history-count" title="Commits listed">
           {tr('hist.commits', { n: rows.length })}
@@ -348,7 +366,12 @@ export default function HistoryGraph() {
           onContextMenu={(e) => commitMenu(e, c.hash, c.message, c.author)}
         >
           <span className="graph-cell">
-            <GraphCell commit={c} maxLane={maxLane} isFirst={i === 0} />
+            <GraphCell
+              commit={c}
+              maxLane={maxLane}
+              above={i === 0 ? [] : bottomTouches(rows[i - 1] as LaneCommit)}
+              below={i === rows.length - 1 ? [] : topTouches(rows[i + 1] as LaneCommit)}
+            />
           </span>
           <span className="msg">
             {visibleRefs(c.refs).map((r) => (
@@ -366,6 +389,13 @@ export default function HistoryGraph() {
           <span className="mono muted">{shortHash(c.hash)}</span>
         </div>
       ))}
+      {hasMoreCommits && (
+        <div className="history-more">
+          <button className="mini-btn" disabled={loadingMore} onClick={() => void loadMoreCommits()}>
+            {loadingMore ? tr('dlg.working') : tr('hist.loadMore')}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

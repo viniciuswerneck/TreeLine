@@ -8,6 +8,7 @@ export type DialogKind =
   | 'branch' | 'merge' | 'stash' | 'tag' | 'rebase'
   | 'pick' | 'flow' | 'reflog' | 'remotes'
   | 'reset' | 'rebaseInteractive' | 'blame' | 'fileHistory' | 'compare'
+  | 'about'
 
 export interface ContextMenuState {
   x: number
@@ -56,6 +57,10 @@ interface TreeLineState {
   error: string | null
   filter: string
   branchFilter: 'all' | 'current'
+  logPage: number
+  hasMoreCommits: boolean
+  loadingMore: boolean
+  loadMoreCommits: () => Promise<void>
   sync: SyncState
   theme: string
   lang: Lang
@@ -67,7 +72,7 @@ interface TreeLineState {
   setMessage: (m: string) => void
   setAmend: (a: boolean) => void
   setFilter: (f: string) => void
-  setBranchFilter: (f: 'all' | 'current') => void
+  setBranchFilter: (f: 'all' | 'current') => Promise<void>
   stageSelected: () => Promise<void>
   unstageSelected: () => Promise<void>
   stageAll: () => Promise<void>
@@ -85,6 +90,7 @@ interface TreeLineState {
   discardHunk: (hunkIndex: number) => Promise<void>
   stageLines: (hunkIndex: number, lines: number[]) => Promise<void>
   clearSync: () => void
+  cancelSync: () => Promise<void>
   setTheme: (t: string) => void
   setLang: (l: Lang) => void
   tr: (key: DictKey, vars?: Record<string, string | number>) => string
@@ -202,6 +208,32 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   error: null,
   filter: '',
   branchFilter: 'all',
+  logPage: 0,
+  hasMoreCommits: false,
+  loadingMore: false,
+  loadMoreCommits: async () => {
+    const { current, commits, logPage, hasMoreCommits, loadingMore } = get()
+    if (!current || !hasMoreCommits || loadingMore) return
+    set({ loadingMore: true })
+    const PAGE = 300
+    const st = get()
+    const cur = st.branches.find((b) => b.current)?.name ?? st.status?.branch
+    const ref = st.branchFilter === 'current' && cur && cur !== '(detached)' ? cur : undefined
+    const next = await fail(window.treeline.getLog(current, PAGE, commits.length, ref), (e) => set({ error: e }))
+    if (next !== null) {
+      // Dedupe por hash: repo pode ter mudado entre páginas (skip desloca).
+      const seen = new Set(commits.map((c) => c.hash))
+      const fresh = next.filter((c) => !seen.has(c.hash))
+      set({
+        commits: [...commits, ...fresh],
+        logPage: logPage + 1,
+        hasMoreCommits: next.length >= PAGE,
+        loadingMore: false
+      })
+    } else {
+      set({ loadingMore: false })
+    }
+  },
   sync: { op: null, phase: null, message: '', retryLease: false },
   theme: loadTheme(),
   lang: loadLang(),
@@ -232,10 +264,15 @@ export const useStore = create<TreeLineState>()((set, get) => ({
     const { current } = get()
     if (!current) return
     set({ loading: true, error: null })
-    const [status, commits, branches, branchesDetailed, remoteBranches, stashes, tags, remotes, reflog, mergeState, rebaseState, pickState, revertState, worktree, flow] = await Promise.all([
+    // Fase 1: branch atual (para o log com ancestry real no modo current).
+    const [status, branches] = await Promise.all([
       fail(window.treeline.getStatus(current), (e) => set({ error: e })),
-      fail(window.treeline.getLog(current, 300), (e) => set({ error: e })),
-      fail(window.treeline.getBranches(current), (e) => set({ error: e })),
+      fail(window.treeline.getBranches(current), (e) => set({ error: e }))
+    ])
+    const cur = branches?.find((b) => b.current)?.name ?? status?.branch
+    const ref = get().branchFilter === 'current' && cur && cur !== '(detached)' ? cur : undefined
+    const [commits, branchesDetailed, remoteBranches, stashes, tags, remotes, reflog, mergeState, rebaseState, pickState, revertState, worktree, flow] = await Promise.all([
+      fail(window.treeline.getLog(current, 300, 0, ref), (e) => set({ error: e })),
       fail(window.treeline.getBranchesDetailed(current), (e) => set({ error: e })),
       fail(window.treeline.getRemoteBranches(current), (e) => set({ error: e })),
       fail(window.treeline.getStashes(current), (e) => set({ error: e })),
@@ -252,6 +289,8 @@ export const useStore = create<TreeLineState>()((set, get) => ({
     set({
       status: status ?? get().status,
       commits: commits ?? get().commits,
+      logPage: 0,
+      hasMoreCommits: (commits?.length ?? 0) >= 300,
       branches: branches ?? get().branches,
       branchesDetailed: branchesDetailed ?? get().branchesDetailed,
       remoteBranches: remoteBranches ?? get().remoteBranches,
@@ -285,7 +324,11 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   setMessage: (m) => set({ message: m }),
   setAmend: (a) => set({ amend: a }),
   setFilter: (f) => set({ filter: f }),
-  setBranchFilter: (f) => set({ branchFilter: f }),
+  setBranchFilter: async (f) => {
+    set({ branchFilter: f })
+    // O log vem com ancestry real do servidor: trocar o filtro recarrega.
+    await get().refresh()
+  },
 
   stageAll: async () => {
     const { current, status } = get()
@@ -383,6 +426,18 @@ export const useStore = create<TreeLineState>()((set, get) => ({
 
   clearSync: () => set({ sync: { op: null, phase: null, message: '', retryLease: false } }),
 
+  cancelSync: async () => {
+    const { current, sync } = get()
+    if (!current || sync.phase !== 'running' || !sync.op) return
+    const key = sync.op === 'push' ? 'Push' : sync.op === 'pull' ? 'Pull' : sync.op === 'fetch' ? 'Fetch' : 'Clone'
+    try {
+      await window.treeline.cancelSync(current, key)
+    } catch {
+      /* o timeout mata sozinho */
+    }
+    set({ sync: { op: null, phase: null, message: '', retryLease: false } })
+  },
+
   doPushForce: async () => {
     const { current, lang } = get()
     if (!current || get().sync.phase === 'running') return
@@ -478,6 +533,9 @@ export const useStore = create<TreeLineState>()((set, get) => ({
 
   setLang: (l) => {
     applyLang(l)
+    document.title = t(l, 'app.title')
+    // Persiste p/ o main (splash + título da janela na próxima abertura).
+    void window.treeline.setLang(l).catch(() => undefined)
     // Troca a identidade do `tr` de propósito: componentes assinam `s.tr`,
     // e só re-renderizam quando a referência muda. Sem isso o texto não atualiza.
     set({ lang: l, tr: (key, vars) => t(l, key, vars) })
@@ -560,6 +618,8 @@ export const useStore = create<TreeLineState>()((set, get) => ({
 
   removeBookmark: async (path) => {
     const repos = await fail(window.treeline.removeRecent(path), (e) => set({ error: e }))
+    // Sessão de terminal órfã não serve para nada: mata o pty.
+    await fail(window.treeline.termStop(path), () => undefined)
     if (repos !== null) {
       set({ repos })
       if (get().current === path) {
@@ -825,6 +885,8 @@ export const dialogOps = {
     useStore.getState().runOp((repo, lang) => window.treeline.openTerminal(repo, lang)),
   undoToReflog: (ref: string) =>
     useStore.getState().runOp((repo, lang) => window.treeline.undoToReflog(repo, ref, lang)),
+  restoreBackup: (file: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.restoreBackup(repo, file, lang)),
   addRemote: (name: string, url: string) =>
     useStore.getState().runOp((repo, lang) => window.treeline.addRemote(repo, name, url, lang)),
   removeRemote: (name: string) =>

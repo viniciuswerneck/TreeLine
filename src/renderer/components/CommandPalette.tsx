@@ -56,6 +56,7 @@ export default function CommandPalette() {
       { label: 'Rebase interactive…', hint: 'dialog', run: () => openDlg('rebaseInteractive') },
       { label: 'Open PR', hint: 'remote', run: dialogOps.openPR },
       { label: 'Terminal', hint: 'view', run: toggleTerminal },
+      { label: 'About', hint: 'view', run: () => openDlg('about') },
       { label: 'Toggle sidebar', hint: 'view', run: toggleSidebar },
       { label: 'Settings', hint: 'view', run: openSettings },
       { label: 'Refresh', hint: 'view', run: refresh },

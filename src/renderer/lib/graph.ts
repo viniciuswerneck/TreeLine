@@ -165,3 +165,24 @@ export function layoutGraph(commits: CommitInfo[]): LaneCommit[] {
   for (const r of rows) r.through.sort((a, b) => a - b)
   return rows
 }
+
+/**
+ * Lanes que tocam a borda de CIMA da linha (para decidir o que desenhar).
+ * Estático (assume continuidade): lane própria + through + from dos joins.
+ */
+export function topTouches(r: LaneCommit): number[] {
+  const s = new Set<number>(r.through)
+  s.add(r.lane)
+  for (const f of r.forks) if (f.kind === 'join') s.add(f.from)
+  return [...s]
+}
+
+/**
+ * Lanes que tocam a borda de BAIXO da linha: through + própria + to dos splits.
+ */
+export function bottomTouches(r: LaneCommit): number[] {
+  const s = new Set<number>(r.through)
+  s.add(r.lane)
+  for (const f of r.forks) if (f.kind === 'split') s.add(f.to)
+  return [...s]
+}

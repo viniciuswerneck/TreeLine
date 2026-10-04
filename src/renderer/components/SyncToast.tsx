@@ -10,6 +10,7 @@ import { useStore } from '../store'
 export default function SyncToast() {
   const sync = useStore((s) => s.sync)
   const clearSync = useStore((s) => s.clearSync)
+  const cancelSync = useStore((s) => s.cancelSync)
   const doPushForce = useStore((s) => s.doPushForce)
   const tr = useStore((s) => s.tr)
 
@@ -45,6 +46,11 @@ export default function SyncToast() {
       </div>
       {sync.phase !== 'running' && (
         <button className="sync-toast-close" title={tr('sync.dismiss')} onClick={clearSync}>
+          <X size={14} />
+        </button>
+      )}
+      {sync.phase === 'running' && (
+        <button className="sync-toast-close" title={tr('sync.cancel')} onClick={() => void cancelSync()}>
           <X size={14} />
         </button>
       )}

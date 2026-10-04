@@ -153,6 +153,13 @@ export interface ReflogEntry {
   message: string
 }
 
+/** Backup bundle em `.git/treeline-backups`. */
+export interface BackupInfo {
+  file: string
+  date: string
+  size: number
+}
+
 /** Estado de operação interrompida (merge/rebase/cherry-pick em conflito). */
 export interface OpState {
   inProgress: boolean
@@ -178,7 +185,7 @@ export interface TreeLineAPI {
   openRepo(): Promise<string | null>
   addRecent(path: string): Promise<string[]>
   getStatus(repo: string): Promise<RepoStatus>
-  getLog(repo: string, limit?: number): Promise<CommitInfo[]>
+  getLog(repo: string, limit?: number, skip?: number, ref?: string): Promise<CommitInfo[]>
   getBranches(repo: string): Promise<BranchInfo[]>
   getDiff(repo: string, file: string, staged: boolean): Promise<string>
   getHunks(repo: string, file: string, staged: boolean): Promise<HunkInfo[]>
@@ -192,6 +199,7 @@ export interface TreeLineAPI {
   resolveOurs(repo: string, file: string, lang?: string): Promise<void>
   resolveTheirs(repo: string, file: string, lang?: string): Promise<void>
   pushForce(repo: string, forceLease: boolean, lang?: string): Promise<SyncResult>
+  cancelSync(repo: string, op: string): Promise<void>
   getBranchesDetailed(repo: string): Promise<BranchDetail[]>
   getRemoteBranches(repo: string): Promise<RemoteBranchInfo[]>
   setUpstream(repo: string, branch: string, upstream: string, lang?: string): Promise<void>
@@ -209,6 +217,8 @@ export interface TreeLineAPI {
   fetch(repo: string, lang?: string): Promise<SyncResult>
   getIdentity(): Promise<GitIdentity>
   setIdentity(id: GitIdentity, lang?: string): Promise<void>
+  setLang(lang: string): Promise<void>
+  getVersion(): Promise<string>
   getCommitDetail(repo: string, hash: string, lang?: string): Promise<CommitDetail>
   getCommitDiff(repo: string, hash: string, file: string): Promise<string>
   reveal(path: string): Promise<void>
@@ -264,6 +274,8 @@ export interface TreeLineAPI {
   // Reflog + Undo
   getReflog(repo: string, limit?: number): Promise<ReflogEntry[]>
   undoToReflog(repo: string, ref: string, lang?: string): Promise<void>
+  listBackups(repo: string): Promise<BackupInfo[]>
+  restoreBackup(repo: string, file: string, lang?: string): Promise<SyncResult>
   // Remotes
   getRemotes(repo: string): Promise<RemoteInfo[]>
   addRemote(repo: string, name: string, url: string, lang?: string): Promise<void>
@@ -275,6 +287,7 @@ export interface TreeLineAPI {
   termWrite(repo: string, data: string): Promise<void>
   termResize(repo: string, cols: number, rows: number): Promise<void>
   termStop(repo: string): Promise<void>
+  termAlive(repo: string): Promise<boolean>
   onTermData(cb: (repo: string, data: string) => void): () => void
   onTermExit(cb: (repo: string) => void): () => void
 }
