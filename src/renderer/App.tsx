@@ -6,6 +6,7 @@ import BranchDialog from './components/BranchDialog'
 import CommandPalette from './components/CommandPalette'
 import CompareDialog from './components/CompareDialog'
 import ConfirmDialog from './components/ConfirmDialog'
+import CustomActionsDialog from './components/CustomActionsDialog'
 import ContextMenu from './components/ContextMenu'
 import DetailsPanel from './components/DetailsPanel'
 import FileHistoryDialog from './components/FileHistoryDialog'
@@ -23,6 +24,7 @@ import Sidebar from './components/Sidebar'
 import StashDialog from './components/StashDialog'
 import StatusBar from './components/StatusBar'
 import SyncToast from './components/SyncToast'
+import TabBar from './components/TabBar'
 import TagDialog from './components/TagDialog'
 import TerminalPanel from './components/TerminalPanel'
 import Toolbar from './components/Toolbar'
@@ -55,7 +57,8 @@ export default function App() {
   }, [])
 
   // Mudanças feitas fora do app (terminal, outro GUI): atualiza ao voltar
-  // o foco para a janela + F5 manual. Throttle de 2s contra foco repetido.
+  // o foco para a janela + F5 manual + watcher (chokidar no main).
+  // Throttle de 2s contra foco repetido.
   // Ctrl+K abre a paleta de comandos.
   useEffect(() => {
     let last = 0
@@ -67,19 +70,35 @@ export default function App() {
       if (st.current && st.sync.phase !== 'running') void st.refresh()
     }
     const onFocus = (): void => maybeRefresh()
+    const offChanged = window.treeline.onRepoChanged((repo) => {
+      if (repo === useStore.getState().current) maybeRefresh()
+    })
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'F5') {
+      const st0 = useStore.getState()
+      if (st0.matchShortcut('refresh', e)) {
         e.preventDefault()
         maybeRefresh()
+        return
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      if (st0.matchShortcut('palette', e)) {
         e.preventDefault()
         const st = useStore.getState()
         st.setPalette(!st.paletteOpen)
+        return
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      if (st0.matchShortcut('sidebar', e)) {
         e.preventDefault()
         useStore.getState().toggleSidebar()
+        return
+      }
+      if (st0.matchShortcut('terminal', e)) {
+        const st = useStore.getState()
+        // Não rouba crase/backtick digitado dentro do próprio terminal.
+        const t = e.target as HTMLElement | null
+        if (st.current && !(t && t.closest && t.closest('.xterm'))) {
+          e.preventDefault()
+          st.toggleTerminal()
+        }
       }
     }
     window.addEventListener('focus', onFocus)
@@ -87,8 +106,30 @@ export default function App() {
     return () => {
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('keydown', onKey)
+      offChanged()
     }
   }, [])
+
+  // Observa o repo atual no main (desobserva o anterior).
+  const watched = useRef<string | null>(null)
+  useEffect(() => {
+    if (watched.current && watched.current !== current) {
+      void window.treeline.unwatchRepo(watched.current).catch(() => undefined)
+    }
+    watched.current = current
+    if (current) void window.treeline.watchRepo(current).catch(() => undefined)
+  }, [current])
+
+  // Fetch automático (Settings; 0 = desligado). Só com sync livre.
+  const autoFetchMin = useStore((s) => s.autoFetchMin)
+  useEffect(() => {
+    if (!autoFetchMin || !current) return
+    const id = window.setInterval(() => {
+      const st = useStore.getState()
+      if (st.current && st.sync.phase !== 'running' && !document.hidden) void st.doFetch()
+    }, autoFetchMin * 60_000)
+    return () => window.clearInterval(id)
+  }, [autoFetchMin, current])
 
   if (!current) {
     return (
@@ -112,6 +153,7 @@ export default function App() {
   return (
     <div className="app">
       <Toolbar onCommitFocus={() => commitRef.current?.focus()} />
+      <TabBar />
       <div className="body">
         <Sidebar />
         <div className="main">
@@ -138,6 +180,7 @@ export default function App() {
       {dialog === 'fileHistory' && <FileHistoryDialog />}
       {dialog === 'compare' && <CompareDialog />}
       {dialog === 'about' && <AboutDialog />}
+      {dialog === 'custom' && <CustomActionsDialog />}
       <CommandPalette />
       <ConfirmDialog />
       <ContextMenu />

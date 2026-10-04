@@ -10,6 +10,7 @@ export default function StatusBar() {
   const pickBusy = useStore((s) => s.pickState.inProgress)
   const revertBusy = useStore((s) => s.revertState.inProgress)
   const worktree = useStore((s) => s.worktree)
+  const lfs = useStore((s) => s.lfs)
   const confirmAction = useStore((s) => s.confirmAction)
   const openDlg = useStore((s) => s.openDlg)
   const doFetch = useStore((s) => s.doFetch)
@@ -71,6 +72,14 @@ export default function StatusBar() {
           {worktree?.linked && (
             <span className="status-tag" title={`${tr('status.worktree')} (${worktree.toplevel})`}>
               worktree
+            </span>
+          )}
+          {lfs?.tracked && (
+            <span
+              className="status-tag"
+              title={tr('status.lfs', { n: lfs.files })}
+            >
+              LFS{lfs.files > 0 ? ` ${lfs.files}` : ''}
             </span>
           )}
         </>

@@ -87,6 +87,19 @@ export interface CompareSummary {
   stats: FileStat[]
 }
 
+/** Custom Action: comando externo configurável (SourceTree-like). */
+export interface CustomAction {
+  id: string
+  name: string
+  cmd: string
+}
+
+/** Resultado de custom action / comando externo. */
+export interface ActionResult {
+  code: number | null
+  output: string
+}
+
 /** Modo de reset direto. */
 export type ResetMode = 'soft' | 'mixed' | 'hard'
 
@@ -97,10 +110,34 @@ export interface WorktreeInfo {
   toplevel: string
 }
 
+/** Info Git LFS do repo. */
+export interface LfsInfo {
+  installed: boolean
+  /** .gitattributes menciona filter=lfs */
+  tracked: boolean
+  files: number
+}
+
+/** Submódulo (`git submodule status`). */
+export interface SubmoduleInfo {
+  hash: string
+  path: string
+  /** ' ' ok, '-' não inicializado, '+' checkout diferente, 'U' conflito */
+  state: string
+  label: string
+}
+
 /** Identidade do autor usada nos commits (git user.name/user.email global). */
 export interface GitIdentity {
   name: string
   email: string
+}
+
+/** Identidade efetiva: global + override local do repo, se houver. */
+export interface EffectiveIdentity extends GitIdentity {
+  scope: 'global' | 'local' | 'none'
+  globalName: string
+  globalEmail: string
 }
 
 /** Detalhe de um commit para o painel inferior (meta + arquivos tocados). */
@@ -187,7 +224,7 @@ export interface TreeLineAPI {
   getStatus(repo: string): Promise<RepoStatus>
   getLog(repo: string, limit?: number, skip?: number, ref?: string): Promise<CommitInfo[]>
   getBranches(repo: string): Promise<BranchInfo[]>
-  getDiff(repo: string, file: string, staged: boolean): Promise<string>
+  getDiff(repo: string, file: string, staged: boolean, lang?: string): Promise<string>
   getHunks(repo: string, file: string, staged: boolean): Promise<HunkInfo[]>
   stageHunk(repo: string, file: string, staged: boolean, hunkIndex: number, lang?: string): Promise<void>
   discardHunk(repo: string, file: string, staged: boolean, hunkIndex: number, lang?: string): Promise<void>
@@ -199,6 +236,7 @@ export interface TreeLineAPI {
   resolveOurs(repo: string, file: string, lang?: string): Promise<void>
   resolveTheirs(repo: string, file: string, lang?: string): Promise<void>
   pushForce(repo: string, forceLease: boolean, lang?: string): Promise<SyncResult>
+  pushPublish(repo: string, lang?: string): Promise<SyncResult>
   cancelSync(repo: string, op: string): Promise<void>
   getBranchesDetailed(repo: string): Promise<BranchDetail[]>
   getRemoteBranches(repo: string): Promise<RemoteBranchInfo[]>
@@ -217,6 +255,8 @@ export interface TreeLineAPI {
   fetch(repo: string, lang?: string): Promise<SyncResult>
   getIdentity(): Promise<GitIdentity>
   setIdentity(id: GitIdentity, lang?: string): Promise<void>
+  getEffectiveIdentity(repo: string): Promise<EffectiveIdentity>
+  setRepoIdentity(repo: string, id: GitIdentity, lang?: string): Promise<void>
   setLang(lang: string): Promise<void>
   getVersion(): Promise<string>
   getCommitDetail(repo: string, hash: string, lang?: string): Promise<CommitDetail>
@@ -260,6 +300,10 @@ export interface TreeLineAPI {
   abortRevert(repo: string): Promise<void>
   // Worktree
   getWorktreeInfo(repo: string): Promise<WorktreeInfo>
+  // LFS + Submodules
+  getLfsInfo(repo: string): Promise<LfsInfo>
+  getSubmodules(repo: string): Promise<SubmoduleInfo[]>
+  updateSubmodules(repo: string, lang?: string): Promise<void>
   // Cherry-pick
   getCherryPickState(repo: string): Promise<OpState>
   cherryPick(repo: string, hash: string, lang?: string): Promise<void>
@@ -282,12 +326,21 @@ export interface TreeLineAPI {
   removeRemote(repo: string, name: string, lang?: string): Promise<void>
   cloneRepo(url: string, lang?: string): Promise<string | null>
   initRepo(lang?: string): Promise<string | null>
-  // Terminal integrado (pty por repo; eventos chegam via onTermData/onTermExit)
+  // Custom Actions
+  getCustomActions(): Promise<CustomAction[]>
+  saveCustomAction(a: { id?: string; name: string; cmd: string }): Promise<CustomAction[]>
+  deleteCustomAction(id: string): Promise<CustomAction[]>
+  runCustomAction(repo: string, id: string, lang?: string): Promise<ActionResult>
+  // Updates (GitHub Releases, sem auth)
+  checkUpdates(): Promise<{ current: string; latest: string | null; url: string }>
   termStart(repo: string, cols: number, rows: number): Promise<void>
   termWrite(repo: string, data: string): Promise<void>
   termResize(repo: string, cols: number, rows: number): Promise<void>
   termStop(repo: string): Promise<void>
   termAlive(repo: string): Promise<boolean>
+  watchRepo(repo: string): Promise<void>
+  unwatchRepo(repo: string): Promise<void>
+  onRepoChanged(cb: (repo: string) => void): () => void
   onTermData(cb: (repo: string, data: string) => void): () => void
   onTermExit(cb: (repo: string) => void): () => void
 }

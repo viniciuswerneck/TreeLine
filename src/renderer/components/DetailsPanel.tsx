@@ -31,6 +31,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const unstaged = status?.unstaged ?? []
   const staged = status?.staged ?? []
   const untracked = status?.untracked ?? []
+  const conflicted = status?.conflicted ?? []
   // Sem nada em stage (e sem Amend), Commit não tem o que fazer:
   // desabilita em vez de deixar estourar erro.
   const canCommit = message.trim().length > 0 && (staged.length > 0 || amend)
@@ -47,6 +48,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const discardFile = useStore((s) => s.discardFile)
   const refresh = useStore((s) => s.refresh)
   const loading = useStore((s) => s.loading)
+  const matchShortcut = useStore((s) => s.matchShortcut)
   const loadBlame = useStore((s) => s.loadBlame)
   const loadFileHistory = useStore((s) => s.loadFileHistory)
   const openDlg = useStore((s) => s.openDlg)
@@ -242,6 +244,47 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
         </button>
       </div>
       <div className="details-body">
+        {conflicted.length > 0 && (
+          <div className={`file-col conflict-col ${expandedClass('conflicted')}`}>
+            <div className="file-col-head">
+              <h4>{tr('det.conflicted', { n: conflicted.length })}</h4>
+              {expandBtn('conflicted')}
+            </div>
+            {conflicted.map((p) => (
+              <div
+                key={`!!${p}`}
+                className="file-row conflict-row"
+                aria-selected={selectedFile?.path === p}
+                title={tr('conflict.hint')}
+                onClick={() => void selectFile({ path: p, staged: false })}
+                onContextMenu={(e) => fileMenu(e, p, false, true)}
+              >
+                <span className="code conflict-code">!</span>
+                <span className="grow">{p}</span>
+                <button
+                  className="mini-btn"
+                  title={tr('conflict.ours')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void resolveOurs(p)
+                  }}
+                >
+                  {tr('conflict.ours')}
+                </button>
+                <button
+                  className="mini-btn"
+                  title={tr('conflict.theirs')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void resolveTheirs(p)
+                  }}
+                >
+                  {tr('conflict.theirs')}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className={`file-col ${expandedClass('unstaged')}`}>
           <div className="file-col-head">
             <h4>{tr('det.unstaged', { n: unstaged.length + untracked.length })}</h4>
@@ -373,7 +416,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canCommit) {
+            if (matchShortcut('commit', e) && canCommit) {
               e.preventDefault()
               void doCommit()
             }

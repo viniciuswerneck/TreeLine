@@ -1,4 +1,4 @@
-import { Archive, Bookmark, Cloud, FolderOpen, GitBranch, Globe, History, PanelLeftClose, PanelLeftOpen, Search, Tag } from 'lucide-react'
+import { Archive, Bookmark, Cloud, FolderOpen, GitBranch, Globe, History, Package, PanelLeftClose, PanelLeftOpen, RefreshCw, Search, Tag } from 'lucide-react'
 import { useState } from 'react'
 import { dialogOps, useStore } from '../store'
 
@@ -18,6 +18,7 @@ export default function Sidebar() {
   const remoteBranches = useStore((s) => s.remoteBranches)
   const status = useStore((s) => s.status)
   const stashes = useStore((s) => s.stashes)
+  const submodules = useStore((s) => s.submodules)
   const tags = useStore((s) => s.tags)
   const remotes = useStore((s) => s.remotes)
   const selectRepo = useStore((s) => s.selectRepo)
@@ -330,6 +331,37 @@ export default function Sidebar() {
           </div>
         )}
       </Section>
+
+      {submodules.length > 0 && (
+        <Section title={tr('side.submodules', { n: submodules.length })}>
+          {submodules.map((sm) => (
+            <div
+              key={sm.path}
+              className="sidebar-row small"
+              title={`${sm.path} — ${sm.hash.slice(0, 7)}${sm.label ? ` (${sm.label})` : ''}`}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                openMenu(e.clientX, e.clientY, [
+                  { label: tr('menu.copyPath'), onClick: () => void copyText(sm.path) },
+                  { label: tr('sub.update'), onClick: () => void dialogOps.updateSubmodules() }
+                ])
+              }}
+            >
+              <Package size={13} />
+              <span className="grow">{sm.path}</span>
+              {sm.state !== ' ' && <span className="sidebar-badge">{sm.state === '-' ? '∅' : sm.state}</span>}
+            </div>
+          ))}
+          <div
+            className="sidebar-row small"
+            title={tr('sub.updateAll')}
+            onClick={() => void dialogOps.updateSubmodules()}
+          >
+            <RefreshCw size={12} />
+            <span className="grow">{tr('sub.updateAll')}</span>
+          </div>
+        </Section>
+      )}
     </div>
   )
 }

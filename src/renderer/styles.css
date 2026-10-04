@@ -558,7 +558,15 @@ body {
 }
 .arrow-btn:hover { background: var(--accent); color: #fff; border-color: transparent; }
 
-/* ---- Barra de conflito (ours/theirs) ---- */
+/* ---- Arquivos em conflito: seção própria âmbar ---- */
+.conflict-col { border: 1px solid rgba(245, 158, 11, 0.45); border-radius: var(--radius-sm); }
+.conflict-row { background: rgba(245, 158, 11, 0.07); }
+.conflict-code {
+  color: #f59e0b; font-weight: 800;
+  border: 1px solid rgba(245, 158, 11, 0.5); border-radius: 50%;
+  width: 18px; height: 18px; display: inline-flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
 .conflict-bar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 6px 10px; font-size: 12px; color: var(--text-1);
@@ -721,3 +729,32 @@ body {
   border-radius: var(--radius-sm); padding: 10px 12px; margin: 0 0 12px;
   max-height: 220px; overflow-y: auto; color: var(--text-1);
 }
+
+/* ---- Abas de repos (multi-repo) ---- */
+.tabbar {
+  display: flex; align-items: stretch; gap: 2px;
+  padding: 4px 8px 0; background: var(--bg-app);
+  border-bottom: 1px solid var(--border-line);
+  overflow-x: auto; flex-shrink: 0;
+}
+.tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 6px 5px 12px; font-size: 12.5px; cursor: pointer;
+  color: var(--text-2); background: transparent;
+  border: 1px solid transparent; border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  max-width: 220px;
+}
+.tab:hover { color: var(--text-1); background: rgba(127, 127, 127, 0.1); }
+.tab.active {
+  color: var(--text-1); background: var(--bg-panel);
+  border-color: var(--border-line); font-weight: 600;
+}
+.tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0;
+  color: var(--text-2); background: transparent;
+  border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0;
+}
+.tab-x:hover { background: rgba(127, 127, 127, 0.2); color: var(--text-1); }

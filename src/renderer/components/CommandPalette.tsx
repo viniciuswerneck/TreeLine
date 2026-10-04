@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { CustomAction } from '../../shared/types'
 import { dialogOps, useStore } from '../store'
 
 interface PalCmd {
@@ -27,13 +28,21 @@ export default function CommandPalette() {
 
   const [filter, setFilter] = useState('')
   const [index, setIndex] = useState(0)
+  const [custom, setCustom] = useState<CustomAction[]>([])
 
   useEffect(() => {
     if (paletteOpen) {
       setFilter('')
       setIndex(0)
+      window.treeline.getCustomActions().then(setCustom).catch(() => setCustom([]))
     }
   }, [paletteOpen])
+
+  const runCustom = (id: string): void => {
+    const current = useStore.getState().current
+    if (!current) return
+    void window.treeline.runCustomAction(current, id).catch(() => undefined)
+  }
 
   const commands: PalCmd[] = useMemo(
     () => [
@@ -58,10 +67,12 @@ export default function CommandPalette() {
       { label: 'Terminal', hint: 'view', run: toggleTerminal },
       { label: 'About', hint: 'view', run: () => openDlg('about') },
       { label: 'Toggle sidebar', hint: 'view', run: toggleSidebar },
+      { label: 'Custom Actions…', hint: 'view', run: () => openDlg('custom') },
+      ...custom.map((a) => ({ label: `▶ ${a.name}`, hint: 'custom', run: () => runCustom(a.id) })),
       { label: 'Settings', hint: 'view', run: openSettings },
       { label: 'Refresh', hint: 'view', run: refresh },
     ],
-    [doFetch, doPull, doPush, doPushForce, lang, openDlg, openSettings, refresh, stageAll, toggleSidebar, toggleTerminal, tr, unstageAll]
+    [custom, doFetch, doPull, doPush, doPushForce, lang, openDlg, openSettings, refresh, stageAll, toggleSidebar, toggleTerminal, tr, unstageAll]
   )
 
   const filtered = useMemo(() => {

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { BlameLine, BranchDetail, BranchInfo, CompareSummary, CommitDetail, CommitInfo, FileHistoryEntry, FlowType, GitIdentity, HunkInfo, OpState, RebasePlanEntry, ReflogEntry, RemoteBranchInfo, RemoteInfo, RepoStatus, ResetMode, StashInfo, SyncOp, TagInfo, WorktreeInfo } from '../shared/types'
+import { SHORTCUT_DEFAULTS, eventShortcut, loadShortcuts, saveShortcuts, type ShortcutAction } from './shortcuts'
+import type { BlameLine, BranchDetail, BranchInfo, CompareSummary, CommitDetail, CommitInfo, FileHistoryEntry, FlowType, GitIdentity, HunkInfo, LfsInfo, OpState, RebasePlanEntry, ReflogEntry, RemoteBranchInfo, RemoteInfo, RepoStatus, ResetMode, StashInfo, SubmoduleInfo, SyncOp, TagInfo, WorktreeInfo } from '../shared/types'
 import { applyTheme, loadTheme } from './themes'
 import { applyLang, loadLang, t, type DictKey, type Lang } from './i18n'
 import type { MenuItem } from './components/ContextMenu'
@@ -8,7 +9,7 @@ export type DialogKind =
   | 'branch' | 'merge' | 'stash' | 'tag' | 'rebase'
   | 'pick' | 'flow' | 'reflog' | 'remotes'
   | 'reset' | 'rebaseInteractive' | 'blame' | 'fileHistory' | 'compare'
-  | 'about'
+  | 'about' | 'custom'
 
 export interface ContextMenuState {
   x: number
@@ -38,11 +39,15 @@ export interface SyncState {
   message: string
   /** Push rejeitado por non-fast-forward: oferece retry com lease. */
   retryLease: boolean
+  /** Push sem upstream: oferece publicar (push -u origin). */
+  retryPublish: boolean
 }
 
 interface TreeLineState {
   repos: string[]
   current: string | null
+  openTabs: string[]
+  closeTab: (path: string) => Promise<void>
   status: RepoStatus | null
   commits: CommitInfo[]
   branches: BranchInfo[]
@@ -80,6 +85,7 @@ interface TreeLineState {
   doCommit: () => Promise<void>
   doPush: () => Promise<void>
   doPushForce: () => Promise<void>
+  doPushPublish: () => Promise<void>
   doPull: () => Promise<void>
   doFetch: () => Promise<void>
   doRevert: (hash: string) => Promise<void>
@@ -96,11 +102,14 @@ interface TreeLineState {
   tr: (key: DictKey, vars?: Record<string, string | number>) => string
   settingsOpen: boolean
   identity: GitIdentity
+  identityScope: 'global' | 'local'
+  identityEffectiveScope: 'global' | 'local' | 'none'
   identitySaving: boolean
   identityError: string | null
   identitySaved: boolean
   openSettings: () => Promise<void>
   closeSettings: () => void
+  setIdentityScope: (s: 'global' | 'local') => void
   saveIdentity: (id: GitIdentity) => Promise<void>
   selectedCommit: string | null
   commitDetail: CommitDetail | null
@@ -130,6 +139,8 @@ interface TreeLineState {
   pickState: OpState
   revertState: OpState
   worktree: WorktreeInfo | null
+  lfs: LfsInfo | null
+  submodules: SubmoduleInfo[]
   flowInstalled: boolean
   confirmAction: (title: string, message: string, detail: string, ok: string) => Promise<boolean>
   confirmState: ConfirmState | null
@@ -160,6 +171,12 @@ interface TreeLineState {
   selectCompareFile: (path: string) => Promise<void>
   paletteOpen: boolean
   setPalette: (open: boolean) => void
+  autoFetchMin: number
+  setAutoFetchMin: (min: number) => void
+  shortcuts: Record<ShortcutAction, string>
+  setShortcut: (action: ShortcutAction, key: string) => void
+  resetShortcuts: () => void
+  matchShortcut: (action: ShortcutAction, e: KeyboardEvent | React.KeyboardEvent) => boolean
   sidebarCollapsed: boolean
   toggleSidebar: () => void
   /** Incrementado a cada checkout bem-sucedido: HistoryGraph rola até o HEAD. */
@@ -194,6 +211,28 @@ function cleanErr(e: unknown): string {
 export const useStore = create<TreeLineState>()((set, get) => ({
   repos: [],
   current: null,
+  openTabs: (() => {
+    try {
+      const raw = localStorage.getItem('treeline-tabs')
+      const list = raw ? (JSON.parse(raw) as unknown) : []
+      return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string').slice(0, 20) : []
+    } catch {
+      return []
+    }
+  })(),
+  closeTab: async (path) => {
+    const tabs = get().openTabs.filter((t) => t !== path)
+    try {
+      localStorage.setItem('treeline-tabs', JSON.stringify(tabs))
+    } catch {
+      /* ignora */
+    }
+    set({ openTabs: tabs })
+    if (get().current === path) {
+      if (tabs.length > 0) await get().selectRepo(tabs[0] as string)
+      else set({ current: null, status: null, commits: [], branches: [] })
+    }
+  },
   status: null,
   commits: [],
   branches: [],
@@ -234,7 +273,7 @@ export const useStore = create<TreeLineState>()((set, get) => ({
       set({ loadingMore: false })
     }
   },
-  sync: { op: null, phase: null, message: '', retryLease: false },
+  sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false },
   theme: loadTheme(),
   lang: loadLang(),
 
@@ -255,7 +294,13 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
 
   selectRepo: async (path: string) => {
-    set({ current: path, status: null, commits: [], branches: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, fileHistory: [], fileHistoryPath: null, compareA: null, compareB: null, compare: null, dialog: null })
+    const tabs = [path, ...get().openTabs.filter((t) => t !== path)].slice(0, 20)
+    try {
+      localStorage.setItem('treeline-tabs', JSON.stringify(tabs))
+    } catch {
+      /* ignora */
+    }
+    set({ current: path, openTabs: tabs, status: null, commits: [], branches: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, lfs: null, submodules: [], selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, fileHistory: [], fileHistoryPath: null, compareA: null, compareB: null, compare: null, dialog: null })
     await window.treeline.addRecent(path)
     await get().refresh()
   },
@@ -271,7 +316,7 @@ export const useStore = create<TreeLineState>()((set, get) => ({
     ])
     const cur = branches?.find((b) => b.current)?.name ?? status?.branch
     const ref = get().branchFilter === 'current' && cur && cur !== '(detached)' ? cur : undefined
-    const [commits, branchesDetailed, remoteBranches, stashes, tags, remotes, reflog, mergeState, rebaseState, pickState, revertState, worktree, flow] = await Promise.all([
+    const [commits, branchesDetailed, remoteBranches, stashes, tags, remotes, reflog, mergeState, rebaseState, pickState, revertState, worktree, lfs, submodules, flow] = await Promise.all([
       fail(window.treeline.getLog(current, 300, 0, ref), (e) => set({ error: e })),
       fail(window.treeline.getBranchesDetailed(current), (e) => set({ error: e })),
       fail(window.treeline.getRemoteBranches(current), (e) => set({ error: e })),
@@ -284,6 +329,8 @@ export const useStore = create<TreeLineState>()((set, get) => ({
       fail(window.treeline.getCherryPickState(current), (e) => set({ error: e })),
       fail(window.treeline.getRevertState(current), (e) => set({ error: e })),
       fail(window.treeline.getWorktreeInfo(current), (e) => set({ error: e })),
+      fail(window.treeline.getLfsInfo(current), (e) => set({ error: e })),
+      fail(window.treeline.getSubmodules(current), (e) => set({ error: e })),
       fail(window.treeline.detectFlow(current), (e) => set({ error: e }))
     ])
     set({
@@ -303,6 +350,8 @@ export const useStore = create<TreeLineState>()((set, get) => ({
       pickState: pickState ?? get().pickState,
       revertState: revertState ?? get().revertState,
       worktree: worktree ?? get().worktree,
+      lfs: lfs ?? get().lfs,
+      submodules: submodules ?? get().submodules,
       flowInstalled: flow?.installed ?? get().flowInstalled,
       loading: false
     })
@@ -312,10 +361,10 @@ export const useStore = create<TreeLineState>()((set, get) => ({
 
   selectFile: async (f) => {
     set({ selectedFile: f, diff: '', hunks: [], selectedCommit: null, commitDetail: null, commitDiff: '' })
-    const { current } = get()
+    const { current, lang } = get()
     if (!current || !f) return
     const [diff, hunks] = await Promise.all([
-      fail(window.treeline.getDiff(current, f.path, f.staged), (e) => set({ error: e })),
+      fail(window.treeline.getDiff(current, f.path, f.staged, lang), (e) => set({ error: e })),
       fail(window.treeline.getHunks(current, f.path, f.staged), (e) => set({ error: e }))
     ])
     set({ diff: diff ?? '', hunks: hunks ?? [] })
@@ -386,14 +435,15 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   doPush: async () => {
     const { current, lang } = get()
     if (!current || get().sync.phase === 'running') return
-    set({ sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false }, error: null })
+    set({ sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
     const res = await fail(window.treeline.push(current, lang), (e) => {
       const detail = cleanErr(e)
       const lease = /non-fast-forward|fetch first|rejected/i.test(detail)
-      return set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: detail }), retryLease: lease } })
+      const publish = /sem upstream|no upstream|no tracking|has no upstream/i.test(detail)
+      return set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: detail }), retryLease: lease && !publish, retryPublish: publish } })
     })
     if (res !== null) {
-      set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false } })
+      set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
   },
@@ -401,12 +451,12 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   doPull: async () => {
     const { current, lang } = get()
     if (!current || get().sync.phase === 'running') return
-    set({ sync: { op: 'pull', phase: 'running', message: t(lang, 'sync.running', { op: 'Pull' }), retryLease: false }, error: null })
+    set({ sync: { op: 'pull', phase: 'running', message: t(lang, 'sync.running', { op: 'Pull' }), retryLease: false, retryPublish: false }, error: null })
     const res = await fail(window.treeline.pull(current, lang), (e) =>
-      set({ sync: { op: 'pull', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Pull', e: cleanErr(e) }), retryLease: false } })
+      set({ sync: { op: 'pull', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Pull', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
     )
     if (res !== null) {
-      set({ sync: { op: 'pull', phase: 'success', message: res.summary, retryLease: false } })
+      set({ sync: { op: 'pull', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
   },
@@ -414,17 +464,17 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   doFetch: async () => {
     const { current, lang } = get()
     if (!current || get().sync.phase === 'running') return
-    set({ sync: { op: 'fetch', phase: 'running', message: t(lang, 'sync.running', { op: 'Fetch' }), retryLease: false }, error: null })
+    set({ sync: { op: 'fetch', phase: 'running', message: t(lang, 'sync.running', { op: 'Fetch' }), retryLease: false, retryPublish: false }, error: null })
     const res = await fail(window.treeline.fetch(current, lang), (e) =>
-      set({ sync: { op: 'fetch', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Fetch', e: cleanErr(e) }), retryLease: false } })
+      set({ sync: { op: 'fetch', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Fetch', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
     )
     if (res !== null) {
-      set({ sync: { op: 'fetch', phase: 'success', message: res.summary, retryLease: false } })
+      set({ sync: { op: 'fetch', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
   },
 
-  clearSync: () => set({ sync: { op: null, phase: null, message: '', retryLease: false } }),
+  clearSync: () => set({ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false } }),
 
   cancelSync: async () => {
     const { current, sync } = get()
@@ -435,7 +485,7 @@ export const useStore = create<TreeLineState>()((set, get) => ({
     } catch {
       /* o timeout mata sozinho */
     }
-    set({ sync: { op: null, phase: null, message: '', retryLease: false } })
+    set({ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false } })
   },
 
   doPushForce: async () => {
@@ -448,12 +498,33 @@ export const useStore = create<TreeLineState>()((set, get) => ({
       t(lang, 'dlg.push')
     )
     if (!ok) return
-    set({ sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false }, error: null })
+    set({ sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
     const res = await fail(window.treeline.pushForce(current, true, lang), (e) =>
-      set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }), retryLease: false } })
+      set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
     )
     if (res !== null) {
-      set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false } })
+      set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
+      await get().refresh()
+    }
+  },
+
+  doPushPublish: async () => {
+    const { current, lang, status } = get()
+    if (!current || get().sync.phase === 'running') return
+    const branch = status?.branch ?? ''
+    const ok = await get().confirmAction(
+      t(lang, 'pushPublish.title'),
+      t(lang, 'pushPublish.msg', { b: branch }),
+      t(lang, 'pushPublish.detail'),
+      t(lang, 'dlg.push')
+    )
+    if (!ok) return
+    set({ sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
+    const res = await fail(window.treeline.pushPublish(current, lang), (e) =>
+      set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
+    )
+    if (res !== null) {
+      set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
   },
@@ -545,17 +616,33 @@ export const useStore = create<TreeLineState>()((set, get) => ({
 
   settingsOpen: false,
   identity: { name: '', email: '' },
+  identityScope: 'global' as 'global' | 'local',
+  identityEffectiveScope: 'global' as 'global' | 'local' | 'none',
   identitySaving: false,
   identityError: null,
   identitySaved: false,
 
   openSettings: async () => {
     set({ settingsOpen: true, identityError: null, identitySaved: false })
+    const { current } = get()
+    if (current) {
+      const eff = await fail(window.treeline.getEffectiveIdentity(current), (e) => set({ identityError: e }))
+      if (eff !== null) {
+        set({
+          identity: { name: eff.name, email: eff.email },
+          identityScope: eff.scope === 'local' ? 'local' : 'global',
+          identityEffectiveScope: eff.scope
+        })
+        return
+      }
+    }
     const id = await fail(window.treeline.getIdentity(), (e) => set({ identityError: e }))
-    if (id !== null) set({ identity: id })
+    if (id !== null) set({ identity: id, identityScope: 'global', identityEffectiveScope: 'global' })
   },
 
   closeSettings: () => set({ settingsOpen: false, identityError: null, identitySaved: false }),
+
+  setIdentityScope: (s) => set({ identityScope: s }),
 
   saveIdentity: async (id) => {
     const lang = get().lang
@@ -568,9 +655,16 @@ export const useStore = create<TreeLineState>()((set, get) => ({
       return
     }
     set({ identitySaving: true, identityError: null, identitySaved: false })
-    const ok = await fail(window.treeline.setIdentity(id, get().lang), (e) => set({ identityError: e }))
+    const scope = get().identityScope
+    const { current } = get()
+    const ok =
+      scope === 'local' && current
+        ? await fail(window.treeline.setRepoIdentity(current, id, get().lang), (e) => set({ identityError: e }))
+        : await fail(window.treeline.setIdentity(id, get().lang), (e) => set({ identityError: e }))
     set({ identitySaving: false, identitySaved: ok !== null })
-    if (ok !== null) set({ identity: { name: id.name.trim(), email: id.email.trim() } })
+    if (ok !== null) {
+      set({ identity: { name: id.name.trim(), email: id.email.trim() }, identityEffectiveScope: scope })
+    }
   },
 
   selectedCommit: null,
@@ -637,7 +731,12 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
 
   dialog: null,
-  openDlg: (kind) => set({ dialog: kind }),
+  openDlg: (kind) => {
+    set({ dialog: kind })
+    // Dialogs mostram estado (listas, conflito, reflog): recarrega ao abrir
+    // para nunca exibir dado velho. Leituras bypassam a fila (rápido).
+    void get().refresh()
+  },
   closeDlg: () => set({ dialog: null }),
   refPreset: null,
   setRefPreset: (p) => set({ refPreset: p }),
@@ -688,6 +787,35 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
   paletteOpen: false,
   setPalette: (open) => set({ paletteOpen: open }),
+  autoFetchMin: (() => {
+    try {
+      const v = Number(localStorage.getItem('treeline-autofetch'))
+      return Number.isFinite(v) && v > 0 ? Math.min(v, 240) : 0
+    } catch {
+      return 0
+    }
+  })(),
+  setAutoFetchMin: (min) => {
+    const v = Math.max(0, Math.min(Math.round(min) || 0, 240))
+    try {
+      localStorage.setItem('treeline-autofetch', String(v))
+    } catch {
+      /* ignora */
+    }
+    set({ autoFetchMin: v })
+  },
+  shortcuts: loadShortcuts(),
+  setShortcut: (action, key) => {
+    const next = { ...get().shortcuts, [action]: key.trim().toLowerCase() }
+    saveShortcuts(next)
+    set({ shortcuts: next })
+  },
+  resetShortcuts: () => {
+    const defs = { ...SHORTCUT_DEFAULTS } as Record<ShortcutAction, string>
+    saveShortcuts(defs)
+    set({ shortcuts: defs })
+  },
+  matchShortcut: (action, e) => get().shortcuts[action] === eventShortcut(e),
   headPing: 0,
   checkoutBranch: async (name) => {
     const { lang } = get()
@@ -769,6 +897,8 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   pickState: { inProgress: false },
   revertState: { inProgress: false },
   worktree: null,
+  lfs: null,
+  submodules: [],
   flowInstalled: false,
 
   confirmAction: (title, message, detail, ok) =>
@@ -887,6 +1017,8 @@ export const dialogOps = {
     useStore.getState().runOp((repo, lang) => window.treeline.undoToReflog(repo, ref, lang)),
   restoreBackup: (file: string) =>
     useStore.getState().runOp((repo, lang) => window.treeline.restoreBackup(repo, file, lang)),
+  updateSubmodules: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.updateSubmodules(repo, lang)),
   addRemote: (name: string, url: string) =>
     useStore.getState().runOp((repo, lang) => window.treeline.addRemote(repo, name, url, lang)),
   removeRemote: (name: string) =>

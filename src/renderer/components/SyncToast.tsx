@@ -12,6 +12,7 @@ export default function SyncToast() {
   const clearSync = useStore((s) => s.clearSync)
   const cancelSync = useStore((s) => s.cancelSync)
   const doPushForce = useStore((s) => s.doPushForce)
+  const doPushPublish = useStore((s) => s.doPushPublish)
   const tr = useStore((s) => s.tr)
 
   useEffect(() => {
@@ -41,6 +42,18 @@ export default function SyncToast() {
             }}
           >
             {tr('sync.retryLease')}
+          </button>
+        )}
+        {sync.phase === 'error' && sync.retryPublish && (
+          <button
+            className="mini-btn"
+            title={tr('pushPublish.detail')}
+            onClick={() => {
+              clearSync()
+              void doPushPublish()
+            }}
+          >
+            {tr('sync.retryPublish')}
           </button>
         )}
       </div>

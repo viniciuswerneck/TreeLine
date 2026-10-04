@@ -1,0 +1,25 @@
+id: dev.treeline.app
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+command: treeline
+finish-args:
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=all
+  - --filesystem=host
+modules:
+  - name: treeline
+    buildsystem: simple
+    build-commands:
+      - install -D treeline /app/bin/treeline
+      - cp -r resources /app/resources
+      - install -D dev.treeline.app.desktop /app/share/applications/dev.treeline.app.desktop
+      - install -D meta/dev.treeline.app.metainfo.xml /app/share/metainfo/dev.treeline.app.metainfo.xml
+    sources:
+      - type: dir
+        path: ../dist/linux-unpacked

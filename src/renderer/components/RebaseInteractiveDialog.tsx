@@ -50,7 +50,18 @@ export default function RebaseInteractiveDialog() {
   const start = (): void => {
     const p = plan
     if (!p || p.length === 0 || !base.trim()) return
-    void run(() => (stashFirst ? dialogOps.rebaseInteractiveStash(base.trim(), p) : dialogOps.rebaseInteractive(base.trim(), p)))
+    void (async () => {
+      if (p.length > 20) {
+        const ok = await useStore.getState().confirmAction(
+          useStore.getState().tr('rebaseI.bigT'),
+          useStore.getState().tr('rebaseI.bigM', { n: p.length }),
+          useStore.getState().tr('rebaseI.bigD'),
+          useStore.getState().tr('rebaseI.start')
+        )
+        if (!ok) return
+      }
+      run(() => (stashFirst ? dialogOps.rebaseInteractiveStash(base.trim(), p) : dialogOps.rebaseInteractive(base.trim(), p)))
+    })()
   }
 
   const count = plan?.length ?? 0

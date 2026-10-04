@@ -2,6 +2,7 @@ import { Cloud, GitBranch, RefreshCw, Search, Tag } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DATE_LOCALE } from '../i18n'
 import { layoutGraph, topTouches, bottomTouches, type LaneCommit } from '../lib/graph'
+import { formatShortcut } from '../shortcuts'
 import { dialogOps, useStore } from '../store'
 
 /** Largura por lane e altura da linha — espelham o CSS (.history-row height). */
@@ -178,7 +179,10 @@ export default function HistoryGraph() {
   const hasMoreCommits = useStore((s) => s.hasMoreCommits)
   const loadingMore = useStore((s) => s.loadingMore)
   const loadMoreCommits = useStore((s) => s.loadMoreCommits)
+  const shortcuts = useStore((s) => s.shortcuts)
   const [headFlash, setHeadFlash] = useState(0)
+  const spacerRef = useRef<HTMLDivElement>(null)
+  const [win, setWin] = useState<[number, number]>([0, 40])
   const searchRef = useRef<HTMLInputElement>(null)
 
   // Após checkout: rola até o novo HEAD e pisca a linha 1.5s.
@@ -191,10 +195,12 @@ export default function HistoryGraph() {
     return () => clearTimeout(t)
   }, [headPing])
 
-  // Ctrl+F foca a busca do histórico.
+  // Atalho de busca (remapeável; não rouba digitação em campos).
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+      if (useStore.getState().matchShortcut('search', e)) {
+        const ae = document.activeElement as HTMLElement | null
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return
         e.preventDefault()
         searchRef.current?.focus()
       }
@@ -270,6 +276,9 @@ export default function HistoryGraph() {
   // Filtrar depois preserva a coluna original de cada commit.
   const rows = useMemo(() => layoutGraph(commits).filter(visible), [commits, visible])
   const maxLane = useMemo(() => rows.reduce((m, r) => Math.max(m, r.lane, ...r.through, ...r.forks.map((f) => f.to)), 0), [rows])
+  // Ao mudar a lista (repo, filtro, página), volta para o topo da janela.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setWin([0, 40]), [rows.length, branchFilter])
   // Coluna do grafo encolhe para as lanes usadas (não mais 120–220px fixos).
   const graphCol = `${(maxLane + 1) * LANE_W + 24}px`
   const gridCols = `${graphCol} 1fr 140px 130px 80px`
@@ -291,8 +300,17 @@ export default function HistoryGraph() {
     <div
       className="history"
       onScroll={(e) => {
-        const el = e.currentTarget
-        if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) void loadMoreCommits()
+        const cont = e.currentTarget as HTMLElement
+        if (cont.scrollHeight - cont.scrollTop - cont.clientHeight < 400) void loadMoreCommits()
+        // Janela virtual: recalcula quais linhas da lista estão no viewport.
+        const anchor = spacerRef.current
+        const off = anchor
+          ? anchor.getBoundingClientRect().top - cont.getBoundingClientRect().top + cont.scrollTop
+          : 0
+        const top = Math.max(0, cont.scrollTop - off)
+        const start = Math.max(0, Math.floor(top / ROW_H) - 6)
+        const end = Math.min(rows.length, Math.ceil((top + cont.clientHeight) / ROW_H) + 6)
+        setWin((prev) => (prev[0] === start && prev[1] === end ? prev : [start, end]))
       }}
     >
       <div className="history-filter">
@@ -306,7 +324,7 @@ export default function HistoryGraph() {
           <Search size={14} />
           <input
             ref={searchRef}
-            placeholder={`${tr('hist.filterPh')} (Ctrl+F)`}
+            placeholder={`${tr('hist.filterPh')} (${formatShortcut(shortcuts.search)})`}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -348,7 +366,11 @@ export default function HistoryGraph() {
           <span className="mono muted">—</span>
         </div>
       )}
-      {rows.map((c, i) => (
+      <div ref={spacerRef} style={{ height: 0 }} />
+      {win[0] > 0 && <div style={{ height: win[0] * ROW_H }} />}
+      {rows.slice(win[0], win[1]).map((c, k) => {
+        const i = win[0] + k
+        return (
         <div
           key={c.hash}
           className={`history-row${c.hash === compareA || c.hash === compareB ? ' comparing' : ''}${headFlash > 0 && visibleRefs(c.refs).includes('HEAD') ? ' head-flash' : ''}`}
@@ -388,7 +410,9 @@ export default function HistoryGraph() {
           </span>
           <span className="mono muted">{shortHash(c.hash)}</span>
         </div>
-      ))}
+        )
+      })}
+      {win[1] < rows.length && <div style={{ height: (rows.length - win[1]) * ROW_H }} />}
       {hasMoreCommits && (
         <div className="history-more">
           <button className="mini-btn" disabled={loadingMore} onClick={() => void loadMoreCommits()}>

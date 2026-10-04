@@ -67,6 +67,16 @@ const STR: Record<string, Record<UILang, string>> = {
     pt: '{op} cancelado.',
     es: '{op} cancelado.'
   },
+  diffOursSide: {
+    en: 'ours side — {f}',
+    pt: 'lado nosso (ours) — {f}',
+    es: 'lado nuestro (ours) — {f}'
+  },
+  diffTheirsSide: {
+    en: 'theirs side — {f}',
+    pt: 'lado deles (theirs) — {f}',
+    es: 'lado suyo (theirs) — {f}'
+  },
   authFail: {
     en: '{op}: the HTTPS remote asks for login and no credential is saved. Run `gh auth login` in a terminal, or switch the remote to SSH. Detail: {d}',
     pt: '{op}: o remote HTTPS pede login e não há credencial salva. Rode `gh auth login` no terminal, ou troque o remote para SSH. Detalhe: {d}',
@@ -139,6 +149,11 @@ const STR: Record<string, Record<UILang, string>> = {
     pt: 'Cherry-pick parou em conflitos — resolva os arquivos, depois Continue, ou Abort. {d}',
     es: 'Cherry-pick detenido por conflictos — resuelve los archivos, luego Continue, o Abort. {d}'
   },
+  stashConflicts: {
+    en: 'Stash stopped on conflicts — resolve the files and commit or checkout them, then drop the stash manually if applied. {d}',
+    pt: 'Stash parou em conflitos — resolva os arquivos e commite ou descarte, depois faça drop do stash manualmente se aplicado. {d}',
+    es: 'Stash detenido por conflictos — resuelve los archivos y commitea o descarta, luego haz drop del stash manualmente si fue aplicado. {d}'
+  },
   noTerminal: {
     en: 'No terminal emulator found (looked for ptyxis, gnome-terminal, kgx, konsole, xfce4-terminal, x-terminal-emulator, xterm).',
     pt: 'Nenhum emulador de terminal encontrado (procurei ptyxis, gnome-terminal, kgx, konsole, xfce4-terminal, x-terminal-emulator, xterm).',
@@ -183,6 +198,11 @@ const STR: Record<string, Record<UILang, string>> = {
     en: 'No revert in progress — nothing to abort.',
     pt: 'Nenhum revert em andamento — nada para abortar.',
     es: 'Ningún revert en curso — nada que abortar.'
+  },
+  submoduleFail: {
+    en: 'Submodule update failed. {d}',
+    pt: 'Update de submódulos falhou. {d}',
+    es: 'Update de submódulos falló. {d}'
   },
   checkoutDirty: {
     en: 'Checkout blocked: uncommitted changes would be overwritten. Commit, stash or discard them first, then checkout again. {d}',
@@ -276,6 +296,11 @@ function enqueue<T>(repo: string, fn: () => Promise<T>): Promise<T> {
   return next
 }
 
+/** Leitura fora da fila de escrita: executa já (refresh não trava em sync longa). */
+function readOp<T>(fn: () => Promise<T>): Promise<T> {
+  return fn()
+}
+
 // Sem TTY no Electron, prompt interativo de senha travaria o main.
 // Mas ATENÇÃO: simple-git `.env()` SUBSTITUI o env inteiro do filho
 // (spawn recebe só as chaves custom), apagando HOME/credential helper.
@@ -343,7 +368,10 @@ function runGitCancellable(repo: string, opKey: string, args: string[], lang: UI
       if (ctrl.signal.aborted) {
         done(new Error(mx(lang, 'syncCancelled', { op: opKey })))
       } else if (code !== 0) {
-        done(new Error((stderr || stdout).trim().split('\n')[0] || `git ${args[0]} failed (${code})`))
+        // Git espalha o diagnóstico em várias linhas ("To <url>" + "[rejected]"
+        // + hints): levar as primeiras para o parse amigável não perder o motivo.
+        const lines = (stderr || stdout).split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 6)
+        done(new Error(lines.join(' — ') || `git ${args[0]} failed (${code})`))
       } else {
         done(null)
       }
@@ -511,7 +539,7 @@ ipcMain.handle('treeline:deleteBranch', (_event, repo: string, name: string, for
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:getMergeState', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').OpState> => {
+  readOp(async (): Promise<import('../shared/types').OpState> => {
     const gd = await gitDirOf(repo)
     if (!(await exists(join(gd, 'MERGE_HEAD')))) return { inProgress: false }
     let target: string | undefined
@@ -522,12 +550,12 @@ ipcMain.handle('treeline:getMergeState', (_event, repo: string) =>
       /* alvo desconhecido */
     }
     return { inProgress: true, target }
-  })()
+  })
 )
 
 ipcMain.handle('treeline:mergePreview', (_event, repo: string, ref: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').MergePreview> => {
+  readOp(async (): Promise<import('../shared/types').MergePreview> => {
     const git = simpleGit(repo)
     const [filesRaw, countRaw] = await Promise.all([
       git.raw(['diff', '--name-only', `HEAD...${ref}`]),
@@ -537,7 +565,7 @@ ipcMain.handle('treeline:mergePreview', (_event, repo: string, ref: string) =>
       files: filesRaw.split('\n').map((f) => f.trim()).filter(Boolean),
       commits: Number.parseInt(countRaw.trim(), 10) || 0
     }
-  })()
+  })
 )
 
 ipcMain.handle('treeline:mergeBranch', (_event, repo: string, ref: string, noFf: boolean, lang?: unknown) =>
@@ -582,7 +610,7 @@ function parseStashList(raw: string): import('../shared/types').StashInfo[] {
 
 ipcMain.handle('treeline:getStashes', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async () => parseStashList(await simpleGit(repo).raw(['stash', 'list', '--pretty=format:%gd%x00%H%x00%s%x1e'])))()
+  readOp(async () => parseStashList(await simpleGit(repo).raw(['stash', 'list', '--pretty=format:%gd%x00%H%x00%s%x1e'])))
 )
 
 ipcMain.handle('treeline:createStash', (_event, repo: string, message: string, includeUntracked: boolean) =>
@@ -599,7 +627,7 @@ ipcMain.handle('treeline:applyStash', (_event, repo: string, ref: string, lang?:
     try {
       await simpleGit(repo).raw(['stash', 'apply', ref])
     } catch (e) {
-      throw conflictErr('mergeConflicts', e, asLang(lang))
+      throw conflictErr('stashConflicts', e, asLang(lang))
     }
   })
 )
@@ -609,7 +637,7 @@ ipcMain.handle('treeline:popStash', (_event, repo: string, ref: string, lang?: u
     try {
       await simpleGit(repo).raw(['stash', 'pop', ref])
     } catch (e) {
-      throw conflictErr('mergeConflicts', e, asLang(lang))
+      throw conflictErr('stashConflicts', e, asLang(lang))
     }
   })
 )
@@ -626,7 +654,7 @@ ipcMain.handle('treeline:dropStash', (_event, repo: string, ref: string) =>
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:getTags', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').TagInfo[]> => {
+  readOp(async (): Promise<import('../shared/types').TagInfo[]> => {
     const raw = await simpleGit(repo).raw(['for-each-ref', '--sort=-creatordate', '--format=%(refname:short)%09%(creatordate:iso)', 'refs/tags'])
     let atHead = new Set<string>()
     try {
@@ -640,7 +668,7 @@ ipcMain.handle('treeline:getTags', (_event, repo: string) =>
       const [name, date] = line.split('\t')
       return name?.trim() ? [{ name: name.trim(), date: (date ?? '').trim(), checkedOut: atHead.has(name.trim()) }] : []
     })
-  })()
+  })
 )
 
 ipcMain.handle('treeline:createTag', (_event, repo: string, name: string, message: string, commit: string, lang?: unknown) =>
@@ -687,7 +715,7 @@ ipcMain.handle('treeline:deleteTag', (_event, repo: string, name: string, remote
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:getRebaseState', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').OpState> => {
+  readOp(async (): Promise<import('../shared/types').OpState> => {
     const gd = await gitDirOf(repo)
     const dir = (await exists(join(gd, 'rebase-merge')))
       ? join(gd, 'rebase-merge')
@@ -703,7 +731,7 @@ ipcMain.handle('treeline:getRebaseState', (_event, repo: string) =>
       /* alvo desconhecido */
     }
     return { inProgress: true, target }
-  })()
+  })
 )
 
 ipcMain.handle('treeline:rebaseOnto', (_event, repo: string, ref: string, lang?: unknown, autostash?: unknown) =>
@@ -737,9 +765,9 @@ ipcMain.handle('treeline:abortRebase', (_event, repo: string) =>
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:getCherryPickState', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').OpState> => ({
+  readOp(async (): Promise<import('../shared/types').OpState> => ({
     inProgress: await exists(join(await gitDirOf(repo), 'CHERRY_PICK_HEAD'))
-  }))()
+  }))
 )
 
 ipcMain.handle('treeline:cherryPick', (_event, repo: string, hash: string, lang?: unknown) =>
@@ -773,14 +801,14 @@ ipcMain.handle('treeline:abortCherryPick', (_event, repo: string) =>
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:detectFlow', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async () => {
+  readOp(async () => {
     try {
       await simpleGit(repo).raw(['flow', 'version'])
       return { installed: true }
     } catch {
       return { installed: false }
     }
-  })()
+  })
 )
 
 async function flowBase(repo: string, type: import('../shared/types').FlowType): Promise<string> {
@@ -848,7 +876,7 @@ ipcMain.handle('treeline:flowFinish', (_event, repo: string, type: import('../sh
 // IPC: Terminal — abre emulador na pasta do repo (detecção de instalados).
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:openTerminal', (_event, repo: string, lang?: unknown) =>
-  (async () => {
+  readOp(async () => {
     const l = asLang(lang)
     const cp = await import('node:child_process')
     const candidates: Array<{ cmd: string; args: (dir: string) => string[] }> = [
@@ -871,7 +899,7 @@ ipcMain.handle('treeline:openTerminal', (_event, repo: string, lang?: unknown) =
       }
     }
     throw new Error(mx(l, 'noTerminal'))
-  })()
+  })
 )
 
 // ---------------------------------------------------------------------------
@@ -892,12 +920,12 @@ function parseReflog(raw: string): import('../shared/types').ReflogEntry[] {
 
 ipcMain.handle('treeline:getReflog', (_event, repo: string, limit?: number) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async () => {
+  readOp(async () => {
     const n = Math.min(Math.max(limit ?? 100, 1), 500)
     return parseReflog(
       await simpleGit(repo).raw(['reflog', `--max-count=${n}`, '--date=iso', '--pretty=format:%H%x00%gd%x00%an%x00%ad%x00%s%x1e'])
     )
-  })()
+  })
 )
 
 ipcMain.handle('treeline:undoToReflog', (_event, repo: string, ref: string) =>
@@ -912,7 +940,7 @@ ipcMain.handle('treeline:undoToReflog', (_event, repo: string, ref: string) =>
 // IPC: backups bundle (listar + restaurar p/ namespace isolado).
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:listBackups', (_event, repo: string) =>
-  (async (): Promise<import('../shared/types').BackupInfo[]> => {
+  readOp(async (): Promise<import('../shared/types').BackupInfo[]> => {
     const dir = join(await gitDirOf(repo), 'treeline-backups')
     let files: string[] = []
     try {
@@ -930,7 +958,7 @@ ipcMain.handle('treeline:listBackups', (_event, repo: string) =>
       }
     }
     return out.sort((a, b) => (a.date < b.date ? 1 : -1))
-  })()
+  })
 )
 
 ipcMain.handle('treeline:restoreBackup', (_event, repo: string, file: string, lang?: unknown) =>
@@ -953,7 +981,7 @@ ipcMain.handle('treeline:restoreBackup', (_event, repo: string, file: string, la
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:getRemotes', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').RemoteInfo[]> => {
+  readOp(async (): Promise<import('../shared/types').RemoteInfo[]> => {
     const raw = await simpleGit(repo).raw(['remote', '-v'])
     const seen = new Map<string, string>()
     for (const line of raw.split('\n')) {
@@ -961,7 +989,7 @@ ipcMain.handle('treeline:getRemotes', (_event, repo: string) =>
       if (m?.[1] && m?.[2] && !seen.has(m[1])) seen.set(m[1], m[2])
     }
     return [...seen].map(([name, url]) => ({ name, url }))
-  })()
+  })
 )
 
 ipcMain.handle('treeline:addRemote', (_event, repo: string, name: string, url: string) =>
@@ -1075,6 +1103,70 @@ ipcMain.handle('treeline:termStop', (_event, repo: string) => {
 })
 
 ipcMain.handle('treeline:termAlive', (_event, repo: string) => terms.has(repo))
+
+// ---------------------------------------------------------------------------
+// Watcher: avisa o renderer quando a worktree ou o gitdir mudam fora do app
+// (terminal, outro GUI). Sem chokidar aqui antes; refresh era só no foco.
+// ---------------------------------------------------------------------------
+interface WatchEntry {
+  watcher: import('chokidar').FSWatcher
+  win: BrowserWindow | null
+  timer: NodeJS.Timeout | null
+}
+
+const watches = new Map<string, WatchEntry>()
+
+async function watchRepo(repo: string, win: BrowserWindow | null): Promise<void> {
+  if (watches.has(repo)) {
+    const w = watches.get(repo)
+    if (w) w.win = win
+    return
+  }
+  const { watch } = await import('chokidar')
+  const gd = await gitDirOf(repo)
+  const watcher = watch([repo, join(gd, 'HEAD'), join(gd, 'index')], {
+    ignored: (path: string) => {
+      const rel = path.startsWith(repo) ? path.slice(repo.length) : path
+      // Ignora .git inteiro, EXCETO os arquivos de estado que importam.
+      if (rel.startsWith('/.git/')) {
+        const keep = ['/.git/HEAD', '/.git/index', '/.git/refs', '/.git/MERGE_HEAD', '/.git/MERGE_MSG', '/.git/CHERRY_PICK_HEAD', '/.git/REVERT_HEAD']
+        return !keep.some((k) => rel === k || rel.startsWith(k + '/'))
+      }
+      return /(^|[/\\])\.(git|hg|svn)([/\\]|$)/.test(rel)
+    },
+    ignoreInitial: true,
+    depth: undefined
+  })
+  const entry: WatchEntry = { watcher, win, timer: null }
+  const fire = (): void => {
+    if (entry.timer) return
+    entry.timer = setTimeout(() => {
+      entry.timer = null
+      entry.win?.webContents.send('treeline:changed', repo)
+    }, 700)
+  }
+  watcher.on('all', () => fire())
+  watcher.on('error', () => undefined)
+  watches.set(repo, entry)
+}
+
+function unwatchRepo(repo: string): void {
+  const w = watches.get(repo)
+  if (!w) return
+  watches.delete(repo)
+  if (w.timer) clearTimeout(w.timer)
+  void w.watcher.close().catch(() => undefined)
+}
+
+ipcMain.handle('treeline:watchRepo', (event, repo: string) =>
+  readOp(async () => {
+    await watchRepo(repo, BrowserWindow.fromWebContents(event.sender))
+  })
+)
+
+ipcMain.handle('treeline:unwatchRepo', (_event, repo: string) => {
+  unwatchRepo(repo)
+})
 
 // ---------------------------------------------------------------------------
 // Janela principal.
@@ -1219,7 +1311,7 @@ function parseLogBlock(block: string): CommitInfo | null {
 
 ipcMain.handle('treeline:getStatus', ( _event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<RepoStatus> => {
+  readOp(async (): Promise<RepoStatus> => {
     const s = await simpleGit(repo).status()
     const staged = s.files.filter((f) => f.index !== ' ' && f.index !== '?').map((f) => ({ path: f.path, code: `${f.index}${f.working_dir}` }))
     // Untracked (??) sai em lista própria: se ficar aqui, conta e renderiza em dobro.
@@ -1244,12 +1336,12 @@ ipcMain.handle('treeline:getStatus', ( _event, repo: string) =>
       conflicted: s.conflicted ?? [],
       detachedTag
     }
-  })()
+  })
 )
 
 ipcMain.handle('treeline:getLog', (_event, repo: string, limit?: number, skip?: number, ref?: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<CommitInfo[]> => {
+  readOp(async (): Promise<CommitInfo[]> => {
     const n = Math.min(Math.max(limit ?? 300, 1), 2000)
     const s = Math.min(Math.max(skip ?? 0, 0), 100000)
     const onlyRef = ref?.trim() || ''
@@ -1270,23 +1362,39 @@ ipcMain.handle('treeline:getLog', (_event, repo: string, limit?: number, skip?: 
       const c = parseLogBlock(block)
       return c ? [c] : []
     })
-  })()
+  })
 )
 
 ipcMain.handle('treeline:getBranches', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<BranchInfo[]> => {
+  readOp(async (): Promise<BranchInfo[]> => {
     const b = await simpleGit(repo).branchLocal()
     return b.all.map((name) => ({ name, current: name === b.current }))
-  })()
+  })
 )
 
-ipcMain.handle('treeline:getDiff', (_event, repo: string, file: string, staged: boolean) =>
+ipcMain.handle('treeline:getDiff', (_event, repo: string, file: string, staged: boolean, lang?: unknown) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async () => {
+  readOp(async () => {
     const args = staged ? ['diff', '--cached', '--unified=3', '--', file] : ['diff', '--unified=3', '--', file]
-    return simpleGit(repo).raw(args)
-  })()
+    const out = await simpleGit(repo).raw(args)
+    if (out.trim()) return out
+    // Arquivo em conflito: `git diff` sai vazio. Mostra os dois lados
+    // (`:2` ours, `:3` theirs) em blocos rotulados para leitura.
+    try {
+      const l = asLang(lang)
+      const unmerged = (await simpleGit(repo).raw(['ls-files', '-u', '--', file])).trim()
+      if (!unmerged) return out
+      const ours = await simpleGit(repo).raw(['show', `:2:${file}`]).catch(() => '')
+      const theirs = await simpleGit(repo).raw(['show', `:3:${file}`]).catch(() => '')
+      if (!ours.trim() && !theirs.trim()) return out
+      const block = (s: string): string =>
+        s.replace(/\n$/, '').split('\n').map((ln) => (ln ? ` ${ln}` : '')).join('\n')
+      return `@@ ${mx(l, 'diff.oursSide', { f: file })} @@\n${block(ours)}\n@@ ${mx(l, 'diff.theirsSide', { f: file })} @@\n${block(theirs)}\n`
+    } catch {
+      return out
+    }
+  })
 )
 
 ipcMain.handle('treeline:stage', (_event, repo: string, file: string) =>
@@ -1441,6 +1549,92 @@ ipcMain.handle('treeline:setLang', async (_event, lang: string) => {
 
 ipcMain.handle('treeline:getVersion', () => app.getVersion())
 
+// ---------------------------------------------------------------------------
+// Update check: compara a versão do pacote com o último release no GitHub.
+// Sem telemetria out-bound — 1 request GET quando pedido explicitamente.
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:checkUpdates', async () => {
+  const current = app.getVersion()
+  try {
+    const res = await fetch('https://api.github.com/repos/viniciuswerneck/TreeLine/releases/latest', {
+      headers: { 'User-Agent': `treeline/${current}`, Accept: 'application/vnd.github+json' },
+      signal: AbortSignal.timeout(10_000)
+    })
+    if (!res.ok) return { current, latest: null, url: '' }
+    const json = (await res.json()) as { tag_name?: string; html_url?: string }
+    return { current, latest: json.tag_name?.replace(/^v/, '') ?? null, url: json.html_url ?? '' }
+  } catch {
+    return { current, latest: null, url: '' }
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Custom Actions: comandos externos por repo (nome + shell), salvos em JSON
+// no userData. Execução com timeout e saída truncada.
+// ---------------------------------------------------------------------------
+function customActionsFile(): string {
+  return join(app.getPath('userData'), 'custom-actions.json')
+}
+
+async function readCustomActions(): Promise<import('../shared/types').CustomAction[]> {
+  try {
+    const raw = await fs.readFile(customActionsFile(), 'utf-8')
+    const list = JSON.parse(raw) as unknown
+    if (!Array.isArray(list)) return []
+    return list
+      .filter((x): x is { name?: unknown; cmd?: unknown; id?: unknown } => typeof x === 'object' && x !== null)
+      .map((x, i) => ({
+        id: typeof x.id === 'string' && x.id ? x.id : `ca-${Date.now()}-${i}`,
+        name: typeof x.name === 'string' ? x.name : '',
+        cmd: typeof x.cmd === 'string' ? x.cmd : ''
+      }))
+      .filter((x) => x.name.trim() && x.cmd.trim())
+  } catch {
+    return []
+  }
+}
+
+ipcMain.handle('treeline:getCustomActions', async () => readCustomActions())
+
+ipcMain.handle('treeline:saveCustomAction', async (_event, a: { id?: string; name: string; cmd: string }) => {
+  const list = await readCustomActions()
+  const clean = { id: a.id?.trim() || `ca-${Date.now()}`, name: a.name.trim().slice(0, 80), cmd: a.cmd.trim().slice(0, 2000) }
+  if (!clean.name || !clean.cmd) throw new Error('empty')
+  const next = [clean, ...list.filter((x) => x.id !== clean.id)].slice(0, 50)
+  await fs.mkdir(app.getPath('userData'), { recursive: true })
+  await fs.writeFile(customActionsFile(), JSON.stringify(next, null, 2))
+  return next
+})
+
+ipcMain.handle('treeline:deleteCustomAction', async (_event, id: string) => {
+  const next = (await readCustomActions()).filter((x) => x.id !== id)
+  await fs.writeFile(customActionsFile(), JSON.stringify(next, null, 2))
+  return next
+})
+
+ipcMain.handle('treeline:runCustomAction', (_event, repo: string, id: string, lang?: unknown) =>
+  enqueue(repo, async (): Promise<import('../shared/types').ActionResult> => {
+    const l = asLang(lang)
+    const found = (await readCustomActions()).find((x) => x.id === id)
+    if (!found) throw new Error(mx(l, 'nameInvalid', { x: id }))
+    return new Promise<import('../shared/types').ActionResult>((resolve, reject) => {
+      const cp = require('node:child_process') as typeof import('node:child_process')
+      const child = cp.spawn('sh', ['-c', found.cmd], { cwd: repo, timeout: 60_000, env: process.env })
+      let out = ''
+      child.stdout?.on('data', (d) => {
+        out += String(d)
+        if (out.length > 20000) out = out.slice(-20000)
+      })
+      child.stderr?.on('data', (d) => {
+        out += String(d)
+        if (out.length > 20000) out = out.slice(-20000)
+      })
+      child.on('error', (e) => reject(e instanceof Error ? e : new Error(String(e))))
+      child.on('close', (code) => resolve({ code, output: out.trim().slice(-8000) }))
+    })
+  })
+)
+
 ipcMain.handle('treeline:getIdentity', async (): Promise<GitIdentity> => {
   const [name, email] = await Promise.all([getGlobal('user.name'), getGlobal('user.email')])
   return { name, email }
@@ -1458,9 +1652,47 @@ ipcMain.handle('treeline:setIdentity', async (_event, id: GitIdentity, lang?: un
   await simpleGit().raw(['config', '--global', 'user.email', email])
 })
 
+async function repoConfig(repo: string, key: string): Promise<string> {
+  try {
+    return (await simpleGit(repo).raw(['config', '--local', key])).trim()
+  } catch {
+    return ''
+  }
+}
+
+ipcMain.handle('treeline:getEffectiveIdentity', (_event, repo: string) =>
+  readOp(async (): Promise<import('../shared/types').EffectiveIdentity> => {
+    const [globalName, globalEmail, localName, localEmail] = await Promise.all([
+      getGlobal('user.name'),
+      getGlobal('user.email'),
+      repoConfig(repo, 'user.name'),
+      repoConfig(repo, 'user.email')
+    ])
+    const name = localName || globalName
+    const email = localEmail || globalEmail
+    return {
+      name,
+      email,
+      scope: localName || localEmail ? 'local' : name || email ? 'global' : 'none',
+      globalName,
+      globalEmail
+    }
+  })
+)
+
+ipcMain.handle('treeline:setRepoIdentity', async (_event, repo: string, id: GitIdentity, lang?: unknown): Promise<void> => {
+  const l = asLang(lang)
+  const name = id.name.trim()
+  const email = id.email.trim()
+  if (!name) throw new Error(mx(l, 'nameEmpty'))
+  if (!EMAIL_RE.test(email)) throw new Error(mx(l, 'emailInvalid'))
+  await simpleGit(repo).raw(['config', 'user.name', name])
+  await simpleGit(repo).raw(['config', 'user.email', email])
+})
+
 ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, lang?: unknown) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<CommitDetail> => {
+  readOp(async (): Promise<CommitDetail> => {
     const l = asLang(lang)
     const out = await simpleGit(repo).raw([
       'show', '--name-only', '--date=iso',
@@ -1506,12 +1738,12 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
       files,
       stats
     }
-  })()
+  })
 )
 
 ipcMain.handle('treeline:getCommitDiff', (_event, repo: string, hash: string, file: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async () => simpleGit(repo).raw(['show', hash, '--unified=3', '--', file]))()
+  readOp(async () => simpleGit(repo).raw(['show', hash, '--unified=3', '--', file]))
 )
 
 // ---------------------------------------------------------------------------
@@ -1626,7 +1858,7 @@ function buildPartialPatch(header: string[], hunk: import('../shared/types').Hun
 
 ipcMain.handle('treeline:getHunks', (_event, repo: string, file: string, staged: boolean) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').HunkInfo[]> => (await diffForHunks(repo, file, staged)).hunks)()
+  readOp(async (): Promise<import('../shared/types').HunkInfo[]> => (await diffForHunks(repo, file, staged)).hunks)
 )
 
 ipcMain.handle('treeline:stageHunk', (_event, repo: string, file: string, staged: boolean, hunkIndex: number, lang?: unknown) =>
@@ -1685,9 +1917,9 @@ async function backupBundle(repo: string): Promise<string> {
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:getRevertState', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').OpState> => ({
+  readOp(async (): Promise<import('../shared/types').OpState> => ({
     inProgress: await exists(join(await gitDirOf(repo), 'REVERT_HEAD'))
-  }))()
+  }))
 )
 
 ipcMain.handle('treeline:abortRevert', (_event, repo: string, lang?: unknown) =>
@@ -1706,7 +1938,7 @@ ipcMain.handle('treeline:abortRevert', (_event, repo: string, lang?: unknown) =>
 
 ipcMain.handle('treeline:getWorktreeInfo', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').WorktreeInfo> => {
+  readOp(async (): Promise<import('../shared/types').WorktreeInfo> => {
     let toplevel = repo
     try {
       toplevel = (await simpleGit(repo).revparse(['--show-toplevel'])).trim() || repo
@@ -1720,7 +1952,67 @@ ipcMain.handle('treeline:getWorktreeInfo', (_event, repo: string) =>
       /* sem .git legível */
     }
     return { linked, toplevel }
-  })()
+  })
+)
+
+// ---------------------------------------------------------------------------
+// IPC: LFS (detecção + contagem) e Submodules (lista + update/init).
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:getLfsInfo', (_event, repo: string) =>
+  // READ: fora da fila de escrita.
+  readOp(async (): Promise<import('../shared/types').LfsInfo> => {
+    const installed = await simpleGit(repo).raw(['lfs', 'version']).then(() => true).catch(() => false)
+    let tracked = false
+    try {
+      const attrs = await fs.readFile(join(repo, '.gitattributes'), 'utf-8')
+      tracked = /filter=lfs/.test(attrs)
+    } catch {
+      /* sem .gitattributes */
+    }
+    let files = 0
+    if (installed && tracked) {
+      try {
+        const raw = await simpleGit(repo).raw(['lfs', 'ls-files'])
+        files = raw.split('\n').map((l) => l.trim()).filter(Boolean).length
+      } catch {
+        /* segue zerado */
+      }
+    }
+    return { installed, tracked, files }
+  })
+)
+
+ipcMain.handle('treeline:getSubmodules', (_event, repo: string) =>
+  // READ: fora da fila de escrita.
+  readOp(async (): Promise<import('../shared/types').SubmoduleInfo[]> => {
+    let raw = ''
+    try {
+      raw = await simpleGit(repo).raw(['submodule', 'status'])
+    } catch {
+      return []
+    }
+    return raw.split('\n').flatMap((line) => {
+      const m = /^([ +-U]?)([0-9a-f]{40}) (\S+)( \((.*)\))?$/.exec(line)
+      if (!m?.[2] || !m?.[3]) return []
+      return [{
+        hash: m[2] as string,
+        path: m[3] as string,
+        state: (m[1] || ' ').trim() === '' ? ' ' : (m[1] as string),
+        label: (m[5] ?? '').trim()
+      }]
+    })
+  })
+)
+
+ipcMain.handle('treeline:updateSubmodules', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    try {
+      await simpleGit(repo).raw(['submodule', 'update', '--init', '--recursive'])
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      throw new Error(mx(asLang(lang), 'submoduleFail', { d: msg.split('\n')[0] as string }))
+    }
+  })
 )
 
 ipcMain.handle('treeline:revertCommit', (_event, repo: string, hash: string, lang?: unknown) =>
@@ -1762,6 +2054,21 @@ ipcMain.handle('treeline:resolveTheirs', (_event, repo: string, file: string) =>
   })
 )
 
+/** Publica o branch atual: `push -u origin <branch>` (primeiro push). */
+ipcMain.handle('treeline:pushPublish', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async (): Promise<import('../shared/types').SyncResult> => {
+    const l = asLang(lang)
+    const cur = (await simpleGit(repo).revparse(['--abbrev-ref', 'HEAD'])).trim()
+    if (!cur || cur === 'HEAD') throw new Error(mx(l, 'nameInvalid', { x: cur }))
+    try {
+      await runGitCancellable(repo, 'Push', ['push', '-u', 'origin', cur], l)
+    } catch (e) {
+      throw friendlySyncError('Push', e, l)
+    }
+    return { summary: mx(l, 'pushDone', { x: `${cur} → origin/${cur}` }) }
+  })
+)
+
 ipcMain.handle('treeline:pushForce', (_event, repo: string, forceLease: boolean, lang?: unknown) =>
   enqueue(repo, async (): Promise<import('../shared/types').SyncResult> => {
     const l = asLang(lang)
@@ -1783,7 +2090,7 @@ ipcMain.handle('treeline:pushForce', (_event, repo: string, forceLease: boolean,
 // ---------------------------------------------------------------------------
 ipcMain.handle('treeline:getBranchesDetailed', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').BranchDetail[]> => {
+  readOp(async (): Promise<import('../shared/types').BranchDetail[]> => {
     const raw = await simpleGit(repo).raw(['branch', '-vv'])
     const out: import('../shared/types').BranchDetail[] = []
     for (const line of raw.split('\n')) {
@@ -1803,12 +2110,12 @@ ipcMain.handle('treeline:getBranchesDetailed', (_event, repo: string) =>
       })
     }
     return out
-  })()
+  })
 )
 
 ipcMain.handle('treeline:getRemoteBranches', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').RemoteBranchInfo[]> => {
+  readOp(async (): Promise<import('../shared/types').RemoteBranchInfo[]> => {
     const raw = await simpleGit(repo).raw(['branch', '-r'])
     return raw.split('\n').flatMap((line) => {
       const name = line.trim()
@@ -1816,7 +2123,7 @@ ipcMain.handle('treeline:getRemoteBranches', (_event, repo: string) =>
       const slash = name.indexOf('/')
       return [{ name, remote: slash > 0 ? name.slice(0, slash) : 'origin' }]
     })
-  })()
+  })
 )
 
 ipcMain.handle('treeline:setUpstream', (_event, repo: string, branch: string, upstream: string, lang?: unknown) =>
@@ -1833,7 +2140,7 @@ ipcMain.handle('treeline:editRemote', (_event, repo: string, name: string, url: 
 
 ipcMain.handle('treeline:getBlame', (_event, repo: string, file: string, rev?: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').BlameLine[]> => {
+  readOp(async (): Promise<import('../shared/types').BlameLine[]> => {
     const args = ['blame', '--line-porcelain']
     if (rev?.trim()) args.push(rev.trim())
     args.push('--', file)
@@ -1855,12 +2162,12 @@ ipcMain.handle('treeline:getBlame', (_event, repo: string, file: string, rev?: s
       if (line.startsWith('\t')) { n++; out.push({ line: n, hash, author, date, content: line.slice(1) }) }
     }
     return out
-  })()
+  })
 )
 
 ipcMain.handle('treeline:getFileHistory', (_event, repo: string, file: string, limit?: number) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').FileHistoryEntry[]> => {
+  readOp(async (): Promise<import('../shared/types').FileHistoryEntry[]> => {
     const n = Math.min(Math.max(limit ?? 100, 1), 500)
     const raw = await simpleGit(repo).raw([
       'log', '--follow', `--max-count=${n}`, '--date=iso',
@@ -1875,7 +2182,7 @@ ipcMain.handle('treeline:getFileHistory', (_event, repo: string, file: string, l
       if (!hash) return []
       return [{ hash, author: author ?? '', date: date ?? '', message: rest.join('\0').trim() }]
     })
-  })()
+  })
 )
 
 // Rebase interativo via GIT_SEQUENCE_EDITOR=cp <plano>: o git executa
@@ -1891,7 +2198,7 @@ function enqueueGlobal<T>(fn: () => Promise<T>): Promise<T> {
 
 ipcMain.handle('treeline:getRebasePlan', (_event, repo: string, base: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').RebasePlanEntry[]> => {
+  readOp(async (): Promise<import('../shared/types').RebasePlanEntry[]> => {
     // --no-merges: `pick` de merge commit falha no rebase -i.
     const raw = await simpleGit(repo).raw([
       'log', '--reverse', '--no-merges', '--date=iso', '--pretty=format:%H%x00%s%x1e', `${base.trim()}..HEAD`
@@ -1903,7 +2210,7 @@ ipcMain.handle('treeline:getRebasePlan', (_event, repo: string, base: string) =>
       if (!hash) return []
       return [{ hash, message: (parts[1] ?? '').trim(), action: 'pick' as const }]
     })
-  })()
+  })
 )
 
 ipcMain.handle('treeline:rebaseInteractive', (_event, repo: string, base: string, plan: import('../shared/types').RebasePlanEntry[], lang?: unknown, autostash?: unknown) =>
@@ -1931,7 +2238,7 @@ ipcMain.handle('treeline:rebaseInteractive', (_event, repo: string, base: string
 
 ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async (): Promise<import('../shared/types').CompareSummary> => {
+  readOp(async (): Promise<import('../shared/types').CompareSummary> => {
     const [names, ns] = await Promise.all([
       simpleGit(repo).raw(['diff', '--name-only', a.trim(), b.trim()]),
       simpleGit(repo).raw(['diff', '--numstat', a.trim(), b.trim()])
@@ -1944,12 +2251,12 @@ ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: s
       return [{ path: (m[3] as string).trim(), added: num(m[1] as string), deleted: num(m[2] as string) }]
     })
     return { files, stats }
-  })()
+  })
 )
 
 ipcMain.handle('treeline:compareDiff', (_event, repo: string, a: string, b: string, file: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  ( async () => simpleGit(repo).raw(['diff', '--unified=3', a.trim(), b.trim(), '--', file]))()
+  readOp(async () => simpleGit(repo).raw(['diff', '--unified=3', a.trim(), b.trim(), '--', file]))
 )
 
 ipcMain.handle('treeline:openPR', (_event, repo: string) =>
