@@ -88,3 +88,4 @@
 - 2026-10-04: splash com slogan novo ("Onde o labirinto do Git vira um caminho reto - WerneckLab"). Rebuild + relançado.
 - 2026-10-04: splash com a arte do usuário (`build/splash.jpg` via extraResources + base64 em HTML temporário — data: gigante derrubava o renderer e file:// é bloqueado em página data:), slogan por idioma + barrinha + versão. Título da janela principal e `index.html` com o slogan. `treeline:setLang` persiste o idioma p/ o splash.
 - 2026-10-04: splash trocado p/ arte nova do usuário (close-up da árvore) + dialog Sobre (botão ⓘ na toolbar + paleta): versão dinâmica via `getVersion`, descrição, licença MIT traduzida (en/pt/es) e crédito WerneckLab. Título da janela segue o idioma (`app.title`, `document.title` no `setLang`).
+- 2026-10-04: README trilíngue (en padrão + `README.pt-BR.md` + `README.es.md`, com links no topo e conteúdo atualizado).

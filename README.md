@@ -1,107 +1,109 @@
-# TreeLine — Alternativa ao SourceTree para Linux (Git GUI)
+# TreeLine — SourceTree Alternative for Linux (Git GUI)
 
-**TreeLine é uma alternativa ao SourceTree para Linux**: um cliente Git visual (Git GUI) para Ubuntu/Debian com o fluxo familiar de quem usava SourceTree no Windows ou Mac. Se você procurava *SourceTree para Linux*, *SourceTree no Ubuntu* ou um *Git client para Linux* — é isso aqui.
+**English** | [Português](README.pt-BR.md) | [Español](README.es.md)
 
-*Looking for a **SourceTree alternative for Linux**? TreeLine is a Sourcetree-like Git GUI client for Linux (Ubuntu/Debian), with commit graph, staging, push/pull and dark/light themes.*
+**TreeLine is a SourceTree alternative for Linux**: a visual Git client (Git GUI) for Ubuntu/Debian with the familiar workflow of SourceTree on Windows/Mac. If you were looking for *SourceTree for Linux*, *SourceTree on Ubuntu* or a *Git client for Linux* — this is it.
 
 ![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.5.0-green)
 
-> Implementação 100% original — sem afiliação com a Atlassian. Inspirado no fluxo do SourceTree, sem copiar marca, ícones ou textos.
+> 100% original implementation — not affiliated with Atlassian. Inspired by the SourceTree workflow, without copying brand, icons or texts.
 
-## Procurando o SourceTree para Linux?
+## Looking for SourceTree on Linux?
 
-Não existe SourceTree oficial para Linux. O TreeLine preenche essa lacuna:
+There is no official SourceTree for Linux. TreeLine fills that gap:
 
-| Quem usa SourceTree | No TreeLine |
+| SourceTree user | In TreeLine |
 |---|---|
-| Toolbar Commit, Push, Pull, Fetch, Branch, Merge, Stash, Tag | Mesma ordem, mesmos nomes, ícones próprios |
-| Sidebar com bookmarks, branches, remotes, stashes | Igual, com badges ahead/behind |
-| Grafo de commits + file status + diff | Grafo colorido estilo Git Graph, stage por arquivo, diff unified |
-| Credenciais e SSH | Reaproveita credential helper e ssh-agent do sistema |
+| Toolbar Commit, Push, Pull, Fetch, Branch, Merge, Stash, Tag | Same order, same names, original icons |
+| Sidebar with bookmarks, branches, remotes, stashes | Same, with ahead/behind badges |
+| Commit graph + file status + diff | Git Graph-style colored graph, stage per file/hunk/line, unified/split diff |
+| Credentials and SSH | Reuses the system credential helper and ssh-agent |
 
-Outras alternativas que as pessoas comparam: GitKraken, GitHub Desktop (sem versão Linux oficial), Sublime Merge, Gitg, Git Cola. O TreeLine foca em **paridade de uso com o SourceTree** e em ser leve de instalar (`.deb`/AppImage).
+Other alternatives people compare: GitKraken, GitHub Desktop (no official Linux build), Sublime Merge, Gitg, Git Cola. TreeLine focuses on **usage parity with SourceTree** and easy install (`.deb`/AppImage).
 
-## Recursos
+## Features
 
-- **4 regiões**: toolbar, sidebar (Bookmarks, Workspace, Branches, Remotes, Tags, Stashes), histórico com grafo e painel File Status + diff
-- **Grafo estilo Git Graph**: lanes coloridas, curvas de merge, badges por tipo de ref, datas relativas
-- **Fluxo completo**: Stage/Unstage (por arquivo + Stage All), Commit com Amend, **Push / Pull (`--ff-only`) / Fetch** com toast de progresso e resumo
-- **Busca de commits**, filtro por branch atual, clique no commit mostra arquivos + diff
-- **Diff colorido estilo VS Code** (verde/vermelho, hunk em azul, números old/new)
-- **Botão direito** com menus: copiar hash/mensagem, stage/discard com confirmação, bookmarks
-- **10 temas** (5 claros + 5 escuros + System) e **Settings** com identidade do autor (nome/email)
-- **3 idiomas**: English, Português e Español (detecta o sistema, troca no Settings)
-- Sempre via **git do sistema** (hooks, LFS, flow e credential helpers funcionam igual ao terminal)
+- **4 regions**: toolbar, sidebar (Bookmarks, Workspace, Branches, Remotes, Tags, Stashes), history with graph and File Status + diff panel
+- **Git Graph-style graph**: colored lanes, merge curves, badges per ref type, absolute dates, avatars, compare between 2 commits (Ctrl+click)
+- **Full flow**: Stage/Unstage (per file, hunk and line + Stage All), side-by-side diff with arrows per block, Commit with Amend (Ctrl+Enter), **Push (`--force-with-lease` on demand) / Pull (`--ff-only`) / Fetch** with progress toast
+- **Commit search**, current-branch filter, click a commit to see files + diff, Blame and file history
+- **Branch/Merge/Stash/Tag/Rebase (simple + interactive)/Cherry-Pick/Revert/Reset/Git-flow/Reflog+Undo** with bundle backup before destructive ops, conflict resolver (Ours/Theirs)
+- **Right-click** menus everywhere, `Ctrl+K` command palette, collapsible sidebar (`Ctrl+B`), integrated terminal, clickable status bar
+- **10 themes** (5 light + 5 dark + System) and **Settings** with author identity (name/email)
+- **3 languages**: English, Português and Español (detects the system, switch in Settings)
+- Always via **system git** (hooks, LFS, flow and credential helpers work like in the terminal)
 
-## Instalar no Ubuntu/Debian (SourceTree Linux download alternativo)
+## Install on Ubuntu/Debian (SourceTree Linux download alternative)
 
-Baixe o `.deb` ou o `.AppImage` na página de **Releases** e instale:
+Download the `.deb` or `.AppImage` from the **Releases** page and install:
 
 ```bash
 sudo apt install ./treeline_0.5.0_amd64.deb
 ```
 
-Requisito: `git >= 2.40`. Opcional: `git-lfs`, `git-flow`.
+Requirement: `git >= 2.40`. Optional: `git-lfs`, `git-flow`.
 
-## Desenvolver
+## Develop
 
 ```bash
 npm install
-npm run dev        # Vite + Electron com hot reload
+npm run dev        # Vite + Electron with hot reload
 npm run typecheck  # tsc (node + web)
-npm run build      # só compila
-npm run dist       # .deb + AppImage em dist/
+npm run build      # compile only
+npm run dist       # .deb + AppImage in dist/
+npm test           # Vitest (graph engine)
+npm run test:ui    # Playwright CDP harness (app must run with --remote-debugging-port=9222)
 ```
 
-Para rodar o binário local sem instalar:
+To run the local binary without installing:
 
 ```bash
 ./dist/linux-unpacked/treeline --no-sandbox
 ```
 
-## Estrutura
+## Structure
 
 ```
 src/
   main/       # Electron/Node: git via CLI, IPC, bookmarks, splash
-  preload/    # bridge segura (contextIsolation on)
+  preload/    # secure bridge (contextIsolation on)
   renderer/   # React + zustand: Toolbar/Sidebar/HistoryGraph/DetailsPanel/StatusBar/SyncToast/SettingsDialog
-  shared/     # tipos do IPC
-docs/         # visão, roadmap, arquitetura, ADRs, estado, design system
+  shared/     # IPC types
+docs/         # vision, roadmap, architecture, ADRs, status, design system
 ```
 
-Documentação de produto e decisões em [`docs/`](docs/).
+Product documentation and decisions in [`docs/`](docs/).
 
-## Roadmap (resumo)
+## Roadmap (summary)
 
-- **0.5.0** — dialogs Branch/Merge, remote manager (clone/init), stage por hunk/linha
-- **0.9.0** — stash, cherry-pick, revert, tags, resolvedor de conflitos
-- **1.0.0** — rebase interativo com undo, git-flow, LFS, reflog
-- **1.1.0+** — Flatpak, keyring, auto-update, atalhos remapeáveis
+- **0.5.0** — Branch/Merge dialogs, remote manager (clone/init), stage per hunk/line, split diff
+- **0.9.0** — stash, cherry-pick, revert, tags, conflict resolver, force-with-lease
+- **1.0.0** — interactive rebase with undo, git-flow, reflog + bundle backup
+- **1.1.0+** — Flatpak, keyring, auto-update, remappable shortcuts
 
-Detalhe e paridade com o SourceTree em [`docs/02-roadmap.md`](docs/02-roadmap.md).
+Detail and SourceTree parity in [`docs/02-roadmap.md`](docs/02-roadmap.md).
 
-## Perguntas frequentes
+## FAQ
 
-**O TreeLine é o SourceTree para Linux?**
-Não — é uma *alternativa* independente com fluxo parecido. O SourceTree (Atlassian) não tem versão para Linux.
+**Is TreeLine the SourceTree for Linux?**
+No — it is an independent *alternative* with a similar flow. SourceTree (Atlassian) has no Linux version.
 
-**Funciona em qual distro?**
-Ubuntu/Debian primeiro (`.deb` + AppImage). Flatpak e outras distros entram no roadmap.
+**Which distros does it run on?**
+Ubuntu/Debian first (`.deb` + AppImage). Flatpak and other distros are on the roadmap.
 
-**Meus dados saem da máquina?**
-Não. Sem telemetria por padrão; credenciais ficam no credential helper do seu sistema.
+**Does my data leave the machine?**
+No. No telemetry by default; credentials stay in your system credential helper.
 
-## Licença
+## License
 
-MIT — ver [`LICENSE`](LICENSE). Open source: pode usar, modificar e distribuir,
-desde que mantidos os créditos (aviso de copyright da Werneck Lab).
+MIT — see [`LICENSE`](LICENSE). Open source: you may use, modify and distribute,
+as long as credits are kept (Werneck Lab copyright notice).
 
-## Contribuindo
+## Contributing
 
-Pull requests são bem-vindos. Ao contribuir, mantenha o aviso de copyright
-MIT em `LICENSE` e não inclua assets de terceiros com licença incompatível
-(nada da Atlassian/SourceTree: ícones e textos devem ser originais).
+Pull requests are welcome. When contributing, keep the MIT copyright
+notice in `LICENSE` and don't include third-party assets with incompatible
+licenses (nothing from Atlassian/SourceTree: icons and texts must be original).
 
 ---
-*Desenvolvido por **Werneck Lab**.*
+*Developed by **Werneck Lab** — TreeLine: where the Git maze becomes a straight path.*
