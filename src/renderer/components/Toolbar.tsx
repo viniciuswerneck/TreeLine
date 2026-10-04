@@ -4,6 +4,7 @@ import {
   Cherry,
   Check,
   Download,
+  ExternalLink,
   GitBranch,
   GitMerge,
   History,
@@ -15,7 +16,7 @@ import {
   Upload,
   Workflow
 } from 'lucide-react'
-import { useStore } from '../store'
+import { dialogOps, useStore } from '../store'
 
 // Barra superior padrão SourceTree moderno: mesma ordem e terminologia da
 // visão (`01-visao.md` §4.2), arte própria TreeLine com ícones Lucide.
@@ -38,6 +39,8 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
   const openSettings = useStore((s) => s.openSettings)
   const openDlg = useStore((s) => s.openDlg)
   const toggleTerminal = useStore((s) => s.toggleTerminal)
+  const doPushForce = useStore((s) => s.doPushForce)
+  const openMenu = useStore((s) => s.openMenu)
   const terminalOpen = useStore((s) => s.terminalOpen)
   const current = useStore((s) => s.current)
   const tr = useStore((s) => s.tr)
@@ -89,15 +92,22 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
       </div>
       <span className="toolbar-sep" />
       <div className="toolbar-group">
-        <ActionButton
-          title={ahead > 0 ? tr('toolbar.pushAhead', { n: ahead }) : tr('toolbar.pushTo')}
-          primary={ahead > 0 && !busy}
-          disabled={busy}
-          count={ahead}
-          onClick={() => void doPush()}
+        <span
+          onContextMenu={(e) => {
+            e.preventDefault()
+            openMenu(e.clientX, e.clientY, [{ label: tr('menu.pushLease'), onClick: () => void doPushForce() }])
+          }}
         >
-          <Upload size={16} /> {sync.op === 'push' && busy ? '…' : tr('toolbar.push')}
-        </ActionButton>
+          <ActionButton
+            title={ahead > 0 ? tr('toolbar.pushAhead', { n: ahead }) : tr('toolbar.pushTo')}
+            primary={ahead > 0 && !busy}
+            disabled={busy}
+            count={ahead}
+            onClick={() => void doPush()}
+          >
+            <Upload size={16} /> {sync.op === 'push' && busy ? '…' : tr('toolbar.push')}
+          </ActionButton>
+        </span>
         <ActionButton title={tr('toolbar.pullFrom')} disabled={busy} onClick={() => void doPull()}>
           <Download size={16} /> {sync.op === 'pull' && busy ? '…' : tr('toolbar.pull')}
         </ActionButton>
@@ -154,6 +164,9 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
         </IconButton>
         <IconButton title={tr('toolbar.syncStatus')} disabled={!ready} onClick={() => openDlg('remotes')}>
           <ArrowDownUp size={16} />
+        </IconButton>
+        <IconButton title={tr('menu.openPR')} disabled={!ready} onClick={() => void dialogOps.openPR()}>
+          <ExternalLink size={16} />
         </IconButton>
       <IconButton title={tr('toolbar.terminal')} disabled={!ready} onClick={toggleTerminal}>
         <Terminal size={16} />

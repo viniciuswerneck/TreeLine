@@ -1,15 +1,22 @@
 import { useEffect, useRef } from 'react'
 import { GitBranch } from 'lucide-react'
+import BlameDialog from './components/BlameDialog'
 import BranchDialog from './components/BranchDialog'
+import CommandPalette from './components/CommandPalette'
+import CompareDialog from './components/CompareDialog'
+import ConfirmDialog from './components/ConfirmDialog'
 import ContextMenu from './components/ContextMenu'
 import DetailsPanel from './components/DetailsPanel'
+import FileHistoryDialog from './components/FileHistoryDialog'
 import FlowDialog from './components/FlowDialog'
 import HistoryGraph from './components/HistoryGraph'
 import MergeDialog from './components/MergeDialog'
 import PickDialog from './components/PickDialog'
 import RebaseDialog from './components/RebaseDialog'
+import RebaseInteractiveDialog from './components/RebaseInteractiveDialog'
 import ReflogDialog from './components/ReflogDialog'
 import RemotesDialog from './components/RemotesDialog'
+import ResetDialog from './components/ResetDialog'
 import SettingsDialog from './components/SettingsDialog'
 import Sidebar from './components/Sidebar'
 import StashDialog from './components/StashDialog'
@@ -47,6 +54,7 @@ export default function App() {
 
   // Mudanças feitas fora do app (terminal, outro GUI): atualiza ao voltar
   // o foco para a janela + F5 manual. Throttle de 2s contra foco repetido.
+  // Ctrl+K abre a paleta de comandos.
   useEffect(() => {
     let last = 0
     const maybeRefresh = (): void => {
@@ -61,6 +69,15 @@ export default function App() {
       if (e.key === 'F5') {
         e.preventDefault()
         maybeRefresh()
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        const st = useStore.getState()
+        st.setPalette(!st.paletteOpen)
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        useStore.getState().toggleSidebar()
       }
     }
     window.addEventListener('focus', onFocus)
@@ -109,10 +126,17 @@ export default function App() {
       {dialog === 'stash' && <StashDialog />}
       {dialog === 'tag' && <TagDialog />}
       {dialog === 'rebase' && <RebaseDialog />}
+      {dialog === 'rebaseInteractive' && <RebaseInteractiveDialog />}
       {dialog === 'pick' && <PickDialog />}
       {dialog === 'flow' && <FlowDialog />}
       {dialog === 'reflog' && <ReflogDialog />}
       {dialog === 'remotes' && <RemotesDialog />}
+      {dialog === 'reset' && <ResetDialog />}
+      {dialog === 'blame' && <BlameDialog />}
+      {dialog === 'fileHistory' && <FileHistoryDialog />}
+      {dialog === 'compare' && <CompareDialog />}
+      <CommandPalette />
+      <ConfirmDialog />
       <ContextMenu />
     </div>
   )

@@ -68,3 +68,9 @@ Formato curto: Contexto -> Decisão -> Consequência. Não reabrir sem fato novo
 - Contexto: Usuário pediu o novo nome.
 - Decisão: Renomear tudo visível (productName, binário `treeline`, `.deb`, janela, welcome, statusbar, temas, docs) + API interna (`window.treeline`, canais `treeline:*`). Pasta do projeto mantida em `/home/vinicius/gitnest` (evita quebrar paths e processos). Migrações: bookmarks copiados de `~/.config/GitNest` uma vez; tema antigo mapeado (`gitnest-light/dark` -> novos ids).
 - Consequência: userData novo em `~/.config/TreeLine`; legado fica órfão e pode ser apagado.
+
+## ADR-012 — `LC_ALL=C` nos filhos git (2026-10-04)
+
+- Contexto: Com `LANG=pt_BR.UTF-8`, o git localiza `status -sb` (`[à frente 1]`) e `branch -vv` (`: à frente 1`), e o simple-git (regex `/ahead (\d+)/`) + nosso parse de upstream liam ahead/behind = 0. Achado via screenshot do teste UI (statusbar `↑0 ↓0`).
+- Decisão: `LC_ALL=C` no `process.env` do main (herdado por todo git spawnado), ao lado de `GIT_TERMINAL_PROMPT=0`. Datas usam `--date=iso` e textos vêm do i18n próprio, então é seguro.
+- Consequência: Parsers sempre veem inglês (`[ahead 1]`), independente do locale do sistema.

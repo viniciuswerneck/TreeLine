@@ -11,6 +11,42 @@ const api: TreeLineAPI = {
   getBranches: (repo: string) => ipcRenderer.invoke('treeline:getBranches', repo),
   getDiff: (repo: string, file: string, staged: boolean) =>
     ipcRenderer.invoke('treeline:getDiff', repo, file, staged),
+  getHunks: (repo: string, file: string, staged: boolean) =>
+    ipcRenderer.invoke('treeline:getHunks', repo, file, staged),
+  stageHunk: (repo: string, file: string, staged: boolean, hunkIndex: number, lang?: string) =>
+    ipcRenderer.invoke('treeline:stageHunk', repo, file, staged, hunkIndex, lang),
+  discardHunk: (repo: string, file: string, staged: boolean, hunkIndex: number, lang?: string) =>
+    ipcRenderer.invoke('treeline:discardHunk', repo, file, staged, hunkIndex, lang),
+  stageLines: (repo: string, file: string, staged: boolean, hunkIndex: number, lineIndexes: number[], lang?: string) =>
+    ipcRenderer.invoke('treeline:stageLines', repo, file, staged, hunkIndex, lineIndexes, lang),
+  revertCommit: (repo: string, hash: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:revertCommit', repo, hash, lang),
+  resetTo: (repo: string, ref: string, mode: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:resetTo', repo, ref, mode, lang),
+  resolveOurs: (repo: string, file: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:resolveOurs', repo, file, lang),
+  resolveTheirs: (repo: string, file: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:resolveTheirs', repo, file, lang),
+  pushForce: (repo: string, forceLease: boolean, lang?: string) =>
+    ipcRenderer.invoke('treeline:pushForce', repo, forceLease, lang),
+  getBranchesDetailed: (repo: string) => ipcRenderer.invoke('treeline:getBranchesDetailed', repo),
+  getRemoteBranches: (repo: string) => ipcRenderer.invoke('treeline:getRemoteBranches', repo),
+  setUpstream: (repo: string, branch: string, upstream: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:setUpstream', repo, branch, upstream, lang),
+  editRemote: (repo: string, name: string, url: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:editRemote', repo, name, url, lang),
+  getBlame: (repo: string, file: string, rev?: string) =>
+    ipcRenderer.invoke('treeline:getBlame', repo, file, rev),
+  getFileHistory: (repo: string, file: string, limit?: number) =>
+    ipcRenderer.invoke('treeline:getFileHistory', repo, file, limit),
+  getRebasePlan: (repo: string, base: string) => ipcRenderer.invoke('treeline:getRebasePlan', repo, base),
+  rebaseInteractive: (repo: string, base: string, plan: unknown, lang?: string, autostash?: boolean) =>
+    ipcRenderer.invoke('treeline:rebaseInteractive', repo, base, plan, lang, autostash),
+  compareCommits: (repo: string, a: string, b: string) =>
+    ipcRenderer.invoke('treeline:compareCommits', repo, a, b),
+  compareDiff: (repo: string, a: string, b: string, file: string) =>
+    ipcRenderer.invoke('treeline:compareDiff', repo, a, b, file),
+  openPR: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:openPR', repo, lang),
   stage: (repo: string, file: string) => ipcRenderer.invoke('treeline:stage', repo, file),
   unstage: (repo: string, file: string) => ipcRenderer.invoke('treeline:unstage', repo, file),
   commit: (repo: string, message: string, amend?: boolean, lang?: string) =>
@@ -35,6 +71,10 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:createBranch', repo, name, from, checkout, lang),
   checkoutBranch: (repo: string, name: string, lang?: string) =>
     ipcRenderer.invoke('treeline:checkoutBranch', repo, name, lang),
+  checkoutRemote: (repo: string, remoteBranch: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:checkoutRemote', repo, remoteBranch, lang),
+  checkoutTag: (repo: string, tag: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:checkoutTag', repo, tag, lang),
   renameBranch: (repo: string, oldName: string, newName: string, lang?: string) =>
     ipcRenderer.invoke('treeline:renameBranch', repo, oldName, newName, lang),
   deleteBranch: (repo: string, name: string, force: boolean, lang?: string) =>
@@ -62,8 +102,11 @@ const api: TreeLineAPI = {
   deleteTag: (repo: string, name: string, remoteToo: boolean, lang?: string) =>
     ipcRenderer.invoke('treeline:deleteTag', repo, name, remoteToo, lang),
   getRebaseState: (repo: string) => ipcRenderer.invoke('treeline:getRebaseState', repo),
-  rebaseOnto: (repo: string, ref: string, lang?: string) =>
-    ipcRenderer.invoke('treeline:rebaseOnto', repo, ref, lang),
+  rebaseOnto: (repo: string, ref: string, lang?: string, autostash?: boolean) =>
+    ipcRenderer.invoke('treeline:rebaseOnto', repo, ref, lang, autostash),
+  getRevertState: (repo: string) => ipcRenderer.invoke('treeline:getRevertState', repo),
+  abortRevert: (repo: string) => ipcRenderer.invoke('treeline:abortRevert', repo),
+  getWorktreeInfo: (repo: string) => ipcRenderer.invoke('treeline:getWorktreeInfo', repo),
   rebaseContinue: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:rebaseContinue', repo, lang),
   abortRebase: (repo: string) => ipcRenderer.invoke('treeline:abortRebase', repo),
   getCherryPickState: (repo: string) => ipcRenderer.invoke('treeline:getCherryPickState', repo),

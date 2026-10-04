@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { LANGS, type Lang } from '../i18n'
@@ -39,7 +40,12 @@ export default function SettingsDialog() {
   return (
     <div className="modal-backdrop" onClick={closeSettings}>
       <div className="modal" role="dialog" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
-        <h2>{tr('settings.title')}</h2>
+        <div className="modal-head">
+          <h2>{tr('settings.title')}</h2>
+          <button className="modal-x" title={tr('settings.close')} onClick={closeSettings} aria-label={tr('settings.close')}>
+            <X size={16} />
+          </button>
+        </div>
         <label className="field">
           <span>{tr('settings.language')}</span>
           <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}>

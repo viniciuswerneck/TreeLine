@@ -1,7 +1,7 @@
 import { ArrowLeft, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { forwardRef, useEffect, useState } from 'react'
 import { useStore } from '../store'
-import DiffViewer from './DiffViewer'
+import DiffViewer, { loadDiffMode, saveDiffMode, type DiffMode } from './DiffViewer'
 import { RefBadge, visibleRefs } from './HistoryGraph'
 
 /**
@@ -13,6 +13,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const status = useStore((s) => s.status)
   const selectedFile = useStore((s) => s.selectedFile)
   const diff = useStore((s) => s.diff)
+  const hunks = useStore((s) => s.hunks)
   const message = useStore((s) => s.message)
   const amend = useStore((s) => s.amend)
   const error = useStore((s) => s.error)
@@ -24,6 +25,8 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const setMessage = useStore((s) => s.setMessage)
   const setAmend = useStore((s) => s.setAmend)
   const doCommit = useStore((s) => s.doCommit)
+  const resolveOurs = useStore((s) => s.resolveOurs)
+  const resolveTheirs = useStore((s) => s.resolveTheirs)
 
   const unstaged = status?.unstaged ?? []
   const staged = status?.staged ?? []
@@ -44,9 +47,43 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const discardFile = useStore((s) => s.discardFile)
   const refresh = useStore((s) => s.refresh)
   const loading = useStore((s) => s.loading)
+  const loadBlame = useStore((s) => s.loadBlame)
+  const loadFileHistory = useStore((s) => s.loadFileHistory)
+  const openDlg = useStore((s) => s.openDlg)
   const [commitFile, setCommitFile] = useState<string | null>(null)
   // Painel expandido (tela cheia): um por vez; Esc recolhe.
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [diffMode, setDiffMode] = useState<DiffMode>(() => loadDiffMode())
+
+  const switchMode = (m: DiffMode): void => {
+    setDiffMode(m)
+    saveDiffMode(m)
+  }
+
+  const modeToggle = (): React.ReactNode => (
+    <span className="diff-mode" role="group" aria-label="Diff mode">
+      <button
+        className={`mini-btn${diffMode === 'unified' ? ' active' : ''}`}
+        title={tr('diff.unified')}
+        onClick={(e) => {
+          e.stopPropagation()
+          switchMode('unified')
+        }}
+      >
+        {tr('diff.unified')}
+      </button>
+      <button
+        className={`mini-btn${diffMode === 'split' ? ' active' : ''}`}
+        title={tr('diff.split')}
+        onClick={(e) => {
+          e.stopPropagation()
+          switchMode('split')
+        }}
+      >
+        {tr('diff.split')}
+      </button>
+    </span>
+  )
 
   useEffect(() => {
     setCommitFile(null)
@@ -81,13 +118,22 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const fileMenu = (e: React.MouseEvent, path: string, staged: boolean, tracked: boolean): void => {
     e.preventDefault()
     const toggle = staged ? unstageSelected : stageSelected
+    const conflicted = (status?.conflicted ?? []).includes(path)
     void selectFile({ path, staged }).then(() => {
       openMenu(e.clientX, e.clientY, [
         { label: staged ? tr('menu.unstageFile') : tr('menu.stageFile'), onClick: () => void toggle() },
+        ...(conflicted
+          ? [
+              { label: tr('menu.ours'), onClick: () => void resolveOurs(path) },
+              { label: tr('menu.theirs'), onClick: () => void resolveTheirs(path) }
+            ]
+          : []),
         { label: tr('menu.copyPath'), onClick: () => void copyText(path) },
         { label: tr('menu.reveal'), onClick: () => void revealRepoFile(path) },
+        { label: tr('menu.blame'), onClick: () => { void loadBlame(path); openDlg('blame') } },
+        { label: tr('menu.fileHistory'), onClick: () => { void loadFileHistory(path); openDlg('fileHistory') } },
         {
-          label: 'Discard changes…',
+          label: tr('menu.discard'),
           danger: true,
           onClick: () => void discardFile(path, tracked)
         }
@@ -99,9 +145,11 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
     e.preventDefault()
     openMenu(e.clientX, e.clientY, [
       { label: tr('menu.copyPath'), onClick: () => void copyText(path) },
-      { label: 'Reveal in file manager', onClick: () => void revealRepoFile(path) }
+      { label: tr('menu.reveal'), onClick: () => void revealRepoFile(path) }
     ])
   }
+
+  const isConflicted = selectedFile ? (status?.conflicted ?? []).includes(selectedFile.path) : false
 
   // Vista de commit selecionado no histórico: meta + arquivos + diff.
   if (selectedCommit) {
@@ -288,15 +336,48 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
         </div>
         <div className={`diff-pane ${expandedClass('diff')}`}>
           {expandBtn('diff')}
-          {diff ? <DiffViewer text={diff} /> : tr('det.selectFile')}
+          {isConflicted && (
+            <div className="conflict-bar" title={tr('conflict.hint')}>
+              <span>{tr('conflict.hint')}</span>
+              <button className="mini-btn" onClick={() => selectedFile && void resolveOurs(selectedFile.path)}>
+                {tr('conflict.ours')}
+              </button>
+              <button className="mini-btn" onClick={() => selectedFile && void resolveTheirs(selectedFile.path)}>
+                {tr('conflict.theirs')}
+              </button>
+            </div>
+          )}
+          {diff ? (
+            <>
+              <div className="diff-toolbar">
+                {modeToggle()}
+              </div>
+              <DiffViewer
+                text={diff}
+                file={selectedFile?.path}
+                staged={selectedFile?.staged ?? false}
+                hunks={hunks}
+                interactive
+                mode={diffMode}
+              />
+            </>
+          ) : (
+            tr('det.selectFile')
+          )}
         </div>
       </div>
       <div className="commit-bar">
         <textarea
           ref={commitRef}
-          placeholder={tr('det.commitMsgPh')}
+          placeholder={`${tr('det.commitMsgPh')} — ${tr('det.templateHint')}`}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canCommit) {
+              e.preventDefault()
+              void doCommit()
+            }
+          }}
         />
         <div className="commit-row">
           <label>
@@ -306,7 +387,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             className="tool-btn primary"
             onClick={() => void doCommit()}
             disabled={!canCommit}
-            title={!canCommit ? tr('det.commitHint') : tr('toolbar.commitStaged')}
+            title={!canCommit ? tr('det.commitHint') : `${tr('toolbar.commitStaged')} (${tr('det.ctrlEnter')})`}
           >
             {tr('det.commit')}
           </button>

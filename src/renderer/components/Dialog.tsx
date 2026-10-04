@@ -1,13 +1,15 @@
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 
 /**
- * Shell dos dialogs de operação: backdrop, Esc fecha, erro do store.
+ * Shell dos dialogs de operação: backdrop, Esc/X fecha, erro do store.
  * Sucesso fecha via `run` (só fecha quando a op retorna true).
  */
 export default function Dialog({ title, wide, children }: { title: string; wide?: boolean; children: React.ReactNode }) {
   const closeDlg = useStore((s) => s.closeDlg)
   const error = useStore((s) => s.error)
+  const tr = useStore((s) => s.tr)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -25,7 +27,12 @@ export default function Dialog({ title, wide, children }: { title: string; wide?
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2>{title}</h2>
+        <div className="modal-head">
+          <h2>{title}</h2>
+          <button className="modal-x" title={tr('dlg.close')} onClick={closeDlg} aria-label={tr('dlg.close')}>
+            <X size={16} />
+          </button>
+        </div>
         {children}
         {error && <div className="error">{error}</div>}
       </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { dialogOps, useStore } from '../store'
 import Dialog, { useDialogRunner } from './Dialog'
 
@@ -6,16 +6,22 @@ import Dialog, { useDialogRunner } from './Dialog'
 export default function BranchDialog() {
   const branches = useStore((s) => s.branches)
   const status = useStore((s) => s.status)
+  const refPreset = useStore((s) => s.refPreset)
+  const setRefPreset = useStore((s) => s.setRefPreset)
   const confirmAction = useStore((s) => s.confirmAction)
   const tr = useStore((s) => s.tr)
   const { busy, run } = useDialogRunner()
 
   const [name, setName] = useState('')
-  const [from, setFrom] = useState(status?.branch ?? 'HEAD')
+  const [from, setFrom] = useState(refPreset ?? status?.branch ?? 'HEAD')
   const [checkout, setCheckout] = useState(true)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [forceCandidate, setForceCandidate] = useState<string | null>(null)
+
+  // Preset consumido uma vez (ex: "create branch here" no grafo).
+  useEffect(() => () => setRefPreset(null), [setRefPreset])
+  const fromOptions = refPreset && !branches.some((b) => b.name === refPreset) ? [refPreset, 'HEAD', ...branches.map((b) => b.name)] : ['HEAD', ...branches.map((b) => b.name)]
 
   const doDelete = (branch: string, force: boolean): Promise<void> =>
     run(async () => {
@@ -48,10 +54,9 @@ export default function BranchDialog() {
         <label className="field">
           <span>{tr('branch.from')}</span>
           <select value={from} onChange={(e) => setFrom(e.target.value)}>
-            <option value="HEAD">HEAD</option>
-            {branches.map((b) => (
-              <option key={b.name} value={b.name}>
-                {b.name}
+            {fromOptions.map((b) => (
+              <option key={b} value={b}>
+                {b}
               </option>
             ))}
           </select>

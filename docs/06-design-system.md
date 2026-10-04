@@ -124,4 +124,4 @@ Comportamento (paridade SourceTree): duplo-clique = checkout; botão direito = m
 
 ## 4. Próximo
 
-Stage por hunk no diff, dialogs Branch/Merge, menu de contexto na sidebar, virtualização do histórico (10k+ commits).
+Stage por hunk/linha no diff ☑ (2026-10-04, DiffViewer interativo), dialogs Branch/Merge ☑, menu de contexto na sidebar ☑, sidebar colapsável ☑ (trilha 52px, `Ctrl+B`), avatares ☑, paleta `Ctrl+K` ☑. Resta: virtualização do histórico (10k+ commits).

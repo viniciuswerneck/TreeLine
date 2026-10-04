@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { dialogOps, useStore } from '../store'
 import Dialog, { useDialogRunner } from './Dialog'
 
@@ -7,11 +7,18 @@ export default function RebaseDialog() {
   const branches = useStore((s) => s.branches)
   const status = useStore((s) => s.status)
   const rebaseState = useStore((s) => s.rebaseState)
+  const refPreset = useStore((s) => s.refPreset)
+  const setRefPreset = useStore((s) => s.setRefPreset)
+  const openDlg = useStore((s) => s.openDlg)
   const tr = useStore((s) => s.tr)
   const { busy, run } = useDialogRunner()
 
   const others = branches.filter((b) => !b.current)
-  const [ref, setRef] = useState(others[0]?.name ?? '')
+  const [ref, setRef] = useState(refPreset ?? others[0]?.name ?? '')
+  const [stashFirst, setStashFirst] = useState(false)
+
+  useEffect(() => () => setRefPreset(null), [setRefPreset])
+  const refOptions = ref && !others.some((b) => b.name === ref) ? [ref, ...others.map((b) => b.name)] : others.map((b) => b.name)
 
   if (rebaseState.inProgress) {
     const target = rebaseState.target ? ` (${rebaseState.target})` : ''
@@ -47,19 +54,26 @@ export default function RebaseDialog() {
       <label className="field">
         <span>{tr('rebase.ref')}</span>
         <select value={ref} onChange={(e) => setRef(e.target.value)}>
-          {others.map((b) => (
-            <option key={b.name} value={b.name}>
-              {b.name}
+          {refOptions.map((b) => (
+            <option key={b} value={b}>
+              {b}
             </option>
           ))}
         </select>
       </label>
       <p className="dlg-hint">{tr('rebase.hint')}</p>
+      <label className="check-row" style={{ marginBottom: 12 }}>
+        <input type="checkbox" checked={stashFirst} onChange={(e) => setStashFirst(e.target.checked)} />
+        <span className="grow">{tr('rebase.autostash')}</span>
+      </label>
       <div className="modal-actions">
+        <button className="tool-btn" disabled={busy} onClick={() => openDlg('rebaseInteractive')}>
+          {tr('rebaseI.title')}
+        </button>
         <button
           className="tool-btn primary"
           disabled={busy || !ref}
-          onClick={() => void run(() => dialogOps.rebaseOnto(ref))}
+          onClick={() => void run(() => (stashFirst ? dialogOps.rebaseOntoStash(ref) : dialogOps.rebaseOnto(ref)))}
         >
           {busy ? tr('dlg.working') : tr('rebase.start')}
         </button>

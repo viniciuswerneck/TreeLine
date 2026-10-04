@@ -8,14 +8,19 @@ export default function MergeDialog() {
   const branches = useStore((s) => s.branches)
   const status = useStore((s) => s.status)
   const mergeState = useStore((s) => s.mergeState)
+  const refPreset = useStore((s) => s.refPreset)
+  const setRefPreset = useStore((s) => s.setRefPreset)
   const tr = useStore((s) => s.tr)
   const { busy, run } = useDialogRunner()
 
   const others = branches.filter((b) => !b.current)
-  const [ref, setRef] = useState(others[0]?.name ?? '')
+  const [ref, setRef] = useState(refPreset ?? others[0]?.name ?? '')
   const [noFf, setNoFf] = useState(false)
   const [preview, setPreview] = useState<MergePreview | null>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
+
+  useEffect(() => () => setRefPreset(null), [setRefPreset])
+  const refOptions = ref && !others.some((b) => b.name === ref) ? [ref, ...others.map((b) => b.name)] : others.map((b) => b.name)
 
   useEffect(() => {
     const current = useStore.getState().current
@@ -65,9 +70,9 @@ export default function MergeDialog() {
       <label className="field">
         <span>{tr('merge.ref')}</span>
         <select value={ref} onChange={(e) => setRef(e.target.value)}>
-          {others.map((b) => (
-            <option key={b.name} value={b.name}>
-              {b.name}
+          {refOptions.map((b) => (
+            <option key={b} value={b}>
+              {b}
             </option>
           ))}
         </select>

@@ -2,18 +2,23 @@ import { useState } from 'react'
 import { dialogOps, useStore } from '../store'
 import Dialog, { useDialogRunner } from './Dialog'
 
-/** Dialog Remotes: listar/adicionar/remover + Clone por URL + Init local. */
+/** Dialog Remotes: listar/adicionar/editar/remover + Clone por URL + Init local. */
 export default function RemotesDialog() {
   const remotes = useStore((s) => s.remotes)
   const confirmAction = useStore((s) => s.confirmAction)
   const cloneRepo = useStore((s) => s.cloneRepo)
   const initRepo = useStore((s) => s.initRepo)
+  const doPushForce = useStore((s) => s.doPushForce)
+  const doFetch = useStore((s) => s.doFetch)
+  const closeDlg = useStore((s) => s.closeDlg)
   const tr = useStore((s) => s.tr)
   const { busy, run } = useDialogRunner()
 
   const [name, setName] = useState('origin')
   const [url, setUrl] = useState('')
   const [cloneUrl, setCloneUrl] = useState('')
+  const [editing, setEditing] = useState<string | null>(null)
+  const [editUrl, setEditUrl] = useState('')
 
   const doRemove = (remote: string): Promise<void> =>
     run(async () => {
@@ -37,13 +42,74 @@ export default function RemotesDialog() {
             <span className="grow">
               <span className="mono">{r.name}</span> <span className="sub">{r.url}</span>
             </span>
-            <span className="dlg-actions">
-              <button className="mini-btn" disabled={busy} onClick={() => void doRemove(r.name)}>
-                {tr('dlg.remove')}
-              </button>
-            </span>
+            {editing === r.name ? (
+              <span className="dlg-inline">
+                <input value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder={tr('remotes.urlPh')} />
+                <button
+                  className="mini-btn"
+                  disabled={busy || !editUrl.trim()}
+                  onClick={() =>
+                    void run(() => dialogOps.editRemote(r.name, editUrl.trim())).then(() => setEditing(null))
+                  }
+                >
+                  {tr('dlg.rename')}
+                </button>
+                <button className="mini-btn" onClick={() => setEditing(null)}>
+                  {tr('dlg.cancel')}
+                </button>
+              </span>
+            ) : (
+              <span className="dlg-actions">
+                <button
+                  className="mini-btn"
+                  disabled={busy}
+                  onClick={() => {
+                    setEditing(r.name)
+                    setEditUrl(r.url)
+                  }}
+                >
+                  {tr('remotes.editUrl')}
+                </button>
+                <button className="mini-btn" disabled={busy} onClick={() => void doRemove(r.name)}>
+                  {tr('dlg.remove')}
+                </button>
+              </span>
+            )}
           </div>
         ))}
+      </div>
+
+      <div className="modal-actions" style={{ marginBottom: 8 }}>
+        <button
+          className="tool-btn"
+          title={tr('remotes.openPR')}
+          onClick={() => {
+            closeDlg()
+            void dialogOps.openPR()
+          }}
+        >
+          {tr('menu.openPR')}
+        </button>
+        <button
+          className="tool-btn"
+          title={tr('remotes.pushLease')}
+          onClick={() => {
+            closeDlg()
+            void doPushForce()
+          }}
+        >
+          {tr('menu.pushLease')}
+        </button>
+        <button
+          className="tool-btn"
+          title={tr('toolbar.fetchFrom')}
+          onClick={() => {
+            closeDlg()
+            void doFetch()
+          }}
+        >
+          {tr('toolbar.fetch')}
+        </button>
       </div>
 
       <div className="field-row">

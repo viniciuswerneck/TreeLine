@@ -8,7 +8,7 @@
 - **Por quê:** Não existe SourceTree oficial para Linux. Usuário quer paridade de uso intuitiva.
 - **Onde:** `/home/vinicius/gitnest/` | docs em `/home/vinicius/gitnest/docs/`
 - **Idioma do usuário:** português brasileiro. Responder em pt-BR, curto e direto, sem emoji. Termos de Git/UI em inglês (Commit, Push, Branch) como no SourceTree.
-- **Status 2026-10-03:** Fase 0 + Fase 1 (toolbar 100%: Branch/Merge/Stash/Tag/Rebase/Cherry-Pick/Flow/Terminal/Reflog/Remotes) + extras, rodando de `dist/linux-unpacked` com flags Wayland. Grafo com paridade GitGraph (spine-first + steal, split/join). Detalhe em `05-estado.md`. Próximo: stage por hunk/linha, Revert/Reset direto, Ours/Theirs.
+- **Status 2026-10-04 (v0.5.0):** Fase 0/1/2/3 de uso diário prontas e tagueadas (stage hunk/linha, Revert, Reset direto, Ours/Theirs, `--force-with-lease`, rebase interativo, blame/history, compare, paleta `Ctrl+K`, sidebar colapsável, checkout com stash+retry/remoto/tag), rodando de `dist/linux-unpacked` com flags Wayland. Grafo com paridade GitGraph. Detalhe em `05-estado.md`. Próximo: Vitest + Playwright, `.deb` 0.5.0, fetch auto, LFS, Submodules, Custom Actions.
 
 ## 2. Decisões travadas (não reabrir sem motivo)
 
@@ -48,4 +48,4 @@
 - `npm run dist` — `.deb` + AppImage (ou `npx electron-builder --linux dir` para só atualizar `dist/linux-unpacked`)
 - Pré-req runtime: `git >= 2.40` (sistema). Opcional: `git-lfs`, `git-flow`.
 - Armadilhas reais já mordidas (detalhe em `04-decisoes.md` ADR-006/007/008): simple-git `.env()` apaga o env do filho; `git log` precisa `--topo-order`; parser precisa `trim()` no hash (`\n` entre registros).
-- Última atualização deste arquivo: 2026-10-03.
+- Última atualização deste arquivo: 2026-10-04.

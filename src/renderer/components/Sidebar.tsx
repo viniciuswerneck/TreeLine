@@ -1,4 +1,5 @@
-import { Archive, Bookmark, FolderOpen, GitBranch, Globe, History, Search, Tag } from 'lucide-react'
+import { Archive, Bookmark, Cloud, FolderOpen, GitBranch, Globe, History, PanelLeftClose, PanelLeftOpen, Search, Tag } from 'lucide-react'
+import { useState } from 'react'
 import { dialogOps, useStore } from '../store'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -13,12 +14,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function Sidebar() {
   const repos = useStore((s) => s.repos)
   const current = useStore((s) => s.current)
-  const branches = useStore((s) => s.branches)
+  const branchesDetailed = useStore((s) => s.branchesDetailed)
+  const remoteBranches = useStore((s) => s.remoteBranches)
   const status = useStore((s) => s.status)
   const stashes = useStore((s) => s.stashes)
   const tags = useStore((s) => s.tags)
   const remotes = useStore((s) => s.remotes)
   const selectRepo = useStore((s) => s.selectRepo)
+  const selectCommit = useStore((s) => s.selectCommit)
+  const setFilter = useStore((s) => s.setFilter)
   const openDialog = useStore((s) => s.openDialog)
   const openDlg = useStore((s) => s.openDlg)
   const openMenu = useStore((s) => s.openMenu)
@@ -26,14 +30,79 @@ export default function Sidebar() {
   const revealFullPath = useStore((s) => s.revealFullPath)
   const removeBookmark = useStore((s) => s.removeBookmark)
   const confirmAction = useStore((s) => s.confirmAction)
+  const setRefPreset = useStore((s) => s.setRefPreset)
   const branchFilter = useStore((s) => s.branchFilter)
   const setBranchFilter = useStore((s) => s.setBranchFilter)
   const tr = useStore((s) => s.tr)
+  const checkoutBranch = useStore((s) => s.checkoutBranch)
+  const checkoutRemote = useStore((s) => s.checkoutRemote)
+  const checkoutTag = useStore((s) => s.checkoutTag)
+  const [branchQuery, setBranchQuery] = useState('')
+  const [dragOver, setDragOver] = useState(false)
+  const collapsed = useStore((s) => s.sidebarCollapsed)
+  const toggleSidebar = useStore((s) => s.toggleSidebar)
   const dirtyCount =
     (status?.unstaged.length ?? 0) + (status?.staged.length ?? 0) + (status?.untracked.length ?? 0)
 
+  const shown = branchesDetailed.filter((b) => b.name.toLowerCase().includes(branchQuery.trim().toLowerCase()))
+
+  const branchMenu = (e: React.MouseEvent, name: string, isCurrent: boolean): void => {
+    e.preventDefault()
+    const items = isCurrent
+      ? [
+          { label: tr('menu.copyBranch'), onClick: () => void copyText(name) },
+          {
+            label: tr('side.setUpstream'),
+            onClick: () => {
+              const up = window.prompt('upstream (ex: origin/main):', 'origin/')
+              if (up?.trim()) void dialogOps.setUpstream(name, up.trim())
+            }
+          }
+        ]
+      : [
+          { label: tr('dlg.checkout'), onClick: () => void checkoutBranch(name) },
+          {
+            label: tr('toolbar.merge'),
+            onClick: () => {
+              setRefPreset(name)
+              openDlg('merge')
+            }
+          },
+          {
+            label: tr('toolbar.rebase'),
+            onClick: () => {
+              setRefPreset(name)
+              openDlg('rebase')
+            }
+          },
+          { label: tr('menu.copyBranch'), onClick: () => void copyText(name) },
+          {
+            label: tr('dlg.delete'),
+            danger: true,
+            onClick: () =>
+              void (async () => {
+                const ok = await confirmAction(
+                  tr('branch.delT'),
+                  tr('branch.delM', { n: name }),
+                  tr('branch.delD'),
+                  tr('dlg.delete')
+                )
+                if (ok) await dialogOps.deleteBranch(name, false)
+              })()
+          }
+        ]
+    openMenu(e.clientX, e.clientY, items)
+  }
+
   return (
-    <div className="sidebar">
+    <div className={`sidebar${collapsed ? ' collapsed' : ''}`}>
+      <button
+        className="sidebar-toggle"
+        title={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+        onClick={() => toggleSidebar()}
+      >
+        {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+      </button>
       <Section title={tr('side.bookmarks', { n: repos.length })}>
         {repos.map((r) => (
           <div
@@ -67,22 +136,35 @@ export default function Sidebar() {
       </Section>
 
       <Section title={tr('side.workspace')}>
-        <div className="sidebar-row" aria-selected={false} title={tr('side.workingCopyTitle')}>
+        <div
+          className="sidebar-row"
+          aria-selected={false}
+          title={tr('side.workingCopyTitle')}
+          onClick={() => void selectCommit(null)}
+        >
           <Globe size={14} />
           <span className="grow">{tr('side.workingCopy')}</span>
           {dirtyCount > 0 && <span className="sidebar-badge">{dirtyCount}</span>}
         </div>
-        <div className="sidebar-row" aria-selected={false} title={tr('side.historyTitle')}>
+        <div className="sidebar-row" aria-selected={false} title={tr('side.historyTitle')} onClick={() => openDlg('reflog')}>
           <History size={14} />
           <span className="grow">{tr('side.history')}</span>
         </div>
-        <div className="sidebar-row" aria-selected={false} title={tr('side.searchTitle')}>
+        <div
+          className="sidebar-row"
+          aria-selected={false}
+          title={tr('side.searchTitle')}
+          onClick={() => {
+            setFilter('')
+            document.querySelector<HTMLInputElement>('.history-search input')?.focus()
+          }}
+        >
           <Search size={14} />
           <span className="grow">{tr('side.search')}</span>
         </div>
       </Section>
 
-      <Section title={tr('side.branches', { n: branches.length })}>
+      <Section title={tr('side.branches', { n: branchesDetailed.length })}>
         <div className="sidebar-row small" title={tr('side.currentOnlyTitle')}>
           <label className="check-row" onClick={(e) => e.stopPropagation()}>
             <input
@@ -93,53 +175,64 @@ export default function Sidebar() {
             <span className="grow">{tr('side.currentOnly')}</span>
           </label>
         </div>
-        {branches.map((b) => (
+        <div className="sidebar-row small">
+          <Search size={12} />
+          <input
+            className="sidebar-filter"
+            placeholder={tr('side.searchBranch')}
+            value={branchQuery}
+            onChange={(e) => setBranchQuery(e.target.value)}
+          />
+        </div>
+        {shown.map((b) => (
           <div
             key={b.name}
-            className="sidebar-row"
+            className={`sidebar-row${b.current ? ' current-branch' : ''}`}
             aria-selected={b.current}
+            draggable={!b.current}
+            onDragStart={(e) => e.dataTransfer.setData('text/treeline-branch', b.name)}
             title={
               b.current
                 ? tr('side.currentBranch', { a: status?.ahead ?? 0, b: status?.behind ?? 0 })
-                : tr('side.checkout', { n: b.name })
+                : `${tr('side.checkout', { n: b.name })}${b.upstream ? ` · ${tr('side.upstream', { n: b.upstream })}` : ` · ${tr('side.noUpstream')}`}`
             }
             onDoubleClick={() => {
-              if (!b.current) void dialogOps.checkoutBranch(b.name)
+              if (!b.current) void checkoutBranch(b.name)
             }}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              if (b.current) return
-              openMenu(e.clientX, e.clientY, [
-                { label: tr('dlg.checkout'), onClick: () => void dialogOps.checkoutBranch(b.name) },
-                { label: tr('toolbar.merge'), onClick: () => openDlg('merge') },
-                { label: tr('toolbar.rebase'), onClick: () => openDlg('rebase') },
-                {
-                  label: tr('dlg.delete'),
-                  danger: true,
-                  onClick: () =>
-                    void (async () => {
-                      const ok = await confirmAction(
-                        tr('branch.delT'),
-                        tr('branch.delM', { n: b.name }),
-                        tr('branch.delD'),
-                        tr('dlg.delete')
-                      )
-                      if (ok) await dialogOps.deleteBranch(b.name, false)
-                    })()
-                }
-              ])
-            }}
+            onContextMenu={(e) => branchMenu(e, b.name, b.current)}
           >
             <GitBranch size={14} />
             <span className="grow">{b.name}</span>
-            {b.current && (status?.ahead || status?.behind) ? (
+            {b.current && <span className="head-badge" title={tr('side.currentBranch', { a: status?.ahead ?? 0, b: status?.behind ?? 0 })}>HEAD</span>}
+            {(b.ahead > 0 || b.behind > 0) && (
               <span className="sidebar-badge">
-                ↑{status.ahead} ↓{status.behind}
+                ↑{b.ahead} ↓{b.behind}
               </span>
-            ) : null}
+            )}
           </div>
         ))}
-        {branches.length === 0 && <div className="sidebar-row muted">{tr('side.noBranches')}</div>}
+        {shown.length === 0 && <div className="sidebar-row muted">{tr('side.noBranches')}</div>}
+        {/* Drop de branch sobre a área = merge no branch atual */}
+        <div
+          className={`sidebar-drop${dragOver ? ' over' : ''}`}
+          title={tr('side.dropMergeHint')}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragOver(true)
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragOver(false)
+            const name = e.dataTransfer.getData('text/treeline-branch')
+            if (name) {
+              setRefPreset(name)
+              openDlg('merge')
+            }
+          }}
+        >
+          {tr('side.dropMergeHint')}
+        </div>
       </Section>
 
       <Section title={tr('side.remotes')}>
@@ -157,13 +250,64 @@ export default function Sidebar() {
         )}
       </Section>
 
-      <Section title={tr('side.tags')}>
-        {tags.map((t) => (
-          <div key={t.name} className="sidebar-row" title={t.date} onClick={() => openDlg('tag')}>
-            <Tag size={14} />
-            <span className="grow">{t.name}</span>
+      <Section title={tr('side.remoteBranches', { n: remoteBranches.length })}>
+        {remoteBranches.slice(0, 30).map((r) => (
+          <div
+            key={r.name}
+            className="sidebar-row small"
+            title={r.name}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              openMenu(e.clientX, e.clientY, [
+                { label: tr('dlg.checkout'), onClick: () => void checkoutRemote(r.name) },
+                { label: tr('menu.copyBranch'), onClick: () => void copyText(r.name) },
+                {
+                  label: tr('menu.createBranchHere'),
+                  onClick: () => {
+                    setRefPreset(r.name)
+                    openDlg('branch')
+                  }
+                }
+              ])
+            }}
+          >
+            <Cloud size={13} />
+            <span className="grow">{r.name}</span>
           </div>
         ))}
+      </Section>
+
+      <Section title={tr('side.tags')}>
+        {tags.map((t) => {
+          const isHere = t.checkedOut && status?.detachedTag === t.name
+          return (
+            <div
+              key={t.name}
+              className={`sidebar-row${isHere ? ' current-branch' : ''}`}
+              aria-selected={isHere}
+              title={t.date}
+              onClick={() => openDlg('tag')}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                openMenu(e.clientX, e.clientY, [
+                  { label: tr('tag.checkout'), onClick: () => void checkoutTag(t.name) },
+                  {
+                    label: tr('menu.createBranchHere'),
+                    onClick: () => {
+                      setRefPreset(t.name)
+                      openDlg('branch')
+                    }
+                  },
+                  { label: tr('menu.copyBranch'), onClick: () => void copyText(t.name) }
+                ])
+              }}
+            >
+              <Tag size={14} />
+              <span className="grow">{t.name}</span>
+              {isHere && <span className="head-badge" title={tr('tag.checkoutT')}>HEAD</span>}
+            </div>
+          )
+        })}
         {tags.length === 0 && (
           <div className="sidebar-row muted" title={tr('side.tagList')} onClick={() => openDlg('tag')}>
             <Tag size={14} />

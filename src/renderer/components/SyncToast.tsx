@@ -10,6 +10,7 @@ import { useStore } from '../store'
 export default function SyncToast() {
   const sync = useStore((s) => s.sync)
   const clearSync = useStore((s) => s.clearSync)
+  const doPushForce = useStore((s) => s.doPushForce)
   const tr = useStore((s) => s.tr)
 
   useEffect(() => {
@@ -29,6 +30,18 @@ export default function SyncToast() {
       <div className="sync-toast-body">
         <strong>{label}</strong>
         <span>{sync.message}</span>
+        {sync.phase === 'error' && sync.retryLease && (
+          <button
+            className="mini-btn"
+            title={tr('pushLease.detail')}
+            onClick={() => {
+              clearSync()
+              void doPushForce()
+            }}
+          >
+            {tr('sync.retryLease')}
+          </button>
+        )}
       </div>
       {sync.phase !== 'running' && (
         <button className="sync-toast-close" title={tr('sync.dismiss')} onClick={clearSync}>

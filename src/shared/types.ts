@@ -15,6 +15,8 @@ export interface RepoStatus {
   untracked: string[]
   /** Arquivos em conflito (unmerged). */
   conflicted: string[]
+  /** Tag exata no HEAD destacado, ou null. */
+  detachedTag: string | null
 }
 
 export interface CommitInfo {
@@ -29,6 +31,70 @@ export interface CommitInfo {
 export interface BranchInfo {
   name: string
   current: boolean
+}
+
+/** Branch com upstream e ahead/behind próprios (sidebar). */
+export interface BranchDetail extends BranchInfo {
+  /** ex: "origin/main" ou null */
+  upstream: string | null
+  ahead: number
+  behind: number
+}
+
+/** Branch remoto (origin/main). */
+export interface RemoteBranchInfo {
+  name: string
+  /** ex: "origin" */
+  remote: string
+}
+
+/** Um hunk de `git diff --unified=3` (para stage/discard por hunk/linha). */
+export interface HunkInfo {
+  index: number
+  header: string
+  oldStart: number
+  newStart: number
+  lines: string[]
+}
+
+/** Linha de `git blame --line-porcelain` (resumo por linha). */
+export interface BlameLine {
+  line: number
+  hash: string
+  author: string
+  date: string
+  content: string
+}
+
+/** Entrada de histórico de arquivo (`git log --follow -- <file>`). */
+export interface FileHistoryEntry {
+  hash: string
+  author: string
+  date: string
+  message: string
+}
+
+/** Linha do plano de rebase interativo. */
+export interface RebasePlanEntry {
+  hash: string
+  message: string
+  action: 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop'
+}
+
+/** Comparação entre dois commits (arquivos + diff por arquivo). */
+export interface CompareSummary {
+  files: string[]
+  stats: FileStat[]
+}
+
+/** Modo de reset direto. */
+export type ResetMode = 'soft' | 'mixed' | 'hard'
+
+/** Info de worktree/submódulo (gitdir externo). */
+export interface WorktreeInfo {
+  /** true quando `.git` é arquivo (worktree linkada ou submódulo). */
+  linked: boolean
+  toplevel: string
 }
 
 /** Identidade do autor usada nos commits (git user.name/user.email global). */
@@ -68,6 +134,8 @@ export interface StashInfo {
 export interface TagInfo {
   name: string
   date: string
+  /** true quando o HEAD está exatamente nesta tag (checkout destacado). */
+  checkedOut: boolean
 }
 
 /** Remoto (linha fetch do `git remote -v`). */
@@ -113,8 +181,28 @@ export interface TreeLineAPI {
   getLog(repo: string, limit?: number): Promise<CommitInfo[]>
   getBranches(repo: string): Promise<BranchInfo[]>
   getDiff(repo: string, file: string, staged: boolean): Promise<string>
+  getHunks(repo: string, file: string, staged: boolean): Promise<HunkInfo[]>
+  stageHunk(repo: string, file: string, staged: boolean, hunkIndex: number, lang?: string): Promise<void>
+  discardHunk(repo: string, file: string, staged: boolean, hunkIndex: number, lang?: string): Promise<void>
+  stageLines(repo: string, file: string, staged: boolean, hunkIndex: number, lineIndexes: number[], lang?: string): Promise<void>
   stage(repo: string, file: string): Promise<void>
   unstage(repo: string, file: string): Promise<void>
+  revertCommit(repo: string, hash: string, lang?: string): Promise<void>
+  resetTo(repo: string, ref: string, mode: ResetMode, lang?: string): Promise<void>
+  resolveOurs(repo: string, file: string, lang?: string): Promise<void>
+  resolveTheirs(repo: string, file: string, lang?: string): Promise<void>
+  pushForce(repo: string, forceLease: boolean, lang?: string): Promise<SyncResult>
+  getBranchesDetailed(repo: string): Promise<BranchDetail[]>
+  getRemoteBranches(repo: string): Promise<RemoteBranchInfo[]>
+  setUpstream(repo: string, branch: string, upstream: string, lang?: string): Promise<void>
+  editRemote(repo: string, name: string, url: string, lang?: string): Promise<void>
+  getBlame(repo: string, file: string, rev?: string): Promise<BlameLine[]>
+  getFileHistory(repo: string, file: string, limit?: number): Promise<FileHistoryEntry[]>
+  getRebasePlan(repo: string, base: string): Promise<RebasePlanEntry[]>
+  rebaseInteractive(repo: string, base: string, plan: RebasePlanEntry[], lang?: string, autostash?: boolean): Promise<void>
+  compareCommits(repo: string, a: string, b: string): Promise<CompareSummary>
+  compareDiff(repo: string, a: string, b: string, file: string): Promise<string>
+  openPR(repo: string, lang?: string): Promise<void>
   commit(repo: string, message: string, amend?: boolean, lang?: string): Promise<void>
   push(repo: string, lang?: string): Promise<SyncResult>
   pull(repo: string, lang?: string): Promise<SyncResult>
@@ -131,6 +219,8 @@ export interface TreeLineAPI {
   // Branch
   createBranch(repo: string, name: string, from: string, checkout: boolean, lang?: string): Promise<void>
   checkoutBranch(repo: string, name: string, lang?: string): Promise<void>
+  checkoutRemote(repo: string, remoteBranch: string, lang?: string): Promise<void>
+  checkoutTag(repo: string, tag: string, lang?: string): Promise<void>
   renameBranch(repo: string, oldName: string, newName: string, lang?: string): Promise<void>
   deleteBranch(repo: string, name: string, force: boolean, lang?: string): Promise<void>
   // Merge
@@ -152,9 +242,14 @@ export interface TreeLineAPI {
   deleteTag(repo: string, name: string, remoteToo: boolean, lang?: string): Promise<void>
   // Rebase
   getRebaseState(repo: string): Promise<OpState>
-  rebaseOnto(repo: string, ref: string, lang?: string): Promise<void>
+  rebaseOnto(repo: string, ref: string, lang?: string, autostash?: boolean): Promise<void>
   rebaseContinue(repo: string, lang?: string): Promise<void>
   abortRebase(repo: string): Promise<void>
+  // Revert
+  getRevertState(repo: string): Promise<OpState>
+  abortRevert(repo: string): Promise<void>
+  // Worktree
+  getWorktreeInfo(repo: string): Promise<WorktreeInfo>
   // Cherry-pick
   getCherryPickState(repo: string): Promise<OpState>
   cherryPick(repo: string, hash: string, lang?: string): Promise<void>

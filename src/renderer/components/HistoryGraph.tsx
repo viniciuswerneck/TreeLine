@@ -1,8 +1,8 @@
 import { Cloud, GitBranch, RefreshCw, Search, Tag } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DATE_LOCALE } from '../i18n'
 import { layoutGraph, type LaneCommit } from '../lib/graph'
-import { useStore } from '../store'
+import { dialogOps, useStore } from '../store'
 
 /** Largura por lane e altura da linha — espelham o CSS (.history-row height). */
 const LANE_W = 16
@@ -46,6 +46,21 @@ export function branchColor(name: string): string {
 /** Pílulas de ref (HEAD, branch, remoto, tag). Symrefs como origin/HEAD são ruído: fora. */
 export function visibleRefs(refs: string[]): string[] {
   return refs.filter((r) => !r.endsWith('/HEAD'))
+}
+
+/** Avatar de iniciais com cor estável (sem rede, sem gravatar). */
+export function Avatar({ name }: { name: string }) {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('')
+  return (
+    <span className="avatar" title={name} style={{ background: branchColor(name) }}>
+      {initials || '?'}
+    </span>
+  )
 }
 
 /** Badge de ref estilo Git Graph: pílula por tipo (HEAD, branch, remoto, tag), com ícone. */
@@ -140,6 +155,38 @@ export default function HistoryGraph() {
   const tr = useStore((s) => s.tr)
   const lang = useStore((s) => s.lang)
   const currentBranch = status?.branch ?? ''
+  const compareA = useStore((s) => s.compareA)
+  const compareB = useStore((s) => s.compareB)
+  const setCompareEnd = useStore((s) => s.setCompareEnd)
+  const clearCompare = useStore((s) => s.clearCompare)
+  const doRevert = useStore((s) => s.doRevert)
+  const openDlg = useStore((s) => s.openDlg)
+  const setRefPreset = useStore((s) => s.setRefPreset)
+  const headPing = useStore((s) => s.headPing)
+  const [headFlash, setHeadFlash] = useState(0)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // Após checkout: rola até o novo HEAD e pisca a linha 1.5s.
+  useEffect(() => {
+    if (headPing === 0) return
+    const el = document.querySelector('.history-row .ref-badge.head')?.closest('.history-row')
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    setHeadFlash(headPing)
+    const t = setTimeout(() => setHeadFlash(0), 1500)
+    return () => clearTimeout(t)
+  }, [headPing])
+
+  // Ctrl+F foca a busca do histórico.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -152,11 +199,59 @@ export default function HistoryGraph() {
       return (
         c.message.toLowerCase().includes(q) ||
         c.author.toLowerCase().includes(q) ||
-        c.hash.toLowerCase().startsWith(q) ||
+        c.hash.toLowerCase().includes(q) ||
+        c.date.includes(filter.trim()) ||
         c.refs.some((r) => r.toLowerCase().includes(q))
       )
     }
   }, [filter, branchFilter, currentBranch])
+
+  const commitMenu = (e: React.MouseEvent, hash: string, message: string, author: string): void => {
+    e.preventDefault()
+    void selectCommit(hash)
+    openMenu(e.clientX, e.clientY, [
+      { label: tr('menu.cherryPickHere'), onClick: () => void dialogOps.cherryPick(hash) },
+      { label: tr('menu.revertHere'), onClick: () => void doRevert(hash) },
+      { label: tr('menu.resetHere'), onClick: () => openDlg('reset') },
+      {
+        label: tr('menu.createBranchHere'),
+        onClick: () => {
+          setRefPreset(hash)
+          openDlg('branch')
+        }
+      },
+      {
+        label: tr('menu.tagHere'),
+        onClick: () => {
+          setRefPreset(hash)
+          openDlg('tag')
+        }
+      },
+      {
+        label: tr('menu.mergeHere'),
+        onClick: () => void dialogOps.mergeBranch(hash, false)
+      },
+      {
+        label: tr('menu.rebaseHere'),
+        onClick: () => {
+          setRefPreset(hash)
+          openDlg('rebase')
+        }
+      },
+      {
+        label: compareA && compareA !== hash ? tr('cmp.title') : tr('menu.compareWith'),
+        onClick: () => {
+          void setCompareEnd(hash).then(() => {
+            const st = useStore.getState()
+            if (st.compareA && st.compareB) openDlg('compare')
+          })
+        }
+      },
+      { label: tr('menu.copyHash'), onClick: () => void copyText(hash) },
+      { label: tr('menu.copyMsg'), onClick: () => void copyText(message) },
+      { label: tr('menu.copyAuthor'), onClick: () => void copyText(author) }
+    ])
+  }
 
   // Layout SEMPRE sobre a lista completa: filtrar antes quebra a adjacência
   // pai-filho e o alocador abre uma lane nova por linha (staircase).
@@ -191,8 +286,22 @@ export default function HistoryGraph() {
         )}
         <span className="history-search">
           <Search size={14} />
-          <input placeholder={tr('hist.filterPh')} value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <input
+            ref={searchRef}
+            placeholder={`${tr('hist.filterPh')} (Ctrl+F)`}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
         </span>
+        {(compareA || compareB) && (
+          <button
+            className="mini-btn"
+            title={tr('cmp.clear')}
+            onClick={() => clearCompare()}
+          >
+            {tr('cmp.title')}: {compareA?.slice(0, 7) ?? '…'}…{compareB?.slice(0, 7) ?? '?'} ✕
+          </button>
+        )}
         <button className="mini-btn" title={`${tr('common.refresh')} (F5)`} onClick={() => void refresh()}>
           <RefreshCw size={13} className={loading ? 'spin' : undefined} /> {tr('common.refresh')}
         </button>
@@ -224,20 +333,19 @@ export default function HistoryGraph() {
       {rows.map((c, i) => (
         <div
           key={c.hash}
-          className="history-row"
+          className={`history-row${c.hash === compareA || c.hash === compareB ? ' comparing' : ''}${headFlash > 0 && visibleRefs(c.refs).includes('HEAD') ? ' head-flash' : ''}`}
           style={{ gridTemplateColumns: gridCols }}
           aria-selected={selectedCommit === c.hash}
-          title={`${c.message}\n${c.hash}`}
-          onClick={() => void selectCommit(selectedCommit === c.hash ? null : c.hash)}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            void selectCommit(c.hash)
-            openMenu(e.clientX, e.clientY, [
-              { label: tr('menu.copyHash'), onClick: () => void copyText(c.hash) },
-              { label: tr('menu.copyMsg'), onClick: () => void copyText(c.message) },
-              { label: tr('menu.copyAuthor'), onClick: () => void copyText(c.author) }
-            ])
+          title={`${c.message}\n${c.hash}\n${tr('cmp.pickHint')}`}
+          onClick={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              void setCompareEnd(c.hash).then(() => {
+                const st = useStore.getState()
+                if (st.compareA && st.compareB) openDlg('compare')
+              })
+            } else void selectCommit(selectedCommit === c.hash ? null : c.hash)
           }}
+          onContextMenu={(e) => commitMenu(e, c.hash, c.message, c.author)}
         >
           <span className="graph-cell">
             <GraphCell commit={c} maxLane={maxLane} isFirst={i === 0} />
@@ -251,7 +359,10 @@ export default function HistoryGraph() {
           <span className="muted" title={c.date.slice(0, 16).replace('T', ' ')}>
             {absDate(DATE_LOCALE[lang], c.date)}
           </span>
-          <span className="muted">{c.author}</span>
+          <span className="muted author-cell" title={c.author}>
+            <Avatar name={c.author} />
+            <span className="author-name">{c.author}</span>
+          </span>
           <span className="mono muted">{shortHash(c.hash)}</span>
         </div>
       ))}

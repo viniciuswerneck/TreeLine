@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { dialogOps, useStore } from '../store'
 import Dialog, { useDialogRunner } from './Dialog'
 
@@ -6,13 +6,17 @@ import Dialog, { useDialogRunner } from './Dialog'
 export default function TagDialog() {
   const tags = useStore((s) => s.tags)
   const selectedCommit = useStore((s) => s.selectedCommit)
+  const refPreset = useStore((s) => s.refPreset)
+  const setRefPreset = useStore((s) => s.setRefPreset)
   const confirmAction = useStore((s) => s.confirmAction)
   const tr = useStore((s) => s.tr)
   const { busy, run } = useDialogRunner()
 
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
-  const [commit, setCommit] = useState('')
+  const [commit, setCommit] = useState(refPreset ?? selectedCommit ?? '')
+
+  useEffect(() => () => setRefPreset(null), [setRefPreset])
   const [remoteToo, setRemoteToo] = useState(false)
 
   const doDelete = (tag: string): Promise<void> =>

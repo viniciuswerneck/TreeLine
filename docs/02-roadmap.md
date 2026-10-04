@@ -12,34 +12,34 @@ Objetivo: paridade de uso diário com SourceTree (Git-only) em 4 fases. Cada fas
 
 Aceite: `npm run dev` abre repo, `npm run dist` gera `.deb` instalável.
 
-## Fase 1 — MVP uso diário (0.5.0)
+## Fase 1 — MVP uso diário (0.5.0) ☑ pronta em 2026-10-04
 
 Paridade do loop básico do SourceTree.
 
-- [x] History: `log --all --topo-order` com grafo SVG colorido, colunas Message/Date/Author/Hash, filtro branch atual/all + busca com highlight de seleção
-- [x] Working Copy: status, Unstaged/Staged lado a lado, Stage/Unstage por arquivo + Stage All/Unstage All, linha Working Copy no topo do histórico
-- [x] Diff unified, Commit (incl. Amend, com guarda anti-commit-vazio e botão desabilitado sem stage)
-- [x] Push/Pull (`--ff-only`)/Fetch (`--all --prune`) com toast de progresso/resultado/erro + timeout 120s
-- [x] Branch: create/checkout/rename/delete a partir de toolbar, sidebar (duplo-clique + menu) e dialog próprio (com force-retry se unmerged)
-- [x] Remote manager: add/list/remove, clone por URL, init local (toolbar + sidebar)
-- [x] Search local de commits (toolbar filtra a lista)
-- [x] Extras além do plano: 10 temas (5 light + 5 dark + System), Settings com identidade do autor (user.name/email), statusbar com staged/unstaged, i18n en/pt/es, menus de botão direito, diff colorido, splash + ícone próprio
+- [x] History: `log --all --topo-order` com grafo SVG colorido, colunas Message/Date/Author/Hash, filtro branch atual/all + busca (Ctrl+F) com highlight de seleção, avatares de iniciais
+- [x] Working Copy: status, Unstaged/Staged lado a lado, Stage/Unstage por arquivo/hunk/linha + Stage All/Unstage All, Discard por hunk, linha Working Copy no topo do histórico
+- [x] Diff unified, Commit (incl. Amend, com guarda anti-commit-vazio e botão desabilitado sem stage, Ctrl+Enter, hint convencional)
+- [x] Push/Pull (`--ff-only`)/Fetch (`--all --prune`) com toast de progresso/resultado/erro + timeout 120s; Push `--force-with-lease` explícito com confirmação (toolbar botão direito, Remotes)
+- [x] Branch: create/checkout/rename/delete a partir de toolbar, sidebar (duplo-clique + menu + ahead/behind/upstream por branch, busca, drop-merge) e dialog próprio (com force-retry se unmerged, preset de ref via menu do grafo)
+- [x] Remote manager: add/list/remove/edit-URL, clone por URL, init local, abrir PR no browser (toolbar + sidebar)
+- [x] Search local de commits (barra do histórico filtra a lista)
+- [x] Extras além do plano: 10 temas (5 light + 5 dark + System), Settings com identidade do autor (user.name/email), statusbar clicável com staged/unstaged, i18n en/pt/es, menus de botão direito, diff colorido, splash + ícone próprio, paleta `Ctrl+K`, sidebar colapsável (`Ctrl+B`), Blame + File history, Compare entre 2 commits (Ctrl+click)
 
 Aceite: usuário faz clone -> branch -> stage hunk -> commit -> push sem terminal.
 
 Mapeamento Git executado:
-`status --porcelain=v2 -b`, `log`, `diff`, `add`, `commit`, `push`, `pull --ff-only`, `fetch`, `checkout/switch`, `branch`
+`status` (simple-git), `log`, `diff`, `add`, `commit`, `push` (+`--force-with-lease`), `pull --ff-only`, `fetch`, `checkout/switch`, `branch` (+`-vv/-r`), `revert`, `reset`, `blame`, `rebase -i`, `bundle`
 
 ## Fase 2 — Operações SourceTree padrão (0.9.0)
 
 - [x] Merge (plain / --no-ff) com preview (commits + arquivos) e abort/continue em conflito
 - [x] Resolvedor de conflito básico: lista conflicted no dialog, Continue (commit --no-edit) / Abort
 - [x] Stash: create (msg + -u)/apply/pop/drop com confirmação, lista na sidebar + dialog
-- [x] Cherry-pick (hash ou commit selecionado), continue/abort; Revert continua pendente
-- [x] Reset via Reflog + Undo (hard-reset com confirmação + backup `git bundle` em `.git/treeline-backups`); Reset soft/mixed/hard direto pendente
-- [x] Tag create (annotated/lightweight)/push/delete (+ remota opcional), lista na sidebar + dialog
-- [ ] Ahead/behind por branch, fetch auto com intervalo por repo
-- [ ] Stage por linha, Discard por hunk/linha, Blame e History de arquivo
+- [x] Cherry-pick (hash ou commit selecionado), continue/abort; Revert com confirmação (menu do commit)
+- [x] Reset via Reflog + Undo (hard-reset com confirmação + backup `git bundle` em `.git/treeline-backups`); Reset direto soft/mixed/hard com confirmação + bundle (ResetDialog, menu do commit)
+- [x] Tag create (annotated/lightweight)/push/delete (+ remota opcional), lista na sidebar + dialog (preset de commit via menu do grafo)
+- [x] Ahead/behind por branch + upstream (`branch -vv`, set-upstream na sidebar); fetch auto com intervalo por repo pendente
+- [x] Stage por linha, Discard por hunk, Blame e History de arquivo (dialogs próprios)
 - [ ] Submodules: lista + update/init (sem UI completa ainda)
 
 Aceite: checklist de 15 ações do SourceTree executadas só na UI sem erro.
@@ -50,10 +50,9 @@ O que diferencia o SourceTree para experts.
 
 - [x] Reflog browser + Undo de reset/rebase (via Reflog dialog; backup bundle automático)
 - [x] Terminal: abre emulador na pasta do repo (gnome-terminal/kgx/konsole/xfce4/xterm)
-- [ ] Interactive rebase (reorder/squash/drop/reword) — hoje só rebase simples onto + continue/abort
+- [x] Interactive rebase (base + plano pick/reword/edit/squash/fixup/drop, reorder ↑↓, backup bundle; continue/abort no Rebase dialog)
 - [x] Git-flow: Start/Finish Feature, Release, Hotfix (usa `git flow` se instalado, senão convenção `feature/*`)
 - [ ] LFS: detecta, mostra badge, pull/push transparente
-- [ ] Reflog browser + Undo de reset/rebase
 - [ ] Custom Actions (comandos externos configuráveis, como no SourceTree)
 - [x] Terminal integrado abrindo na pasta do repo (drawer xterm + node-pty, expansível, pop-out externo)
 - [ ] Multi-repo tabs
@@ -65,8 +64,8 @@ Aceite: teste roteirizado SourceTree -> TreeLine com mesmo repo resulta no mesmo
 - [ ] Flatpak Flathub, `.rpm`, AUR
 - [ ] Integração GNOME/KDE: tema claro/escuro, keyring via `libsecret` para HTTPS, ssh-agent existente
 - [ ] Auto-update, crash report opt-in, telemetria off por padrão
-- [ ] Atalhos remapeáveis, paleta de comando `Ctrl+K`
-- [ ] Integração remota fase 1: abrir PR/issue no browser (GitHub/GitLab/Bitbucket por domínio do remote)
+- [x] Atalhos (`Ctrl+K` paleta, `Ctrl+B` sidebar, `Ctrl+F` busca, `Ctrl+Enter` commit, `F5` refresh); remapeáveis pendente
+- [x] Integração remota fase 1: abrir PR no browser (GitHub/GitLab/Bitbucket por domínio do remote)
 
 Fora de 1.x: Jira nativo, Hg, AI commit.
 
@@ -75,18 +74,19 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | Recurso SourceTree | TreeLine Fase | Status |
 |---|---|---|
 | Bookmarks/Open/Clone/Init | 0-1 | ☑ (open/list/clone/init + remote manager) |
-| Graph + History + Search | 1 | ☑ (paridade GitGraph: dots cheios, split/join, spine-first + steal, datas absolutas, badges por branch; virtualização 10k+ pendente) |
-| Stage arquivo/hunk/linha | 1-2 | ◐ (arquivo + all ok; hunk/linha pendentes) |
-| Commit/Amend/Push/Pull/Fetch | 1 | ☑ (com toast, timeout, ff-only no pull) |
-| Branch/Merge/Tag | 1-2 | ☑ (dialogs + sidebar; revert e reset direto pendentes) |
-| Stash/Cherry-pick/Revert | 2 | ◐ (stash + cherry-pick ok; revert pendente) |
-| Conflito Ours/Theirs | 2 | ◐ (continue/abort + lista conflicted; ours/theirs por arquivo pendente) |
-| Rebase interativo + Undo | 3 | ◐ (rebase simples + undo via reflog com bundle; interativo pendente) |
+| Graph + History + Search | 1 | ☑ (paridade GitGraph: dots cheios, split/join, spine-first + steal, datas absolutas, badges por branch, avatares, compare 2 commits, blame/file-history; virtualização 10k+ pendente) |
+| Stage arquivo/hunk/linha | 1-2 | ☑ (arquivo + all + hunk + linha via `git apply`, discard por hunk) |
+| Commit/Amend/Push/Pull/Fetch | 1 | ☑ (com toast, timeout, ff-only no pull, `--force-with-lease` explícito com confirmação) |
+| Branch/Merge/Tag | 1-2 | ☑ (dialogs + sidebar detalhada; revert e reset direto ok; checkout de branch/remota/tag com HEAD marcado) |
+| Stash/Cherry-pick/Revert | 2 | ☑ (stash + cherry-pick + revert com confirmação) |
+| Conflito Ours/Theirs | 2 | ☑ (ours/theirs por arquivo na conflict-bar + menu; continue/abort) |
+| Rebase interativo + Undo | 3 | ☑ (simples + interativo pick/reword/edit/squash/fixup/drop/reorder + undo via reflog com bundle) |
 | Git-flow | 3 | ☑ (start/finish feature/release/hotfix, com e sem `git flow`) |
 | LFS/Submodules | 2-3 | ☐ |
-| Remote manager | 1 | ☑ |
+| Remote manager | 1 | ☑ (add/list/remove/edit-URL, clone/init, push lease, abrir PR) |
 | Custom Actions/Terminal | 3 | ◐ (terminal integrado ok; custom actions pendente) |
 | Temas claro/escuro | extra | ☑ (10 temas + System) |
 | Settings identidade autor | extra | ☑ |
+| Paleta de comandos | extra | ☑ (`Ctrl+K`: sync, dialogs, PR, terminal, sidebar) |
 
 Legenda: ☐TODO / ◐parcial / ☑pronto. Atualizar por release.

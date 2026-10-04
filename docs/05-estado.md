@@ -2,22 +2,23 @@
 
 > Atualizar ao fim de cada sessão. Este é o arquivo que a próxima IA deve ler junto com `00-referencia-assistente.md`.
 
-## Última atualização: 2026-10-03 (Fase 0 + boa parte da Fase 1 prontas; docs sincronizados)
+## Última atualização: 2026-10-04 (P0+P1 entregues: hunk/linha, Revert/Reset, Ours/Theirs, lease, rebase-i, blame/history, compare, paleta, sidebar colapsável)
 
 ## Onde estamos
 
 - [x] Pasta `/home/vinicius/gitnest/` + `/home/vinicius/gitnest/docs/` criadas.
-- [x] Docs base e de referência sincronizados com o código: `00`, `01-visao.md`, `02-roadmap.md`, `03-arquitetura.md`, `04-decisoes.md` (ADR-001..010), `05-estado.md`, `../AGENTS.md`, `06-design-system.md`.
+- [x] Docs base e de referência sincronizados com o código: `00`, `01-visao.md`, `02-roadmap.md`, `03-arquitetura.md`, `04-decisoes.md` (ADR-001..011), `05-estado.md`, `../AGENTS.md`, `06-design-system.md`.
 - [x] Scaffold Fase 0 (0.1.0): Electron 44 + Vite 7 + React 19 + TS + simple-git 3.30, `npm run dev/build/dist/typecheck` OK.
 - [x] UI 4 regiões (toolbar/sidebar/history/details/statusbar) com dados reais: status, log com grafo SVG, branches, diff, stage/unstage (+all), commit (+amend, com guarda e botão desabilitado sem stage).
 - [x] Push/Pull (`--ff-only`)/Fetch (`--all --prune`) reais com toast, timeout 120s, erros amigáveis; auth via credential helper do sistema.
-- [x] 10 temas + System (seletor no Settings), Settings com identidade do autor, busca/filtro de commits, linha Working Copy, datas relativas.
+- [x] 10 temas + System (seletor no Settings), Settings com identidade do autor, busca/filtro de commits (Ctrl+F), linha Working Copy, datas absolutas localizadas, avatares de iniciais.
 - [x] `dist/treeline_0.1.0_amd64.deb` + AppImage gerados, `.desktop` validado (Exec, WMClass). App roda de `dist/linux-unpacked` com as flags Wayland (`--no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto`).
-- [x] Toolbar 100% funcional (2026-10-03): Branch (create/checkout/rename/delete + force-retry), Merge (preview + --no-ff + continue/abort), Stash (create -u/apply/pop/drop), Tag (create/push/delete + remota), Rebase simples, Cherry-Pick, Git-flow (start/finish, com/sem `git flow`), Terminal, Reflog + Undo (bundle backup), Remote manager (add/remove/clone/init). 9 dialogs + sidebar viva (dbl-clique checkout, listas reais). i18n en/pt/es completo.
-- [x] Grafo paridade GitGraph (2026-10-03): dots cheios, split/join, spine-first + steal, datas absolutas, badges por branch, detalhe com meta + numstat. 17 asserts (`/tmp/opencode/graphtest.ts`).
-- [ ] Ícone próprio (usa padrão Electron — criar asset original).
-- [ ] Fase 1 restante: dialogs Branch/Merge, remote manager (clone/init), stage por hunk/linha.
-- [ ] Testes automatizados (Vitest p/ lane engine + parsers; Playwright p/ fluxo) — Fase 1/2.
+- [x] Toolbar 100% funcional: Branch (create/checkout/rename/delete + force-retry + preset), Merge (preview + --no-ff + continue/abort), Stash (create -u/apply/pop/drop), Tag (create/push/delete + remota + preset), Rebase simples + interativo, Cherry-Pick, Revert, Reset direto, Git-flow, Terminal, Reflog + Undo (bundle backup), Remote manager (add/remove/edit-URL/clone/init/push-lease/abrir-PR). 14 dialogs + sidebar viva (dbl-clique checkout, busca, ahead/behind/upstream, remotos, drop-merge). i18n en/pt/es completo (~150 chaves).
+- [x] Grafo paridade GitGraph: dots cheios, split/join, spine-first + steal, datas absolutas, badges por branch, menu rico no commit, compare Ctrl+click, detalhe com meta + numstat. 17 asserts (`/tmp/opencode/graphtest.ts`).
+- [x] Stage por hunk/linha + Discard por hunk (`git apply`, patch parcial validado em fixture); Ours/Theirs por arquivo (conflict-bar + menu); Push `--force-with-lease` com confirmação; Blame + File history; paleta `Ctrl+K`; sidebar colapsável (`Ctrl+B`).
+- [x] Fixture de teste: `/home/vinicius/www/exemple` (forks/merges, hotfix, tags v1.0.0/v1.1.0, 3 autores, stash, worktree suja, origin com ahead 1) + gerador `/home/vinicius/www/gerar-exemple.sh`.
+- [ ] Fase 1 restante: nada — Fase 1/2/3 de uso diário completas (ver `02-roadmap.md`).
+- [ ] Testes automatizados (Vitest p/ lane engine + parsers; Playwright p/ fluxo) — pendente.
 
 ## Ambiente verificado
 
@@ -25,9 +26,9 @@
 
 ## Próximo passo imediato
 
-1. Stage por hunk/linha no diff + Discard por hunk/linha.
-2. Revert de commit, Reset direto (soft/mixed/hard com confirmação + bundle), Ours/Theirs por arquivo.
-3. Ícone final + `.deb` da 0.5.0 + Vitest (lane engine, parsers) + Playwright (fluxo em fixture).
+1. Vitest (lane engine, parsers porcelain/numstat/blame) + Playwright (fluxo em `/home/vinicius/www/exemple` regenerável).
+2. `.deb` da 0.5.0 + Flatpak (Fase 4) + auto-update.
+3. Restante Fase 2-4: fetch auto com intervalo, LFS badge, Submodules, Custom Actions, Multi-repo tabs, atalhos remapeáveis, keyring `libsecret`.
 
 ## Riscos/pendências
 
@@ -70,3 +71,14 @@
 - 2026-10-03: painéis expansíveis (`DetailsPanel.tsx` + CSS + i18n `det.expand/collapse`): botão expandir em cada painel (Unstaged, Staged, Diff — nas vistas Working Copy e detalhe de commit); expandido vira overlay fixo em tela cheia com backdrop, Esc/clicar fora recolhe. Rebuild + relançado + commitado.
 - 2026-10-03: terminal integrado (`TerminalPanel.tsx` xterm.js + `node-pty`, sessão por repo): drawer inferior de 300px com shell real na pasta do repo, expansível p/ tela cheia (mesmo padrão dos painéis), pop-out p/ emulador externo e restart; botão Terminal da toolbar alterna o drawer. `asarUnpack **/*.node` no builder + ABI validada (`ELECTRON_RUN_AS_NODE`). i18n `term.*`. Rebuild + relançado + commitado.
 - 2026-10-03: docs finais sincronizados (`00`, `02` paridade, `03` arquitetura do motor, `05`, `06` grafo) + push `fbd064b..5bb58ec` → `origin/main` OK (14 commits: toolbar completa, refresh, grafo GitGraph).
+- 2026-10-04: P0+P1 em lote — motor: `getHunks/stageHunk/discardHunk/stageLines` (`git apply`, patch parcial com recompute de counts; bug da linha fantasma '' achado e corrigido em fixture), `revertCommit`, `resetTo` (soft/mixed/hard + bundle), `resolveOurs/Theirs`, `pushForce --force-with-lease`, `getBranchesDetailed/getRemoteBranches/setUpstream/editRemote`, `getBlame/getFileHistory`, `getRebasePlan/rebaseInteractive` (GIT_SEQUENCE_EDITOR=cp plano, mutex global, backup), `compareCommits/compareDiff/openPR`. UI: DiffViewer interativo (Stage/Discard por hunk, clique seleciona linhas), conflict-bar Ours/Theirs, Ctrl+Enter, menu rico no commit (pick/revert/reset/branch/tag/merge/rebase/compare), compare Ctrl+click + CompareDialog, avatares de iniciais, ResetDialog/BlameDialog/FileHistoryDialog/CommandPalette (Ctrl+K)/RebaseInteractiveDialog, sidebar com busca/ahead-behind por branch/remotos/drop-merge/upstream, RemotesDialog com edit-URL/lease/PR, StatusBar clicável, presets via refPreset. Validado em fixture (partial, revert, ours/theirs, rebase-i, lease, compare). `typecheck` + `build` + `--linux dir` OK, relançado.
+- 2026-10-04: fix coluna AUTOR espremida (screenshot 21:00): nome quebrava em 2 linhas nos 130px — agora nowrap + ellipsis + tooltip (`author-name`). Rebuild + relançado.
+- 2026-10-04: sidebar colapsável: botão chevron no topo (PanelLeftClose/Open) alterna trilha de ícones 52px, `Ctrl+B` e comando na paleta, persistido em localStorage. Rebuild + relançado.
+- 2026-10-04: checagem total de botões/menus via CDP (Playwright `connectOverCDP`, harness `/tmp/opencode/uitest.cjs`): 30/30 PASS (15+ botões toolbar, 9 dialogs abrem/fecham, paleta, sidebar colapsa/expande, Ctrl+B, detalhe do commit, menu do commit com 11 itens, Reset via menu), zero erros JS. Achado 1 bug real (locale: `[à frente 1]` ilegível p/ simple-git) → fix `LC_ALL=C` (ADR-012). Rebuild + relançado com `--remote-debugging-port=9222` (harness reutilizável).
+- 2026-10-04: checkout agora explícito — sidebar marca o branch atual (barra accent + negrito + badge HEAD), grafo rola até o novo HEAD com flash 1.5s (`headPing`), erro de checkout com worktree suja virou orientação (commit/stash/discard), erro global com tooltip + ellipsis na statusbar. Validado via CDP em repo limpo (checkout b2 ↔ main, badge/flag/statusbar). Harness segue 30/30, zero erros JS.
+- 2026-10-04: checkout destravado — `checkoutBranch` com worktree suja oferece "Stash + checkout" (stash `-u` + retry em 1 clique, validado via CDP no exemple); `checkoutRemote` (tracking, fallback p/ local existente; menu nas branches remotas); `checkoutTag` (`tags/<n>`, detached com aviso; menu na tag + criar branch a partir da tag via preset). Statusbar mostra HEAD destacado; erro de checkout virou orientação. Nota: usuário testava junto e commitou a sujeira como "teste" (a88a451) — estado do exemple preservado em main limpo.
+- 2026-10-04: confirms nativos trocados por modal interno (`ConfirmDialog` via `confirmAction`, Esc/backdrop/X cancelam, Enter confirma, z-index acima) + X de fechar em todos os modais (`Dialog` shell + Settings). Validado via CDP (X fecha, confirm abre/cancela sem deletar). Rebuild + relançado.
+- 2026-10-04: botão do meio do terminal (pop-out externo) corrigido — detecção usava `execFile('command',…)` mas `command` é builtin do shell (ENOENT sempre); agora usa o binário `which` + Ptyxis primeiro (`--new-window --working-directory=`, padrão no Ubuntu 26.04, antes nem listado). Validado: `ptyxis --new-window --working-directory <repo>` abre sem erro.
+- 2026-10-04 (release v0.5.0): versão bumpada em `package.json`, StatusBar e README (badge + `.deb`); harness E2E commitado em `scripts/uitest.cjs` (`npm run test:ui`, via CDP); Fase 1 marcada pronta em `02-roadmap.md`. Commit + tag `v0.5.0` + push p/ GitHub.
+- 2026-10-04: diff split lado a lado — toggle Unified/Lado a lado no File Status (persistido), blocos alinhados velho|novo, seta → faz stage do bloco (← unstage no staged), clique seleciona linhas + "stage selecionadas". Validado via CDP (seta moveu o bloco p/ staged, zero erros JS). Só Working Copy (detalhe de commit segue unified).
+- 2026-10-04: tag com checkout também é marcada — `TagInfo.checkedOut` (`tag --points-at HEAD`) + `RepoStatus.detachedTag` (`describe --exact-match`); sidebar mostra badge HEAD na tag, statusbar mostra `tag: vX.Y.Z`. Validado via CDP (checkout v1.0.0 → detached marcado; de volta ao main).
