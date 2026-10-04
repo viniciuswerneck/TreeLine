@@ -424,6 +424,8 @@ body {
 .field input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .success { color: #46a758; font-size: 12px; margin-bottom: 8px; }
+.warning { color: #d29922; font-size: 12px; margin-bottom: 8px; }
+.dlg-row.row-conflict { box-shadow: inset 2px 0 0 #d29922; }
 
 /* ---- Context menu (botão direito) ---- */
 .ctx-menu {
@@ -758,3 +760,5 @@ body {
   border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0;
 }
 .tab-x:hover { background: rgba(127, 127, 127, 0.2); color: var(--text-1); }
+.tab.dragging { opacity: 0.45; }
+.tab.drop-target { box-shadow: inset 2px 0 0 var(--accent); }

@@ -1,8 +1,71 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata: usado pelo .deb (appstream-util) e pelo Flathub. -->
 <component type="desktop-application">
   <id>dev.treeline.app</id>
-  <name>TreeLine</name>
-  <summary>Git GUI for Linux with a familiar SourceTree-like workflow</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
+
+  <name>TreeLine</name>
+  <summary>Git GUI for Linux with a familiar SourceTree-like workflow</summary>
+
+  <developer id="dev.treeline">
+    <name>TreeLine contributors</name>
+  </developer>
+
+  <description>
+    <p>
+      TreeLine is a Git GUI for Linux built for people coming from SourceTree. It keeps the
+      same mental model — fetch, pull, push, stage, commit, branches, stashes and remotes in a
+      fixed layout — without copying Atlassian assets or branding.
+    </p>
+    <p>Highlights:</p>
+    <ul>
+      <li>History graph with lane layout, filtering and a 10k+ commit virtualized list</li>
+      <li>Staging per file, per hunk or per line, with inline diff and split/unified views</li>
+      <li>Merge, rebase (including interactive), cherry-pick, revert and worktree support</li>
+      <li>Git LFS tracking, Git Flow, submodules and blame/file history</li>
+      <li>Pull with rebase, push with --force-with-lease and fetch per remote</li>
+      <li>Custom actions with arguments, ANSI-colored output and token substitution</li>
+      <li>Multi-repo tabs, drag to reorder, built-in terminal and remappable shortcuts</li>
+      <li>Light and dark themes following the system preference</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">dev.treeline.app.desktop</launchable>
+
+  <url type="homepage">https://treeline.dev</url>
+  <url type="bugtracker">https://github.com/viniciuswerneck/TreeLine/issues</url>
+  <url type="vcs-browser">https://github.com/viniciuswerneck/TreeLine</url>
+  <url type="translate">https://github.com/viniciuswerneck/TreeLine/tree/main/docs</url>
+
+  <content_rating type="oars-1.1"/>
+
+  <screenshots>
+    <screenshot type="default" caption="History graph, file status and diff">
+      <image>https://raw.githubusercontent.com/viniciuswerneck/TreeLine/main/build/flatpak/meta/screenshots/01-history.png</image>
+    </screenshot>
+    <screenshot caption="Branches, remotes and submodules in the sidebar">
+      <image>https://raw.githubusercontent.com/viniciuswerneck/TreeLine/main/build/flatpak/meta/screenshots/02-sidebar.png</image>
+    </screenshot>
+    <screenshot caption="Settings with identity, auto-fetch and remappable shortcuts">
+      <image>https://raw.githubusercontent.com/viniciuswerneck/TreeLine/main/build/flatpak/meta/screenshots/03-settings.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.6.1" date="2026-10-04">
+      <description>
+        <p>LFS dialog with pull, push and track/untrack patterns.</p>
+        <p>Custom actions with arguments, token substitution and ANSI-colored output.</p>
+        <p>Draggable repository tabs, shortcut conflict detection and key formatting fixes.</p>
+        <p>Optional background auto-fetch and automatic GitHub releases from CI.</p>
+      </description>
+    </release>
+    <release version="0.6.0" date="2026-09-28">
+      <description>
+        <p>Stage by hunk or line, split diff, rebase interactive, Git Flow, submodules,
+        custom actions, multi-repo tabs and remappable shortcuts.</p>
+      </description>
+    </release>
+  </releases>
 </component>

@@ -18,6 +18,7 @@ import RebaseDialog from './components/RebaseDialog'
 import RebaseInteractiveDialog from './components/RebaseInteractiveDialog'
 import ReflogDialog from './components/ReflogDialog'
 import RemotesDialog from './components/RemotesDialog'
+import LfsDialog from './components/LfsDialog'
 import ResetDialog from './components/ResetDialog'
 import SettingsDialog from './components/SettingsDialog'
 import Sidebar from './components/Sidebar'
@@ -120,16 +121,19 @@ export default function App() {
     if (current) void window.treeline.watchRepo(current).catch(() => undefined)
   }, [current])
 
-  // Fetch automático (Settings; 0 = desligado). Só com sync livre.
+  // Fetch automático (Settings; 0 = desligado). Se "executar em segundo plano"
+  // estiver desligado, só busca com a janela focada.
   const autoFetchMin = useStore((s) => s.autoFetchMin)
+  const autoFetchBg = useStore((s) => s.autoFetchBg)
   useEffect(() => {
     if (!autoFetchMin || !current) return
     const id = window.setInterval(() => {
       const st = useStore.getState()
-      if (st.current && st.sync.phase !== 'running' && !document.hidden) void st.doFetch()
+      if (!st.autoFetchBg && document.hidden) return
+      if (st.current && st.sync.phase !== 'running') void st.doFetch()
     }, autoFetchMin * 60_000)
     return () => window.clearInterval(id)
-  }, [autoFetchMin, current])
+  }, [autoFetchMin, autoFetchBg, current])
 
   if (!current) {
     return (
@@ -181,6 +185,7 @@ export default function App() {
       {dialog === 'compare' && <CompareDialog />}
       {dialog === 'about' && <AboutDialog />}
       {dialog === 'custom' && <CustomActionsDialog />}
+      {dialog === 'lfs' && <LfsDialog />}
       <CommandPalette />
       <ConfirmDialog />
       <ContextMenu />

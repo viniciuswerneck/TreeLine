@@ -8,6 +8,8 @@ import { dialogOps, useStore } from '../store'
 /** Largura por lane e altura da linha — espelham o CSS (.history-row height). */
 const LANE_W = 16
 const ROW_H = 30
+// Linhas extras renderizadas fora do viewport (evita linhas em branco).
+const OVERSCAN = 10
 
 /** Paleta por lane, no espírito do Git Graph (azul, rosa, verde, roxo…). */
 const LANE_COLORS = [
@@ -28,13 +30,40 @@ function shortHash(h: string): string {
   return h.slice(0, 7)
 }
 
+// Intl.DateTimeFormat é caro de construir: cacheia por locale e memoriza
+// o texto final por commit (a lista virtualizada re-renderiza as mesmas
+// linhas o tempo todo durante o scroll).
+const fmtCache = new Map<string, { date: Intl.DateTimeFormat; time: Intl.DateTimeFormat }>()
+const dateTextCache = new Map<string, string>()
+const DATE_CACHE_MAX = 4000
+
+function formatters(lang: string): { date: Intl.DateTimeFormat; time: Intl.DateTimeFormat } {
+  const hit = fmtCache.get(lang)
+  if (hit) return hit
+  const made = {
+    date: new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'short', year: 'numeric' }),
+    time: new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit', hour12: false })
+  }
+  fmtCache.set(lang, made)
+  return made
+}
+
 /** Data absoluta estilo Git Graph ("3 Oct 2026 13:02"). Cai para ISO se inválida. */
 function absDate(lang: string, iso: string): string {
+  const key = `${lang}|${iso}`
+  const cached = dateTextCache.get(key)
+  if (cached !== undefined) return cached
   const t = new Date(iso)
-  if (Number.isNaN(t.getTime())) return iso.slice(0, 16).replace('T', ' ')
-  const date = new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'short', year: 'numeric' }).format(t)
-  const time = new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit', hour12: false }).format(t)
-  return `${date} ${time}`
+  let out: string
+  if (Number.isNaN(t.getTime())) {
+    out = iso.slice(0, 16).replace('T', ' ')
+  } else {
+    const f = formatters(lang)
+    out = `${f.date.format(t)} ${f.time.format(t)}`
+  }
+  if (dateTextCache.size >= DATE_CACHE_MAX) dateTextCache.clear()
+  dateTextCache.set(key, out)
+  return out
 }
 
 /** Cor estável por branch (hash do nome → paleta), como no Git Graph. */
@@ -182,6 +211,12 @@ export default function HistoryGraph() {
   const shortcuts = useStore((s) => s.shortcuts)
   const [headFlash, setHeadFlash] = useState(0)
   const spacerRef = useRef<HTMLDivElement>(null)
+  // Geometria do container em cache: evita getBoundingClientRect por scroll
+  // (força layout síncrono) e mede só quando a lista muda.
+  const contRef = useRef<HTMLDivElement>(null)
+  const offsetRef = useRef(0)
+  const pendingScroll = useRef<number | null>(null)
+  const rafRef = useRef(0)
   const [win, setWin] = useState<[number, number]>([0, 40])
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -276,14 +311,26 @@ export default function HistoryGraph() {
   // Filtrar depois preserva a coluna original de cada commit.
   const rows = useMemo(() => layoutGraph(commits).filter(visible), [commits, visible])
   const maxLane = useMemo(() => rows.reduce((m, r) => Math.max(m, r.lane, ...r.through, ...r.forks.map((f) => f.to)), 0), [rows])
+  const dirtyCount =
+    (status?.unstaged.length ?? 0) + (status?.staged.length ?? 0) + (status?.untracked.length ?? 0)
+
   // Ao mudar a lista (repo, filtro, página), volta para o topo da janela.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => setWin([0, 40]), [rows.length, branchFilter])
+  // Recalcula o offset do spacer uma vez por mudança de lista.
+  useEffect(() => {
+    const cont = contRef.current
+    const anchor = spacerRef.current
+    offsetRef.current =
+      cont && anchor
+        ? anchor.getBoundingClientRect().top - cont.getBoundingClientRect().top + cont.scrollTop
+        : 0
+  }, [rows.length, dirtyCount, branchFilter])
   // Coluna do grafo encolhe para as lanes usadas (não mais 120–220px fixos).
   const graphCol = `${(maxLane + 1) * LANE_W + 24}px`
   const gridCols = `${graphCol} 1fr 140px 130px 80px`
-  const dirtyCount =
-    (status?.unstaged.length ?? 0) + (status?.staged.length ?? 0) + (status?.untracked.length ?? 0)
+  // Só a fatia visível é renderizada; o resto vira altura de spacer.
+  const visibleRows = useMemo(() => rows.slice(win[0], win[1]), [rows, win])
 
   if (rows.length === 0 && dirtyCount === 0) {
     return (
@@ -298,19 +345,25 @@ export default function HistoryGraph() {
 
   return (
     <div
+      ref={contRef}
       className="history"
       onScroll={(e) => {
         const cont = e.currentTarget as HTMLElement
         if (cont.scrollHeight - cont.scrollTop - cont.clientHeight < 400) void loadMoreCommits()
-        // Janela virtual: recalcula quais linhas da lista estão no viewport.
-        const anchor = spacerRef.current
-        const off = anchor
-          ? anchor.getBoundingClientRect().top - cont.getBoundingClientRect().top + cont.scrollTop
-          : 0
-        const top = Math.max(0, cont.scrollTop - off)
-        const start = Math.max(0, Math.floor(top / ROW_H) - 6)
-        const end = Math.min(rows.length, Math.ceil((top + cont.clientHeight) / ROW_H) + 6)
-        setWin((prev) => (prev[0] === start && prev[1] === end ? prev : [start, end]))
+        // Coalesce: um update de janela por frame, no máximo.
+        pendingScroll.current = cont.scrollTop
+        if (rafRef.current) return
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = 0
+          const top0 = pendingScroll.current
+          if (top0 === null) return
+          const el = contRef.current
+          if (!el) return
+          const top = Math.max(0, top0 - offsetRef.current)
+          const start = Math.max(0, Math.floor(top / ROW_H) - OVERSCAN)
+          const end = Math.min(rows.length, Math.ceil((top + el.clientHeight) / ROW_H) + OVERSCAN)
+          setWin((prev) => (prev[0] === start && prev[1] === end ? prev : [start, end]))
+        })
       }}
     >
       <div className="history-filter">
@@ -368,7 +421,7 @@ export default function HistoryGraph() {
       )}
       <div ref={spacerRef} style={{ height: 0 }} />
       {win[0] > 0 && <div style={{ height: win[0] * ROW_H }} />}
-      {rows.slice(win[0], win[1]).map((c, k) => {
+      {visibleRows.map((c, k) => {
         const i = win[0] + k
         return (
         <div

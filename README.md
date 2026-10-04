@@ -4,7 +4,7 @@
 
 **TreeLine is a SourceTree alternative for Linux**: a visual Git client (Git GUI) for Ubuntu/Debian with the familiar workflow of SourceTree on Windows/Mac. If you were looking for *SourceTree for Linux*, *SourceTree on Ubuntu* or a *Git client for Linux* — this is it.
 
-![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.6.0-green)
+![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.6.1-green)
 
 > 100% original implementation — not affiliated with Atlassian. Inspired by the SourceTree workflow, without copying brand, icons or texts.
 
@@ -38,7 +38,7 @@ Other alternatives people compare: GitKraken, GitHub Desktop (no official Linux 
 Download the `.deb` or `.AppImage` from the **Releases** page and install:
 
 ```bash
-sudo apt install ./treeline_0.6.0_amd64.deb
+sudo apt install ./treeline_0.6.1_amd64.deb
 ```
 
 Requirement: `git >= 2.40`. Optional: `git-lfs`, `git-flow`.

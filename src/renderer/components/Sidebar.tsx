@@ -19,6 +19,7 @@ export default function Sidebar() {
   const status = useStore((s) => s.status)
   const stashes = useStore((s) => s.stashes)
   const submodules = useStore((s) => s.submodules)
+  const lfs = useStore((s) => s.lfs)
   const tags = useStore((s) => s.tags)
   const remotes = useStore((s) => s.remotes)
   const selectRepo = useStore((s) => s.selectRepo)
@@ -359,6 +360,22 @@ export default function Sidebar() {
           >
             <RefreshCw size={12} />
             <span className="grow">{tr('sub.updateAll')}</span>
+          </div>
+        </Section>
+      )}
+
+      {(lfs?.installed || lfs?.tracked) && (
+        <Section title={tr('lfs.title')}>
+          <div
+            className="sidebar-row small"
+            title={lfs.installed ? tr('lfs.files', { n: lfs.files }) : tr('lfs.notInstalled')}
+            onClick={() => openDlg('lfs')}
+          >
+            <Cloud size={13} />
+            <span className="grow">
+              {lfs.installed ? tr('lfs.files', { n: lfs.files }) : tr('lfs.notInstalledShort')}
+            </span>
+            <span className="sidebar-badge">{lfs.patterns.length}</span>
           </div>
         </Section>
       )}

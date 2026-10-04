@@ -39,9 +39,17 @@ export default function CommandPalette() {
   }, [paletteOpen])
 
   const runCustom = (id: string): void => {
-    const current = useStore.getState().current
-    if (!current) return
-    void window.treeline.runCustomAction(current, id).catch(() => undefined)
+    const st = useStore.getState()
+    if (!st.current) return
+    // Mesmo contexto do dialog: tokens {{repo}}, {{branch}}, {{file}}, {{commit}}.
+    void window.treeline
+      .runCustomAction(st.current, id, {
+        repo: st.current,
+        branch: st.status?.branch || undefined,
+        file: st.selectedFile?.path || undefined,
+        commit: st.selectedCommit || undefined
+      })
+      .catch(() => undefined)
   }
 
   const commands: PalCmd[] = useMemo(

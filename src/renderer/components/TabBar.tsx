@@ -1,13 +1,20 @@
 import { X } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { useStore } from '../store'
 
-/** Abas de repositórios (multi-repo): troca rápida + fecha sem desmarcar. */
+/** Abas de repositórios (multi-repo): troca rápida, fecha sem desmarcar, arrastar para reordenar. */
 export default function TabBar() {
   const openTabs = useStore((s) => s.openTabs)
   const current = useStore((s) => s.current)
   const selectRepo = useStore((s) => s.selectRepo)
   const closeTab = useStore((s) => s.closeTab)
+  const moveTab = useStore((s) => s.moveTab)
   const tr = useStore((s) => s.tr)
+
+  const [drag, setDrag] = useState<string | null>(null)
+  const [over, setOver] = useState<string | null>(null)
+  // Ref síncrono: o drop pode chegar antes do commit do state.
+  const dragRef = useRef<string | null>(null)
 
   if (openTabs.length === 0) return null
   return (
@@ -19,10 +26,39 @@ export default function TabBar() {
             key={t}
             role="tab"
             aria-selected={active}
-            className={`tab${active ? ' active' : ''}`}
+            draggable
+            className={`tab${active ? ' active' : ''}${drag === t ? ' dragging' : ''}${over === t && drag !== t ? ' drop-target' : ''}`}
             title={t}
             onClick={() => {
               if (!active) void selectRepo(t)
+            }}
+            onDragStart={(e) => {
+              dragRef.current = t
+              setDrag(t)
+              e.dataTransfer.effectAllowed = 'move'
+              // Firefox exige dado para iniciar o drag.
+              e.dataTransfer.setData('text/plain', t)
+            }}
+            onDragOver={(e) => {
+              const from = dragRef.current
+              if (!from || from === t) return
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+              setOver(t)
+            }}
+            onDragLeave={() => setOver((o) => (o === t ? null : o))}
+            onDrop={(e) => {
+              e.preventDefault()
+              const from = dragRef.current
+              if (from && from !== t) moveTab(from, t)
+              dragRef.current = null
+              setDrag(null)
+              setOver(null)
+            }}
+            onDragEnd={() => {
+              dragRef.current = null
+              setDrag(null)
+              setOver(null)
             }}
           >
             <span className="tab-name">{t.split('/').pop() ?? t}</span>

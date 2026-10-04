@@ -92,6 +92,17 @@ export interface CustomAction {
   id: string
   name: string
   cmd: string
+  /** Argumentos extras; aceitam tokens {{repo}}, {{branch}}, {{file}}, {{commit}} */
+  args: string[]
+}
+
+/** Contexto para substituição de tokens em custom actions. */
+export interface ActionContext {
+  repo?: string
+  branch?: string
+  remoteBranch?: string
+  file?: string
+  commit?: string
 }
 
 /** Resultado de custom action / comando externo. */
@@ -116,6 +127,8 @@ export interface LfsInfo {
   /** .gitattributes menciona filter=lfs */
   tracked: boolean
   files: number
+  /** Padrões com filter=lfs em .gitattributes */
+  patterns: string[]
 }
 
 /** Submódulo (`git submodule status`). */
@@ -249,6 +262,10 @@ export interface TreeLineAPI {
   compareCommits(repo: string, a: string, b: string): Promise<CompareSummary>
   compareDiff(repo: string, a: string, b: string, file: string): Promise<string>
   openPR(repo: string, lang?: string): Promise<void>
+  lfsPull(repo: string, lang?: string): Promise<SyncResult>
+  lfsPush(repo: string, lang?: string): Promise<SyncResult>
+  lfsTrack(repo: string, pattern: string, lang?: string): Promise<void>
+  lfsUntrack(repo: string, pattern: string, lang?: string): Promise<void>
   commit(repo: string, message: string, amend?: boolean, lang?: string): Promise<void>
   push(repo: string, lang?: string): Promise<SyncResult>
   pull(repo: string, lang?: string): Promise<SyncResult>
@@ -328,9 +345,9 @@ export interface TreeLineAPI {
   initRepo(lang?: string): Promise<string | null>
   // Custom Actions
   getCustomActions(): Promise<CustomAction[]>
-  saveCustomAction(a: { id?: string; name: string; cmd: string }): Promise<CustomAction[]>
+  saveCustomAction(a: { id?: string; name: string; cmd: string; args?: string[] }): Promise<CustomAction[]>
   deleteCustomAction(id: string): Promise<CustomAction[]>
-  runCustomAction(repo: string, id: string, lang?: string): Promise<ActionResult>
+  runCustomAction(repo: string, id: string, ctx?: ActionContext, lang?: string): Promise<ActionResult>
   // Updates (GitHub Releases, sem auth)
   checkUpdates(): Promise<{ current: string; latest: string | null; url: string }>
   termStart(repo: string, cols: number, rows: number): Promise<void>

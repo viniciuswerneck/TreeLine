@@ -8,13 +8,13 @@
 - **Por quê:** Não existe SourceTree oficial para Linux. Usuário quer paridade de uso intuitiva.
 - **Onde:** `/home/vinicius/gitnest/` | docs em `/home/vinicius/gitnest/docs/`
 - **Idioma do usuário:** português brasileiro. Responder em pt-BR, curto e direto, sem emoji. Termos de Git/UI em inglês (Commit, Push, Branch) como no SourceTree.
-- **Status 2026-10-04 (v0.5.0):** Fase 0/1/2/3 de uso diário prontas e tagueadas (stage hunk/linha, Revert, Reset direto, Ours/Theirs, `--force-with-lease`, rebase interativo, blame/history, compare, paleta `Ctrl+K`, sidebar colapsável, checkout com stash+retry/remoto/tag), rodando de `dist/linux-unpacked` com flags Wayland. Grafo com paridade GitGraph. Detalhe em `05-estado.md`. Próximo: Vitest + Playwright, `.deb` 0.5.0, fetch auto, LFS, Submodules, Custom Actions.
+- **Status 2026-10-04 (v0.6.1 em prep):** v0.6.0 publicada; v0.6.1 fecha o backlog de Fase 2/3/4 — LFS (dialog pull/push/track/untrack), Submodules recursivos, Custom Actions com args + tokens + saída ANSI, abas multi-repo com drag-and-drop, atalhos remapeáveis com detecção de conflito, fetch automático em segundo plano, CI de release, manifesto Flatpak + AppStream + screenshots, virtualização validada com 10.000 commits (58fps). Validação: typecheck, Vitest 23/23, harnesses CDP 33/33 e 19/19. Detalhe em `05-estado.md`. Próximo: `.deb`/AppImage da 0.6.1, tag/push, submissão no Flathub, `libsecret`.
 
 ## 2. Decisões travadas (não reabrir sem motivo)
 
 1. **Nome = TreeLine** (singular, comando `treeline`). Descartados: Sourcetree (marca), Grove/Canopy/GitPilot/GitDock/GitDeck/GitVista/GitArbor/GitStage (colisão comprovada via websearch), Lingit (empresa NO), ipe (editor Ubuntu).
 2. **Stack = Electron + Vite + React + TypeScript + simple-git via git CLI.** Motivo: usuário tem Node 22 no Ubuntu 26.04, sem Rust. UI web replica layout SourceTree mais rápido. Escritas sempre via CLI (hooks/LFS/flow ok). Ver ADR-001/002 em `04-decisoes.md`.
-3. **Alvo primeiro = Ubuntu/Debian** (`.deb` + AppImage via electron-builder). Flatpak depois.
+3. **Alvo primeiro = Ubuntu/Debian** (`.deb` + AppImage via electron-builder). Flatpak preparado em `build/flatpak/` (submissão no Flathub ainda pendente).
 4. **Git-only** (sem Mercurial). LFS/flow suportados via CLI do sistema.
 5. **Layout = 4 regiões familiares SourceTree** (toolbar, sidebar bookmarks/branches/remotes/tags/stash, history graph, file-status+diff, statusbar). Ver `01-visao.md §4`. **Inspirado, não clonado.**
 
@@ -39,13 +39,15 @@
 1. Ler este arquivo + `05-estado.md`.
 2. `ls /home/vinicius/gitnest` para confirmar estrutura.
 3. Não scaffolding sem confirmação se `05-estado.md` disser "aguardando usuário".
-4. Ao terminar mudança: `npm run typecheck`, `npm run build`, reempacotar (`npx electron-builder --linux dir`), reiniciar o app (`pkill -x treeline` + `setsid nohup ./dist/linux-unpacked/treeline --no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto > /tmp/opencode/treeline.log 2>&1 < /dev/null &`) e atualizar `05-estado.md` + `02-roadmap.md`.
+4. Ao terminar mudança: `npm run typecheck`, `npm test`, `npm run build`, reempacotar (`npx electron-builder --linux dir`), reiniciar o app (`pkill -x treeline` + `setsid nohup ./dist/linux-unpacked/treeline --no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto > /tmp/opencode/treeline.log 2>&1 < /dev/null &`) e atualizar `05-estado.md` + `02-roadmap.md`.
+5. Harnesses CDP (exigem o app com `--remote-debugging-port=9222`): `npm run test:ui` (33/33), `npm run test:ui:new` (19/19), `npm run test:stress` (10k commits), `npm run shots` (screenshots Flatpak), `npm run fixture:repos` (fixtures `lfs-test` e `sub-test` com sub-submódulo via `git daemon`).
 5. Responder em pt-BR, objetivo, com caminho:linha quando citar código.
 
 ## 6. Comandos-chave (quando houver código)
 
 - `npm run dev` — Vite + Electron hot reload (nesta máquina Wayland sem GPU, exportar `ELECTRON_DISABLE_SANDBOX=1` não basta: passar `--no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto` ao binário; sem `--disable-gpu` o processo GPU trava em 100% CPU e nenhuma janela aparece)
-- `npm run dist` — `.deb` + AppImage (ou `npx electron-builder --linux dir` para só atualizar `dist/linux-unpacked`)
+- `npm run dist` — `.deb` + AppImage (ou `npx electron-builder --linux dir` para só atualizar `dist/linux-unpacked`; já passou de 900s localmente, deixar o AppImage p/ o CI)
 - Pré-req runtime: `git >= 2.40` (sistema). Opcional: `git-lfs`, `git-flow`.
+- Armadilhas de teste: `git` bloqueia transporte `file` em submódulos (CVE-2022-39253) — usar `git://` via `git daemon`; e LFS só valida tracking por `.gitattributes` se o binário não estiver instalado.
 - Armadilhas reais já mordidas (detalhe em `04-decisoes.md` ADR-006/007/008): simple-git `.env()` apaga o env do filho; `git log` precisa `--topo-order`; parser precisa `trim()` no hash (`\n` entre registros).
 - Última atualização deste arquivo: 2026-10-04.

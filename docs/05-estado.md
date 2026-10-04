@@ -2,7 +2,7 @@
 
 > Atualizar ao fim de cada sessão. Este é o arquivo que a próxima IA deve ler junto com `00-referencia-assistente.md`.
 
-## Última atualização: 2026-10-04 (P0+P1 entregues: hunk/linha, Revert/Reset, Ours/Theirs, lease, rebase-i, blame/history, compare, paleta, sidebar colapsável)
+## Última atualização: 2026-10-04 (v0.6.1: LFS, Custom Actions, abas multi-repo, atalhos remapeáveis, CI de release, Flatpak + screenshots, perf 10k commits)
 
 ## Onde estamos
 
@@ -18,22 +18,28 @@
 - [x] Stage por hunk/linha + Discard por hunk (`git apply`, patch parcial validado em fixture); Ours/Theirs por arquivo (conflict-bar + menu); Push `--force-with-lease` com confirmação; Blame + File history; paleta `Ctrl+K`; sidebar colapsável (`Ctrl+B`).
 - [x] Fixture de teste: `/home/vinicius/www/exemple` (forks/merges, hotfix, tags v1.0.0/v1.1.0, 3 autores, stash, worktree suja, origin com ahead 1) + gerador `/home/vinicius/www/gerar-exemple.sh`.
 - [ ] Fase 1 restante: nada — Fase 1/2/3 de uso diário completas (ver `02-roadmap.md`).
-- [ ] Testes automatizados (Vitest p/ lane engine + parsers; Playwright p/ fluxo) — pendente.
+- [ ] Testes automatizados (Vitest p/ lane engine + parsers; Playwright p/ fluxo) — parcial: Vitest 23/23 (lane engine, ANSI, atalhos) e 2 harnesses CDP (`npm run test:ui` 33/33, `npm run test:ui:new` 19/19). Falta Playwright de verdade (o CDP dá o mesmo controle sem download de browser).
 
 ## Ambiente verificado
 
 - Ubuntu 26.04.1 LTS, Node v22.22.1, npm 9.2.0, git 2.53.0. Sem Rust (motivo extra para Electron).
+- `git-lfs` **não instalado** nesta máquina: as operações LFS reais (pull/push) não puderam ser exercitadas; a UI foi validada com tracking em `.gitattributes`.
+- Submódulos de teste precisam de transporte `git://` (o Git bloqueia `file` por CVE-2022-39253); `scripts/make-fixture-repos.js` sobe um `git daemon` em :9418 para isso.
 
 ## Próximo passo imediato
 
-1. Vitest (lane engine, parsers porcelain/numstat/blame) + Playwright (fluxo em `/home/vinicius/www/exemple` regenerável).
-2. `.deb` da 0.5.0 + Flatpak (Fase 4) + auto-update.
+1. Build de release da 0.6.1 (`.deb` + AppImage) e smoke test do pacote instalado.
+2. Tag `v0.6.1` + push dos assets (o workflow `.github/workflows/release.yml` faz upload automático ao receber a tag).
+3. Submissão no Flathub: falta conta/app-id e provavelmente migrar `--filesystem=host` para FilePortal (ver `build/flatpak/dev.treeline.app.yml`).
+4. `libsecret`/GNOME Keyring para `credential.helper` e aviso de revogação do token `store` (ver Riscos).
 3. Restante Fase 2-4: fetch auto com intervalo, LFS badge, Submodules, Custom Actions, Multi-repo tabs, atalhos remapeáveis, keyring `libsecret`.
 
 ## Riscos/pendências
 
 - Token `ghp_` do usuário salvo em `~/.git-credentials` (helper `store`, texto plano) — orientar revogação quando possível; futuro: GNOME Keyring via `libsecret` (Fase 4).
-- Nenhum teste automatizado ainda; verificação hoje foi manual + scripts node ad-hoc.
+- LFS validado só na UI: sem `git-lfs` na máquina, `lfs pull`/`lfs push` seguem sem prova de ponta a ponta.
+- Flatpak: `--filesystem=host` é o ponto frágil para o review do Flathub; sem FilePortal o app não abre repo por portal.
+- `electron-builder` pode demorar muito nesta máquina (build de AppImage já passou de 900 s uma vez); preferir `--linux deb` no loop local e deixar o AppImage para o CI.
 - Nome "git nexts" digitado pelo usuário em 2026-10-03 foi interpretado como **TreeLine** (singular). Confirmado implicitamente — se mudar, renomear pasta/pacote.
 
 ## Log de sessões
@@ -92,4 +98,6 @@
 - 2026-10-04: release v0.5.0 publicada no GitHub (ID 402823847) com `.deb` + AppImage — download em github.com/viniciuswerneck/TreeLine/releases.
 - 2026-10-04: sessão "itens pendentes": (1) identidade efetiva no Settings (scope global/local) + correção repoConfig --local; (2) refresh ao abrir dialogs; (3) stash com conflito com mensagem amigável; (4) aviso de plano grande no rebase-i; (5) watcher chokidar (mudanças externas aparecem sem foco); (6) fetch automático configurável no Settings; (7) badge LFS na statusbar; (8) submódulos (lista + update/init na sidebar); (9) Custom Actions (dialog + comando via paleta, timeout 60s, saída truncada); (10) abas de múltiplos repos (TabBar, persistência localStorage); (11) atalhos remapeáveis (pal.title etc. no Settings, default localStorage); (12) manifest Flatpak + check de atualizações no About (GitHub Releases); (13) CI workflow (typecheck + vitest + build); (14) virtualização do histórico por janela de scroll (aceita 2k linhas sem travar). Teste: 33/33 harness + 9/9 Vitest, zero erros JS.
 - 2026-10-04 (release v0.6.0): versão bumpada (package.json, StatusBar, README trilíngue); distribuição `.deb` + AppImage 0.6.0 geradas e instaladas na máquina (`treeline 0.6.0` via apt). Validação final: Vitest 9/9, harness UI 33/33, virtualização do histórico (41 linhas renderizadas com 2000 commits, scroll 57fps), zero erros JS.
-- 2026-10-04: release v0.6.0 publicada — version bumpada (package.json, StatusBar, READMEs); distribuição `.deb` + AppImage 0.6.0 geradas e instaladas na máquina (`treeline 0.6.0` via apt). Validação final: Vitest 9/9, harness UI 33/33, virtualização do histórico (41 linhas renderizadas com 2000 commits, scroll 57fps), zero erros JS.
+- 2026-10-04 (v0.6.1): LFS (status/tracking/pull/push/untrack em `LfsDialog`, badge no `Sidebar`, padrões lidos de `.gitattributes` — validado na UI, `git-lfs` ausente na máquina); Custom Actions com **argumentos**, contexto (`{{repo}}`, `{{branch}}`, `{{remoteBranch}}`, `{{file}}`, `{{commit}}`, `shellQuote`) e saída ANSI colorida no renderer (`ansiToHtml` escapado, `dangerouslySetInnerHTML` só com HTML sanitizado); abas multi-repo com **drag-and-drop** (`moveTab` + ordem manual persistida, antes era MRU); atalhos remapeáveis com filtro, **detecção de conflito** e reset por linha; `autoFetchBg` (fetch em segundo plano) no Settings; `getSubmodules` agora usa `--recursive` (sub-submódulos aparecem na sidebar) e `updateSubmodules` usa `submodule update --init --recursive`; perf do `HistoryGraph` (scroll coalescido em rAF, cache de offset, `visibleRows` memoizado, datas em cache) — **10.000 commits, 33 linhas no DOM, 58fps**; workflow de release (`.github/workflows/release.yml`: typecheck+test+build+deb+AppImage+GitHub Release em tag `v*`); Flatpak com metainfo, 3 screenshots gerados por `npm run shots` e validação de XML/YAML.
+- 2026-10-04: validação da v0.6.1 — typecheck OK, Vitest **23/23**, harness CDP antigo **33/33**, harness novo **19/19** (LFS 7, Custom Actions 5, atalhos 5, abas 2), submódulo recursivo ponta a ponta via `git daemon` (sub-submódulo saiu de `∅` para inicializado), stress 10k OK, zero erros JS.
+- 2026-10-04: ferramentas novas commitáveis — `scripts/make-fixture-repos.js` (fixtures `lfs-test` e `sub-test` reproduzíveis, com `git daemon`), `scripts/make-stress-repo.js` + `scripts/stress.cjs` (`npm run test:stress`), `scripts/shots.cjs` (`npm run shots`), `scripts/uitest-new.cjs` (`npm run test:ui:new`); versão alinhada em `package.json`, `package-lock.json`, StatusBar e README trilíngue.

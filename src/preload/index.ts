@@ -60,8 +60,8 @@ const api: TreeLineAPI = {
   getCustomActions: () => ipcRenderer.invoke('treeline:getCustomActions'),
   saveCustomAction: (a: unknown) => ipcRenderer.invoke('treeline:saveCustomAction', a),
   deleteCustomAction: (id: string) => ipcRenderer.invoke('treeline:deleteCustomAction', id),
-  runCustomAction: (repo: string, id: string, lang?: string) =>
-    ipcRenderer.invoke('treeline:runCustomAction', repo, id, lang),
+  runCustomAction: (repo: string, id: string, ctx?: unknown, lang?: string) =>
+    ipcRenderer.invoke('treeline:runCustomAction', repo, id, ctx, lang),
   getIdentity: () => ipcRenderer.invoke('treeline:getIdentity'),
   setIdentity: (id: { name: string; email: string }, lang?: string) =>
     ipcRenderer.invoke('treeline:setIdentity', id, lang),
@@ -157,24 +157,28 @@ const api: TreeLineAPI = {
   termResize: (repo: string, cols: number, rows: number) =>
     ipcRenderer.invoke('treeline:termResize', repo, cols, rows),
   termStop: (repo: string) => ipcRenderer.invoke('treeline:termStop', repo),
-  termAlive: (repo: string) => ipcRenderer.invoke('treeline:termAlive', repo),
+termAlive: (repo: string) => ipcRenderer.invoke('treeline:termAlive', repo),
   watchRepo: (repo: string) => ipcRenderer.invoke('treeline:watchRepo', repo),
   unwatchRepo: (repo: string) => ipcRenderer.invoke('treeline:unwatchRepo', repo),
-  onRepoChanged: (cb: (repo: string) => void) => {
+  onRepoChanged: (cb: (repo: string) => void): () => void => {
     const fn = (_e: unknown, repo: string): void => cb(repo)
     ipcRenderer.on('treeline:changed', fn)
     return () => ipcRenderer.removeListener('treeline:changed', fn)
   },
-  onTermData: (cb: (repo: string, data: string) => void) => {
+  onTermData: (cb: (repo: string, data: string) => void): () => void => {
     const fn = (_e: unknown, repo: string, data: string): void => cb(repo, data)
     ipcRenderer.on('treeline:termData', fn)
     return () => ipcRenderer.removeListener('treeline:termData', fn)
   },
-  onTermExit: (cb: (repo: string) => void) => {
+  onTermExit: (cb: (repo: string) => void): () => void => {
     const fn = (_e: unknown, repo: string): void => cb(repo)
     ipcRenderer.on('treeline:termExit', fn)
     return () => ipcRenderer.removeListener('treeline:termExit', fn)
-  }
+  },
+  lfsPull: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:lfsPull', repo, lang),
+  lfsPush: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:lfsPush', repo, lang),
+  lfsTrack: (repo: string, pattern: string, lang?: string) => ipcRenderer.invoke('treeline:lfsTrack', repo, pattern, lang),
+  lfsUntrack: (repo: string, pattern: string, lang?: string) => ipcRenderer.invoke('treeline:lfsUntrack', repo, pattern, lang),
 }
 
 contextBridge.exposeInMainWorld('treeline', api)

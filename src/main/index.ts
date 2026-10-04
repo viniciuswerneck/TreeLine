@@ -204,6 +204,26 @@ const STR: Record<string, Record<UILang, string>> = {
     pt: 'Update de submódulos falhou. {d}',
     es: 'Update de submódulos falló. {d}'
   },
+  lfsPullDone: {
+    en: 'LFS pull completed',
+    pt: 'LFS pull concluído',
+    es: 'LFS pull completado'
+  },
+  lfsPushDone: {
+    en: 'LFS push completed',
+    pt: 'LFS push concluído',
+    es: 'LFS push completado'
+  },
+  lfsTracked: {
+    en: 'Pattern added to LFS tracking',
+    pt: 'Padrão adicionado ao tracking LFS',
+    es: 'Patrón añadido al seguimiento LFS'
+  },
+  lfsUntracked: {
+    en: 'Pattern removed from LFS tracking',
+    pt: 'Padrão removido do tracking LFS',
+    es: 'Patrón eliminado del seguimiento LFS'
+  },
   checkoutDirty: {
     en: 'Checkout blocked: uncommitted changes would be overwritten. Commit, stash or discard them first, then checkout again. {d}',
     pt: 'Checkout bloqueado: há alterações não commitadas que seriam sobrescritas. Commite, dê stash ou descarte antes, e faça checkout de novo. {d}',
@@ -1582,11 +1602,12 @@ async function readCustomActions(): Promise<import('../shared/types').CustomActi
     const list = JSON.parse(raw) as unknown
     if (!Array.isArray(list)) return []
     return list
-      .filter((x): x is { name?: unknown; cmd?: unknown; id?: unknown } => typeof x === 'object' && x !== null)
+      .filter((x): x is { name?: unknown; cmd?: unknown; id?: unknown; args?: unknown } => typeof x === 'object' && x !== null)
       .map((x, i) => ({
         id: typeof x.id === 'string' && x.id ? x.id : `ca-${Date.now()}-${i}`,
         name: typeof x.name === 'string' ? x.name : '',
-        cmd: typeof x.cmd === 'string' ? x.cmd : ''
+        cmd: typeof x.cmd === 'string' ? x.cmd : '',
+        args: Array.isArray(x.args) ? x.args.filter((a): a is string => typeof a === 'string').slice(0, 20) : []
       }))
       .filter((x) => x.name.trim() && x.cmd.trim())
   } catch {
@@ -1594,17 +1615,48 @@ async function readCustomActions(): Promise<import('../shared/types').CustomActi
   }
 }
 
+/** Substitui tokens {{repo}} etc. em cmd/args de custom action. */
+function expandActionTokens(s: string, ctx: import('../shared/types').ActionContext): string {
+  const map: Record<string, string> = {
+    repo: ctx.repo ?? '',
+    branch: ctx.branch ?? '',
+    remoteBranch: ctx.remoteBranch ?? '',
+    file: ctx.file ?? '',
+    commit: ctx.commit ?? ''
+  }
+  return s.replace(/\{\{\s*(\w+)\s*\}\}/g, (whole, key: string) =>
+    Object.prototype.hasOwnProperty.call(map, key) ? shellQuote(map[key]) : whole
+  )
+}
+
+/** Aspas simples para shell quando o valor tiver espaço ou metacaractere. */
+function shellQuote(v: string): string {
+  if (v === '') return "''"
+  return /^[A-Za-z0-9_@%+=:,./-]+$/.test(v) ? v : `'${v.replace(/'/g, `'\\''`)}'`
+}
+
 ipcMain.handle('treeline:getCustomActions', async () => readCustomActions())
 
-ipcMain.handle('treeline:saveCustomAction', async (_event, a: { id?: string; name: string; cmd: string }) => {
-  const list = await readCustomActions()
-  const clean = { id: a.id?.trim() || `ca-${Date.now()}`, name: a.name.trim().slice(0, 80), cmd: a.cmd.trim().slice(0, 2000) }
-  if (!clean.name || !clean.cmd) throw new Error('empty')
-  const next = [clean, ...list.filter((x) => x.id !== clean.id)].slice(0, 50)
-  await fs.mkdir(app.getPath('userData'), { recursive: true })
-  await fs.writeFile(customActionsFile(), JSON.stringify(next, null, 2))
-  return next
-})
+ipcMain.handle(
+  'treeline:saveCustomAction',
+  async (_event, a: { id?: string; name: string; cmd: string; args?: string[] }) => {
+    const list = await readCustomActions()
+    const args = Array.isArray(a.args)
+      ? a.args.map((x) => String(x).slice(0, 200)).filter((x) => x.trim()).slice(0, 20)
+      : []
+    const clean = {
+      id: a.id?.trim() || `ca-${Date.now()}`,
+      name: a.name.trim().slice(0, 80),
+      cmd: a.cmd.trim().slice(0, 2000),
+      args
+    }
+    if (!clean.name || !clean.cmd) throw new Error('empty')
+    const next = [clean, ...list.filter((x) => x.id !== clean.id)].slice(0, 50)
+    await fs.mkdir(app.getPath('userData'), { recursive: true })
+    await fs.writeFile(customActionsFile(), JSON.stringify(next, null, 2))
+    return next
+  }
+)
 
 ipcMain.handle('treeline:deleteCustomAction', async (_event, id: string) => {
   const next = (await readCustomActions()).filter((x) => x.id !== id)
@@ -1612,27 +1664,39 @@ ipcMain.handle('treeline:deleteCustomAction', async (_event, id: string) => {
   return next
 })
 
-ipcMain.handle('treeline:runCustomAction', (_event, repo: string, id: string, lang?: unknown) =>
-  enqueue(repo, async (): Promise<import('../shared/types').ActionResult> => {
-    const l = asLang(lang)
-    const found = (await readCustomActions()).find((x) => x.id === id)
-    if (!found) throw new Error(mx(l, 'nameInvalid', { x: id }))
-    return new Promise<import('../shared/types').ActionResult>((resolve, reject) => {
-      const cp = require('node:child_process') as typeof import('node:child_process')
-      const child = cp.spawn('sh', ['-c', found.cmd], { cwd: repo, timeout: 60_000, env: process.env })
-      let out = ''
-      child.stdout?.on('data', (d) => {
-        out += String(d)
-        if (out.length > 20000) out = out.slice(-20000)
+ipcMain.handle(
+  'treeline:runCustomAction',
+  (_event, repo: string, id: string, ctx?: import('../shared/types').ActionContext, lang?: unknown) =>
+    enqueue(repo, async (): Promise<import('../shared/types').ActionResult> => {
+      const l = asLang(lang)
+      const found = (await readCustomActions()).find((x) => x.id === id)
+      if (!found) throw new Error(mx(l, 'nameInvalid', { x: id }))
+      const context: import('../shared/types').ActionContext = { repo, ...(ctx ?? {}) }
+      // Uma passada só por token: um valor com `{{...}}` literal não é reexpandido.
+      const script = [
+        expandActionTokens(found.cmd, context),
+        ...found.args.map((a) => expandActionTokens(a, context))
+      ].join(' ')
+      return new Promise<import('../shared/types').ActionResult>((resolve, reject) => {
+        const cp = require('node:child_process') as typeof import('node:child_process')
+        const child = cp.spawn('sh', ['-c', script], {
+          cwd: repo,
+          timeout: 60_000,
+          env: { ...process.env, TERM: 'xterm-256color', FORCE_COLOR: '1', CLICOLOR_FORCE: '1' }
+        })
+        let out = ''
+        child.stdout?.on('data', (d) => {
+          out += String(d)
+          if (out.length > 20000) out = out.slice(-20000)
+        })
+        child.stderr?.on('data', (d) => {
+          out += String(d)
+          if (out.length > 20000) out = out.slice(-20000)
+        })
+        child.on('error', (e) => reject(e instanceof Error ? e : new Error(String(e))))
+        child.on('close', (code) => resolve({ code, output: out.trim().slice(-8000) }))
       })
-      child.stderr?.on('data', (d) => {
-        out += String(d)
-        if (out.length > 20000) out = out.slice(-20000)
-      })
-      child.on('error', (e) => reject(e instanceof Error ? e : new Error(String(e))))
-      child.on('close', (code) => resolve({ code, output: out.trim().slice(-8000) }))
     })
-  })
 )
 
 ipcMain.handle('treeline:getIdentity', async (): Promise<GitIdentity> => {
@@ -1962,13 +2026,17 @@ ipcMain.handle('treeline:getLfsInfo', (_event, repo: string) =>
   // READ: fora da fila de escrita.
   readOp(async (): Promise<import('../shared/types').LfsInfo> => {
     const installed = await simpleGit(repo).raw(['lfs', 'version']).then(() => true).catch(() => false)
-    let tracked = false
+    const patterns: string[] = []
     try {
       const attrs = await fs.readFile(join(repo, '.gitattributes'), 'utf-8')
-      tracked = /filter=lfs/.test(attrs)
+      for (const line of attrs.split('\n')) {
+        const m = /^\s*(\S+)\s+filter=lfs\b/.exec(line)
+        if (m && !patterns.includes(m[1])) patterns.push(m[1])
+      }
     } catch {
       /* sem .gitattributes */
     }
+    const tracked = patterns.length > 0
     let files = 0
     if (installed && tracked) {
       try {
@@ -1978,7 +2046,53 @@ ipcMain.handle('treeline:getLfsInfo', (_event, repo: string) =>
         /* segue zerado */
       }
     }
-    return { installed, tracked, files }
+    return { installed, tracked, files, patterns }
+  })
+)
+
+ipcMain.handle('treeline:lfsPull', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async (): Promise<import('../shared/types').SyncResult> => {
+    const l = asLang(lang)
+    try {
+      await runGitCancellable(repo, 'LFS Pull', ['lfs', 'pull'], l)
+    } catch (e) {
+      throw friendlySyncError('LFS Pull', e, l)
+    }
+    return { summary: mx(l, 'lfsPullDone') }
+  })
+)
+
+ipcMain.handle('treeline:lfsPush', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async (): Promise<import('../shared/types').SyncResult> => {
+    const l = asLang(lang)
+    try {
+      await runGitCancellable(repo, 'LFS Push', ['lfs', 'push'], l)
+    } catch (e) {
+      throw friendlySyncError('LFS Push', e, l)
+    }
+    return { summary: mx(l, 'lfsPushDone') }
+  })
+)
+
+ipcMain.handle('treeline:lfsTrack', (_event, repo: string, pattern: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).raw(['lfs', 'track', pattern])
+    } catch (e) {
+      throw friendlySyncError('LFS Track', e, asLang(lang))
+    }
+  })
+)
+
+ipcMain.handle('treeline:lfsUntrack', (_event, repo: string, pattern: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).raw(['lfs', 'untrack', pattern])
+    } catch (e) {
+      throw friendlySyncError('LFS Untrack', e, asLang(lang))
+    }
   })
 )
 
@@ -1987,7 +2101,8 @@ ipcMain.handle('treeline:getSubmodules', (_event, repo: string) =>
   readOp(async (): Promise<import('../shared/types').SubmoduleInfo[]> => {
     let raw = ''
     try {
-      raw = await simpleGit(repo).raw(['submodule', 'status'])
+      // --recursive: sub-submódulos (inner/deep) também aparecem na lista.
+      raw = await simpleGit(repo).raw(['submodule', 'status', '--recursive'])
     } catch {
       return []
     }

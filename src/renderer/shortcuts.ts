@@ -51,8 +51,60 @@ export function eventShortcut(e: KeyboardEvent | React.KeyboardEvent): string {
 
 /** Rótulo bonito: "ctrl+shift+enter" -> "Ctrl+Shift+Enter". */
 export function formatShortcut(s: string): string {
+  const named: Record<string, string> = {
+    ctrl: 'Ctrl',
+    shift: 'Shift',
+    alt: 'Alt',
+    meta: 'Meta',
+    space: 'Space',
+    enter: 'Enter',
+    escape: 'Esc',
+    esc: 'Esc',
+    tab: 'Tab',
+    backspace: 'Backspace',
+    delete: 'Del',
+    up: '↑',
+    down: '↓',
+    left: '←',
+    right: '→',
+    home: 'Home',
+    end: 'End',
+    pageup: 'PgUp',
+    pagedown: 'PgDn',
+    insert: 'Ins'
+  }
   return s
     .split('+')
-    .map((p) => (p === 'ctrl' ? 'Ctrl' : p === 'shift' ? 'Shift' : p === 'alt' ? 'Alt' : p === ' ' ? 'Space' : p.length === 1 ? p.toUpperCase() : p))
+    .map((p) => {
+      const k = p.toLowerCase()
+      if (named[k]) return named[k]
+      // Mantém o acento grave (ctrl+`) e capitaliza letras e teclas com número (f4).
+      if (k.length === 1) return p === ' ' ? 'Space' : p.toUpperCase()
+      return /^f\d{1,2}$/.test(k) ? `F${k.slice(1)}` : p
+    })
     .join('+')
+}
+
+/** Ações que disputam o mesmo atalho (normalizado, sem caixa). */
+export function findShortcutConflicts(
+  map: Record<ShortcutAction, string>
+): Record<ShortcutAction, ShortcutAction[]> {
+  const byKey = new Map<string, ShortcutAction[]>()
+  for (const a of Object.keys(map) as ShortcutAction[]) {
+    const key = map[a].trim().toLowerCase()
+    if (!key) continue
+    byKey.set(key, [...(byKey.get(key) ?? []), a])
+  }
+  const out = {} as Record<ShortcutAction, ShortcutAction[]>
+  for (const a of Object.keys(map) as ShortcutAction[]) out[a] = []
+  for (const group of byKey.values()) {
+    if (group.length < 2) continue
+    for (const a of group) out[a] = group.filter((x) => x !== a)
+  }
+  return out
+}
+
+/** true quando o atalho da ação difere do padrão. */
+export function isCustomShortcut(action: ShortcutAction, map: Record<ShortcutAction, string>): boolean {
+  return map[action].trim().toLowerCase() !== SHORTCUT_DEFAULTS[action]
 }

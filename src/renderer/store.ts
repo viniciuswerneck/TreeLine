@@ -9,7 +9,7 @@ export type DialogKind =
   | 'branch' | 'merge' | 'stash' | 'tag' | 'rebase'
   | 'pick' | 'flow' | 'reflog' | 'remotes'
   | 'reset' | 'rebaseInteractive' | 'blame' | 'fileHistory' | 'compare'
-  | 'about' | 'custom'
+  | 'about' | 'custom' | 'lfs'
 
 export interface ContextMenuState {
   x: number
@@ -48,6 +48,7 @@ interface TreeLineState {
   current: string | null
   openTabs: string[]
   closeTab: (path: string) => Promise<void>
+  moveTab: (from: string, to: string) => void
   status: RepoStatus | null
   commits: CommitInfo[]
   branches: BranchInfo[]
@@ -173,6 +174,8 @@ interface TreeLineState {
   setPalette: (open: boolean) => void
   autoFetchMin: number
   setAutoFetchMin: (min: number) => void
+  autoFetchBg: boolean
+  setAutoFetchBg: (v: boolean) => void
   shortcuts: Record<ShortcutAction, string>
   setShortcut: (action: ShortcutAction, key: string) => void
   resetShortcuts: () => void
@@ -232,6 +235,21 @@ export const useStore = create<TreeLineState>()((set, get) => ({
       if (tabs.length > 0) await get().selectRepo(tabs[0] as string)
       else set({ current: null, status: null, commits: [], branches: [] })
     }
+  },
+moveTab: (from, to) => {
+    const tabs = get().openTabs
+    const a = tabs.indexOf(from)
+    const b = tabs.indexOf(to)
+    if (a === -1 || b === -1 || a === b) return
+    const next = [...tabs]
+    next.splice(a, 1)
+    next.splice(b, 0, from)
+    try {
+      localStorage.setItem('treeline-tabs', JSON.stringify(next))
+    } catch {
+      /* ignora */
+    }
+    set({ openTabs: next })
   },
   status: null,
   commits: [],
@@ -294,7 +312,9 @@ export const useStore = create<TreeLineState>()((set, get) => ({
   },
 
   selectRepo: async (path: string) => {
-    const tabs = [path, ...get().openTabs.filter((t) => t !== path)].slice(0, 20)
+    // Preserva a ordem manual das abas: só anexa se ainda não estiver aberta.
+    const open = get().openTabs
+    const tabs = open.includes(path) ? [...open] : [...open, path].slice(-20)
     try {
       localStorage.setItem('treeline-tabs', JSON.stringify(tabs))
     } catch {
@@ -804,6 +824,22 @@ export const useStore = create<TreeLineState>()((set, get) => ({
     }
     set({ autoFetchMin: v })
   },
+  autoFetchBg: (() => {
+    try {
+      const v = localStorage.getItem('treeline-autofetch-bg')
+      return v === 'true'
+    } catch {
+      return false
+    }
+  })(),
+  setAutoFetchBg: (v: boolean) => {
+    try {
+      localStorage.setItem('treeline-autofetch-bg', String(v))
+    } catch {
+      /* ignora */
+    }
+    set({ autoFetchBg: v })
+  },
   shortcuts: loadShortcuts(),
   setShortcut: (action, key) => {
     const next = { ...get().shortcuts, [action]: key.trim().toLowerCase() }
@@ -1038,5 +1074,13 @@ export const dialogOps = {
   abortRevert: () =>
     useStore.getState().runOp((repo) => window.treeline.abortRevert(repo)),
   openPR: () =>
-    useStore.getState().runOp((repo, lang) => window.treeline.openPR(repo, lang))
+    useStore.getState().runOp((repo, lang) => window.treeline.openPR(repo, lang)),
+  lfsPull: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.lfsPull(repo, lang)),
+  lfsPush: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.lfsPush(repo, lang)),
+  lfsTrack: (pattern: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.lfsTrack(repo, pattern, lang)),
+  lfsUntrack: (pattern: string) =>
+    useStore.getState().runOp((repo, lang) => window.treeline.lfsUntrack(repo, pattern, lang)),
 }

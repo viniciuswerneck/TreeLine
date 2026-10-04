@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { LANGS, type DictKey, type Lang } from '../i18n'
 import { THEMES } from '../themes'
-import { SHORTCUT_DEFAULTS, eventShortcut, formatShortcut, type ShortcutAction } from '../shortcuts'
+import { SHORTCUT_DEFAULTS, eventShortcut, findShortcutConflicts, formatShortcut, isCustomShortcut, type ShortcutAction } from '../shortcuts'
 
 const SHORTCUT_LABELS: Record<ShortcutAction, DictKey> = {
   palette: 'pal.title',
@@ -14,19 +14,30 @@ const SHORTCUT_LABELS: Record<ShortcutAction, DictKey> = {
   terminal: 'toolbar.terminal'
 }
 
-/** Editor de atalhos: clica, aperta as teclas, salva. */
+/** Editor de atalhos: filtro, captura de teclas, conflitos e reset por linha. */
 function ShortcutsEditor() {
   const shortcuts = useStore((s) => s.shortcuts)
   const setShortcut = useStore((s) => s.setShortcut)
   const resetShortcuts = useStore((s) => s.resetShortcuts)
   const tr = useStore((s) => s.tr)
   const [capturing, setCapturing] = useState<ShortcutAction | null>(null)
+  const [filter, setFilter] = useState('')
+
+  const conflicts = findShortcutConflicts(shortcuts)
+  const actions = (Object.keys(SHORTCUT_DEFAULTS) as ShortcutAction[]).filter((a) =>
+    filter.trim() ? tr(SHORTCUT_LABELS[a]).toLowerCase().includes(filter.trim().toLowerCase()) : true
+  )
+  const conflictCount = (Object.keys(conflicts) as ShortcutAction[]).filter((a) => conflicts[a].length > 0).length
 
   useEffect(() => {
     if (!capturing) return
     const onKey = (e: KeyboardEvent): void => {
       e.preventDefault()
       e.stopPropagation()
+      if (e.key === 'Escape') {
+        setCapturing(null)
+        return
+      }
       if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return
       setShortcut(capturing, eventShortcut(e))
       setCapturing(null)
@@ -35,21 +46,53 @@ function ShortcutsEditor() {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [capturing, setShortcut])
 
+  const resetOne = (a: ShortcutAction): void => setShortcut(a, SHORTCUT_DEFAULTS[a])
+
   return (
     <>
       <div className="dlg-section">{tr('settings.shortcuts')}</div>
+      {conflictCount > 0 && (
+        <p className="warning" role="alert">
+          {tr('settings.shortcutConflict', { n: conflictCount })}
+        </p>
+      )}
+      <input
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        placeholder={tr('settings.shortcutFilter')}
+      />
       <div className="dlg-list">
-        {(Object.keys(SHORTCUT_DEFAULTS) as ShortcutAction[]).map((a) => (
-          <div key={a} className="dlg-row">
-            <span className="grow">{tr(SHORTCUT_LABELS[a])}</span>
-            <button
-              className="mini-btn mono"
-              onClick={() => setCapturing(capturing === a ? null : a)}
-            >
-              {capturing === a ? tr('settings.pressKeys') : formatShortcut(shortcuts[a])}
-            </button>
-          </div>
-        ))}
+        {actions.map((a) => {
+          const clash = conflicts[a]
+          return (
+            <div key={a} className={`dlg-row${clash.length > 0 ? ' row-conflict' : ''}`}>
+              <span className="grow">
+                {tr(SHORTCUT_LABELS[a])}
+                {isCustomShortcut(a, shortcuts) && <span className="sub"> •</span>}
+              </span>
+              {clash.length > 0 && (
+                <span className="sub" title={clash.map((x) => tr(SHORTCUT_LABELS[x])).join(', ')}>
+                  {tr('settings.conflictWith', { with: clash.map((x) => tr(SHORTCUT_LABELS[x])).join(', ') })}
+                </span>
+              )}
+              <button
+                className={`mini-btn mono${capturing === a ? ' primary' : ''}`}
+                aria-label={tr('settings.shortcutFor', { action: tr(SHORTCUT_LABELS[a]) })}
+                onClick={() => setCapturing(capturing === a ? null : a)}
+              >
+                {capturing === a ? tr('settings.pressKeys') : formatShortcut(shortcuts[a])}
+              </button>
+              <button
+                className="mini-btn"
+                disabled={!isCustomShortcut(a, shortcuts)}
+                onClick={() => resetOne(a)}
+              >
+                {tr('dlg.reset')}
+              </button>
+            </div>
+          )
+        })}
+        {actions.length === 0 && <p className="muted">{tr('settings.noShortcuts')}</p>}
       </div>
       <div className="modal-actions" style={{ marginBottom: 8 }}>
         <button className="tool-btn" onClick={() => resetShortcuts()}>
@@ -80,6 +123,8 @@ export default function SettingsDialog() {
   const setTheme = useStore((s) => s.setTheme)
   const autoFetchMin = useStore((s) => s.autoFetchMin)
   const setAutoFetchMin = useStore((s) => s.setAutoFetchMin)
+  const autoFetchBg = useStore((s) => s.autoFetchBg)
+  const setAutoFetchBg = useStore((s) => s.setAutoFetchBg)
   const tr = useStore((s) => s.tr)
 
   const [name, setName] = useState(identity.name)
@@ -199,6 +244,18 @@ export default function SettingsDialog() {
             <option value="60">60 min</option>
           </select>
         </label>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={autoFetchBg}
+            disabled={autoFetchMin === 0}
+            onChange={(e) => setAutoFetchBg(e.target.checked)}
+          />
+          <span className={autoFetchMin === 0 ? 'grow muted' : 'grow'}>{tr('settings.autoFetchBg')}</span>
+        </label>
+        {autoFetchMin > 0 && (
+          <p className="muted" style={{ fontSize: '11px', marginTop: 4 }}>{tr('settings.autoFetchDesc')}</p>
+        )}
         <ShortcutsEditor />
         <div className="modal-actions">
           <button className="tool-btn" onClick={closeSettings}>

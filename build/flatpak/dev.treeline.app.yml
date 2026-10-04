@@ -5,13 +5,20 @@ sdk: org.freedesktop.Sdk
 base: org.electronjs.Electron2.BaseApp
 base-version: '24.08'
 command: treeline
+separate-locales: false
 finish-args:
+  # O app abre repos em qualquer path e usa ssh-agent/credential helper do host.
+  # TODO(Flathub): sem FilePortal, o --filesystem=host é o ponto mais frágil da
+  # submissão; se o review pedir, migrar para portal (--talk-name=org.freedesktop.portal.FileChooser).
+  - --filesystem=host
   - --share=ipc
   - --socket=x11
   - --socket=wayland
   - --socket=pulseaudio
+  - --socket=session-bus
+  # pty do terminal integrado e acesso a chaves/agents de SSH.
   - --device=all
-  - --filesystem=host
+  - --talk-name=org.freedesktop.Notifications
 modules:
   - name: treeline
     buildsystem: simple
@@ -19,7 +26,22 @@ modules:
       - install -D treeline /app/bin/treeline
       - cp -r resources /app/resources
       - install -D dev.treeline.app.desktop /app/share/applications/dev.treeline.app.desktop
-      - install -D meta/dev.treeline.app.metainfo.xml /app/share/metainfo/dev.treeline.app.metainfo.xml
+      - install -D dev.treeline.app.metainfo.xml /app/share/metainfo/dev.treeline.app.metainfo.xml
+      - install -D icon.png /app/share/icons/hicolor/512x512/apps/dev.treeline.app.png
+      # O .desktop precisa ter o mesmo id do app para o Flathub aceitar.
+      - desktop-file-edit --set-key=StartupWMClass --set-value=treeline /app/share/applications/dev.treeline.app.desktop
     sources:
       - type: dir
         path: ../dist/linux-unpacked
+      - type: file
+        path: ../icon.png
+      - type: file
+        path: meta/dev.treeline.app.desktop
+      - type: file
+        path: meta/dev.treeline.app.metainfo.xml
+      - type: file
+        path: meta/screenshots/01-history.png
+      - type: file
+        path: meta/screenshots/02-sidebar.png
+      - type: file
+        path: meta/screenshots/03-settings.png
