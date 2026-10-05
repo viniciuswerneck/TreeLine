@@ -12,6 +12,7 @@ export default function ReflogDialog() {
   const { busy, run } = useDialogRunner()
 
   const [backups, setBackups] = useState<BackupInfo[]>([])
+  const [tab, setTab] = useState<'log' | 'backups'>('log')
 
   useEffect(() => {
     if (!current) return
@@ -46,42 +47,71 @@ export default function ReflogDialog() {
 
   return (
     <Dialog title={tr('reflog.title')} wide>
-      <p className="dlg-hint">{tr('reflog.backup')}</p>
-      {reflog.length === 0 && <p className="muted">{tr('reflog.empty')}</p>}
-      <div className="dlg-list" style={{ maxHeight: 320 }}>
-        {reflog.map((e, i) => (
-          <div key={`${e.ref}-${e.hash}-${i}`} className="dlg-row">
-            <span className="grow">
-              <span className="mono">{e.ref}</span> <span className="mono">{e.hash.slice(0, 7)}</span>{' '}
-              <span className="sub">{e.message}</span>
-            </span>
-            <span className="dlg-actions">
-              <button className="mini-btn" disabled={busy} onClick={() => void doUndo(e.ref, e.hash)}>
-                {tr('dlg.undo')}
-              </button>
-            </span>
-          </div>
-        ))}
+      {/* Duas abas: a lista de reflog e a de backups não competem por altura. */}
+      <div className="dlg-tabs" role="tablist">
+        <button
+          className="dlg-tab"
+          role="tab"
+          aria-selected={tab === 'log'}
+          onClick={() => setTab('log')}
+        >
+          {tr('reflog.tabHistory')}
+          {reflog.length > 0 && <span className="dlg-tab-count">{reflog.length}</span>}
+        </button>
+        <button
+          className="dlg-tab"
+          role="tab"
+          aria-selected={tab === 'backups'}
+          onClick={() => setTab('backups')}
+        >
+          {tr('reflog.backups')}
+          {backups.length > 0 && <span className="dlg-tab-count">{backups.length}</span>}
+        </button>
       </div>
 
-      <div className="dlg-section">{tr('reflog.backups')}</div>
-      {backups.length === 0 && <p className="muted">{tr('reflog.backupsEmpty')}</p>}
-      <div className="dlg-list">
-        {backups.map((b) => (
-          <div key={b.file} className="dlg-row">
-            <span className="grow">
-              <span className="mono">{b.file}</span>{' '}
-              <span className="sub">
-                {b.date.slice(0, 16).replace('T', ' ')} · {kb(b.size)}
-              </span>
-            </span>
-            <span className="dlg-actions">
-              <button className="mini-btn" disabled={busy} onClick={() => void doRestore(b.file)}>
-                {tr('reflog.restore')}
-              </button>
-            </span>
-          </div>
-        ))}
+      <div className="dlg-tabpanel" role="tabpanel">
+        {tab === 'log' ? (
+          <>
+            <p className="dlg-hint">{tr('reflog.backup')}</p>
+            {reflog.length === 0 && <p className="muted">{tr('reflog.empty')}</p>}
+            <div className="dlg-list dlg-list-tall">
+              {reflog.map((e, i) => (
+                <div key={`${e.ref}-${e.hash}-${i}`} className="dlg-row">
+                  <span className="grow">
+                    <span className="mono">{e.ref}</span> <span className="mono">{e.hash.slice(0, 7)}</span>{' '}
+                    <span className="sub">{e.message}</span>
+                  </span>
+                  <span className="dlg-actions">
+                    <button className="mini-btn" disabled={busy} onClick={() => void doUndo(e.ref, e.hash)}>
+                      {tr('dlg.undo')}
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            {backups.length === 0 && <p className="muted">{tr('reflog.backupsEmpty')}</p>}
+            <div className="dlg-list dlg-list-tall">
+              {backups.map((b) => (
+                <div key={b.file} className="dlg-row">
+                  <span className="grow">
+                    <span className="mono">{b.file}</span>{' '}
+                    <span className="sub">
+                      {b.date.slice(0, 16).replace('T', ' ')} · {kb(b.size)}
+                    </span>
+                  </span>
+                  <span className="dlg-actions">
+                    <button className="mini-btn" disabled={busy} onClick={() => void doRestore(b.file)}>
+                      {tr('reflog.restore')}
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </Dialog>
   )

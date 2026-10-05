@@ -55,11 +55,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (await gear.count()) {
     await gear.click();
     await sleep(1200);
-    const shortcuts = page.locator('.dlg-section', { hasText: /Shortcut|Atalho|Acceso/i }).first();
-    if (await shortcuts.count()) {
-      await shortcuts.scrollIntoViewIfNeeded();
-      await sleep(500);
-    }
+    // Settings é 2 colunas: garante topo e as 4 seções visíveis no screenshot.
+    const modal = page.locator('.modal.two-col').first();
+    const check2col = await page.evaluate(() => {
+      const m = document.querySelector('.modal.two-col')
+      const body = document.querySelector('.two-col-body')
+      if (!m || !body) return null
+      body.scrollTop = 0
+      return {
+        cols: getComputedStyle(body).gridTemplateColumns.split(' ').length,
+        secoes: [...document.querySelectorAll('.two-col-col .dlg-section')].map((s) => s.textContent),
+        scrollTop: body.scrollTop,
+       rola: body.scrollHeight > body.clientHeight + 2
+      }
+    });
+    console.log('settings:', JSON.stringify(check2col));
+    await sleep(400);
+    if (!(await modal.count())) console.log('AVISO: Settings sem .two-col (layout 1 coluna?)');
     await page.screenshot({ path: path.join(OUT, '03-settings.png') });
     console.log('03-settings.png');
     await page.keyboard.press('Escape');

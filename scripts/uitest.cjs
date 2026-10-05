@@ -21,8 +21,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('PAGE:', page.url(), '| TITLE:', await page.title());
 
   const errors = [];
-  page.on('console', (m) => {
-    if (m.type() === 'error') errors.push('[console] ' + m.text().slice(0, 200));
+  page.on('console', async (m) => {
+    if (m.type() !== 'error') return;
+    // React deixa %s sem resolver no text(); resolver os args facilita achar a chave.
+    let extra = '';
+    if (/%s/.test(m.text())) {
+      const args = await Promise.all(m.args().map((a) => a.jsonValue().catch(() => '?')));
+      extra = ' | args: ' + JSON.stringify(args).slice(0, 200);
+    }
+    errors.push('[console] ' + m.text().slice(0, 200) + extra);
   });
   page.on('pageerror', (e) => errors.push('[pageerror] ' + String(e).slice(0, 200)));
 
@@ -31,6 +38,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     results.push(`${ok ? 'PASS' : 'FAIL'} ${name}${extra ? ' — ' + extra : ''}`);
   };
 
+  // Repo determinístico: o harness depende de ter history com commits.
+  const REPO = process.env.REPO || process.cwd();
+  await page.evaluate(async (r) => { await window.treeline.addRecent(r) }, REPO);
+  await page.reload();
+  await page.waitForSelector('.toolbar', { timeout: 30000 });
   await sleep(2500);
   await page.screenshot({ path: `${SHOTS}/ui-01-main.png` });
 
@@ -59,6 +71,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     ['eflog', 'reflog'],
     ['ICON:1', 'remotes'],
   ];
+  // Reflog tem 2 abas (Reflog / Backups); valida a troca antes do loop acima.
+  const reflogTabs = async () => {
+    await page.locator('.toolbar .tool-btn[title*="eflog"]').first().click({ timeout: 3000 });
+    await sleep(1200);
+    const tabs = page.locator('.dlg-tab');
+    check('reflog tem 2 abas', (await tabs.count()) === 2, `${await tabs.count()} abas`);
+    check('reflog abre na aba Reflog', (await page.locator('.dlg-tab[aria-selected="true"]').first().textContent())?.includes('Reflog') === true);
+    const h1 = (await page.locator('.modal').first().boundingBox())?.height ?? 0;
+    await tabs.nth(1).click();
+    await sleep(500);
+    const sel = (await page.locator('.dlg-tab[aria-selected="true"]').allTextContents())[0] || '';
+    check('aba Backups troca o conteudo', /Backups|Backups bundle/i.test(sel), sel.trim());
+    const h2 = (await page.locator('.modal').first().boundingBox())?.height ?? 0;
+    check('dialog reflog cabe na tela', h1 <= 620 && h2 <= 620, `${Math.round(h1)}px / ${Math.round(h2)}px`);
+    await page.screenshot({ path: `${SHOTS}/ui-dlg-reflog-backups.png` });
+    await tabs.first().click();
+    await sleep(400);
+    check('volta pra aba Reflog', (await page.locator('.dlg-list-tall').count()) === 1);
+    await page.keyboard.press('Escape');
+    await sleep(600);
+    check('dialog reflog fecha (Esc)', (await page.locator('.modal[role="dialog"]').count()) === 0);
+  };
+  await reflogTabs();
+  dialogs.splice(dialogs.findIndex(([, sh]) => sh === 'reflog'), 1);
   for (const [titlePart, shot] of dialogs) {
     try {
       if (titlePart.startsWith('ICON:')) {

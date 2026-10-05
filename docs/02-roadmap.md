@@ -80,14 +80,14 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | Branch/Merge/Tag | 1-2 | ☑ (dialogs + sidebar detalhada; revert e reset direto ok; checkout de branch/remota/tag com HEAD marcado) |
 | Stash/Cherry-pick/Revert | 2 | ☑ (stash + cherry-pick + revert com confirmação) |
 | Conflito Ours/Theirs | 2 | ☑ (ours/theirs por arquivo na conflict-bar + menu; continue/abort) |
-| Rebase interativo + Undo | 3 | ☑ (simples + interativo pick/reword/edit/squash/fixup/drop/reorder + undo via reflog com bundle) |
+| Rebase interativo + Undo | 3 | ☑ (simples + interativo pick/reword/edit/squash/fixup/drop/reorder + undo via reflog com bundle; History/Reflog em abas Reflog/Backups) |
 | Git-flow | 3 | ☑ (start/finish feature/release/hotfix, com e sem `git flow`) |
 | LFS/Submodules | 2-3 | ☑ (LFS com dialog pull/push/track/untrack + badge; submodules recursivos com update/init) |
 | Remote manager | 1 | ☑ (add/list/remove/edit-URL, clone/init, push lease, abrir PR) |
 | Custom Actions/Terminal | 3 | ☑ (terminal integrado com node-pty; custom actions com args, tokens de contexto e saída ANSI) |
 | Temas claro/escuro | extra | ☑ (10 temas + System) |
-| Settings identidade autor | extra | ☑ |
-| Paleta de comandos | extra | ☑ (`Ctrl+K`: sync, dialogs, PR, terminal, sidebar, custom actions) |
+| Settings identidade autor | extra | ☑ (2 colunas: general, identidade, sync e atalhos, altura limitada e responsiva) |
+| Paleta de comandos | extra | ☑ (`Ctrl+K`: sync, dialogs, PR, terminal, sidebar, custom actions; key por id, nomes repetidos não colidem) |
 | Atalhos remapeáveis | 4 | ☑ (editor no Settings com filtro, conflito e reset por linha) |
 | Multi-repo em abas | 3 | ☑ (ordem manual + drag-and-drop persistido) |
 | Fetch automático | 2 | ☑ (intervalo por repo + toggle de segundo plano) |

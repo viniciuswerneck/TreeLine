@@ -47,12 +47,21 @@
     <screenshot caption="Branches, remotes and submodules in the sidebar">
       <image>https://raw.githubusercontent.com/viniciuswerneck/TreeLine/main/build/flatpak/meta/screenshots/02-sidebar.png</image>
     </screenshot>
-    <screenshot caption="Settings with identity, auto-fetch and remappable shortcuts">
+    <screenshot caption="Two-column Settings with identity, sync and remappable shortcuts">
       <image>https://raw.githubusercontent.com/viniciuswerneck/TreeLine/main/build/flatpak/meta/screenshots/03-settings.png</image>
     </screenshot>
   </screenshots>
 
   <releases>
+    <release version="0.6.2" date="2026-10-04">
+      <description>
+        <p>Settings in a two-column layout: general, author identity, sync and shortcuts
+        side by side, with a bounded height that no longer overflows the window.</p>
+        <p>History / Reflog split into Reflog and Bundle backups tabs, each with its own
+        scroll area and entry counters.</p>
+        <p>Fixed the command palette dropping items when two custom actions shared a name.</p>
+      </description>
+    </release>
     <release version="0.6.1" date="2026-10-04">
       <description>
         <p>LFS dialog with pull, push and track/untrack patterns.</p>

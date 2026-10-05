@@ -427,6 +427,53 @@ body {
 .warning { color: #d29922; font-size: 12px; margin-bottom: 8px; }
 .dlg-row.row-conflict { box-shadow: inset 2px 0 0 #d29922; }
 
+/* Abas dentro de dialog (Reflog, etc.). Classe própria para não colidir com
+   as abas de repo do TabBar (.tab). */
+.dlg-tabs {
+  display: flex; gap: 2px; margin: 0 0 10px;
+  border-bottom: 1px solid var(--border-line);
+}
+.dlg-tab {
+  border: 1px solid transparent; border-bottom: none; background: transparent;
+  color: var(--text-2); font: inherit; font-size: 12.5px; cursor: pointer;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 6px 12px; margin-bottom: -1px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.dlg-tab:hover { background: var(--bg-hover); color: var(--text-1); }
+.dlg-tab[aria-selected="true"] {
+  background: var(--bg-panel); color: var(--text-1); border-color: var(--border-line);
+  box-shadow: inset 0 1px 0 0 var(--accent);
+}
+.dlg-tab-count {
+  font-size: 10.5px; line-height: 1; padding: 2px 6px; border-radius: 999px;
+  background: rgba(127, 127, 127, 0.2); color: var(--text-2);
+}
+.dlg-tabpanel { display: flex; flex-direction: column; min-height: 190px; }
+.dlg-list-tall { max-height: min(420px, calc(100vh - 260px)); }
+
+/* Settings em 2 colunas: corpo rola, head e footer fixos. */
+.modal.two-col {
+  width: 760px; max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  display: flex; flex-direction: column;
+  padding: 18px;
+}
+.two-col-body {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px;
+  overflow-y: auto; align-content: start; flex: 1; min-height: 0;
+  margin: 0 -4px; padding: 0 4px;
+}
+.two-col-col { min-width: 0; }
+.two-col-body .dlg-section { margin: 10px 0 6px; }
+.two-col-body .dlg-section:first-child { margin-top: 0; }
+.two-col-body .dlg-list { max-height: 176px; }
+.two-col-body .field { margin-bottom: 10px; }
+.two-col-body .modal-actions { margin-top: 0; }
+@media (max-width: 760px) {
+  .two-col-body { grid-template-columns: 1fr; }
+}
+
 /* ---- Context menu (botão direito) ---- */
 .ctx-menu {
   position: fixed; z-index: 70; min-width: 210px; max-width: 300px;

@@ -8,7 +8,7 @@
 - **Por quê:** Não existe SourceTree oficial para Linux. Usuário quer paridade de uso intuitiva.
 - **Onde:** `/home/vinicius/gitnest/` | docs em `/home/vinicius/gitnest/docs/`
 - **Idioma do usuário:** português brasileiro. Responder em pt-BR, curto e direto, sem emoji. Termos de Git/UI em inglês (Commit, Push, Branch) como no SourceTree.
-- **Status 2026-10-04 (v0.6.1 em prep):** v0.6.0 publicada; v0.6.1 fecha o backlog de Fase 2/3/4 — LFS (dialog pull/push/track/untrack), Submodules recursivos, Custom Actions com args + tokens + saída ANSI, abas multi-repo com drag-and-drop, atalhos remapeáveis com detecção de conflito, fetch automático em segundo plano, CI de release, manifesto Flatpak + AppStream + screenshots, virtualização validada com 10.000 commits (58fps). Validação: typecheck, Vitest 23/23, harnesses CDP 33/33 e 19/19. Detalhe em `05-estado.md`. Próximo: `.deb`/AppImage da 0.6.1, tag/push, submissão no Flathub, `libsecret`.
+- **Status 2026-10-04 (v0.6.2):** v0.6.0 e v0.6.1 publicadas. v0.6.1 fechou o backlog de Fase 2/3/4 — LFS, Submodules recursivos, Custom Actions com args + tokens + ANSI, abas multi-repo com drag-and-drop, atalhos remapeáveis com detecção de conflito, fetch automático em segundo plano, CI de release, Flatpak + AppStream + screenshots, virtualização validada com 10.000 commits (58fps). v0.6.2 é UI: Settings em 2 colunas (altura limitada, responsiva), History/Reflog em 2 abas (Reflog / Bundle backups), key da paleta por id (nomes repetidos de custom action não colidem mais) e harnesses determinísticos. Validação: typecheck, Vitest 23/23, harnesses CDP 37/37 e 20/20. Detalhe em `05-estado.md`. Próximo: instalar o `.deb` da 0.6.2, submissão no Flathub, `libsecret`.
 
 ## 2. Decisões travadas (não reabrir sem motivo)
 

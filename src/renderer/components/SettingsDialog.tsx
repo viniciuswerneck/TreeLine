@@ -50,7 +50,6 @@ function ShortcutsEditor() {
 
   return (
     <>
-      <div className="dlg-section">{tr('settings.shortcuts')}</div>
       {conflictCount > 0 && (
         <p className="warning" role="alert">
           {tr('settings.shortcutConflict', { n: conflictCount })}
@@ -145,118 +144,140 @@ export default function SettingsDialog() {
 
   return (
     <div className="modal-backdrop" onClick={closeSettings}>
-      <div className="modal" role="dialog" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
+      <div className="modal two-col" role="dialog" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h2>{tr('settings.title')}</h2>
           <button className="modal-x" title={tr('settings.close')} onClick={closeSettings} aria-label={tr('settings.close')}>
             <X size={16} />
           </button>
         </div>
-        <label className="field">
-          <span>{tr('settings.language')}</span>
-          <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
-            {LANGS.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>{tr('toolbar.theme')}</span>
-          <select value={theme} onChange={(e) => setTheme(e.target.value)}>
-            <optgroup label={tr('theme.system')}>
-              <option value="system">{tr('theme.system')}</option>
-            </optgroup>
-            <optgroup label={tr('theme.light')}>
-              {THEMES.filter((t) => t.mode === 'light').map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label={tr('theme.dark')}>
-              {THEMES.filter((t) => t.mode === 'dark').map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-        </label>
-        <p className="muted">{tr('settings.identityHint')}</p>
-        <p className="muted">
-          {tr('settings.effective')}:{' '}
-          <strong>
-            {identity.name || identity.email
-              ? `${identity.name} <${identity.email}>`
-              : tr('settings.none')}
-          </strong>{' '}
-          <span className="sidebar-badge">{tr(effectiveScope === 'local' ? 'settings.scopeLocal' : effectiveScope === 'none' ? 'settings.none' : 'settings.scopeGlobal')}</span>
-        </p>
-        <div className="field-row" role="radiogroup" aria-label={tr('settings.scope')}>
-          <label className="check-row">
-            <input
-              type="radio"
-              name="identity-scope"
-              checked={scope === 'global'}
-              onChange={() => setScope('global')}
-            />
-            <span className="grow">{tr('settings.scopeGlobal')}</span>
-          </label>
-          <label className="check-row">
-            <input
-              type="radio"
-              name="identity-scope"
-              checked={scope === 'local'}
-              onChange={() => setScope('local')}
-            />
-            <span className="grow">{tr('settings.scopeLocalRepo')}</span>
-          </label>
+        <div className="two-col-body">
+          <div className="two-col-col">
+            <div className="dlg-section">{tr('settings.secGeneral')}</div>
+            <label className="field">
+              <span>{tr('settings.language')}</span>
+              <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
+                {LANGS.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>{tr('toolbar.theme')}</span>
+              <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+                <optgroup label={tr('theme.system')}>
+                  <option value="system">{tr('theme.system')}</option>
+                </optgroup>
+                <optgroup label={tr('theme.light')}>
+                  {THEMES.filter((t) => t.mode === 'light').map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label={tr('theme.dark')}>
+                  {THEMES.filter((t) => t.mode === 'dark').map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </label>
+          </div>
+          <div className="two-col-col">
+            <div className="dlg-section">{tr('settings.secIdentity')}</div>
+            <p className="muted">{tr('settings.identityHint')}</p>
+            <p className="muted">
+              {tr('settings.effective')}:{' '}
+              <strong>
+                {identity.name || identity.email ? `${identity.name} <${identity.email}>` : tr('settings.none')}
+              </strong>{' '}
+              <span className="sidebar-badge">
+                {tr(
+                  effectiveScope === 'local'
+                    ? 'settings.scopeLocal'
+                    : effectiveScope === 'none'
+                      ? 'settings.none'
+                      : 'settings.scopeGlobal'
+                )}
+              </span>
+            </p>
+            <div className="field-row" role="radiogroup" aria-label={tr('settings.scope')}>
+              <label className="check-row">
+                <input
+                  type="radio"
+                  name="identity-scope"
+                  checked={scope === 'global'}
+                  onChange={() => setScope('global')}
+                />
+                <span className="grow">{tr('settings.scopeGlobal')}</span>
+              </label>
+              <label className="check-row">
+                <input
+                  type="radio"
+                  name="identity-scope"
+                  checked={scope === 'local'}
+                  onChange={() => setScope('local')}
+                />
+                <span className="grow">{tr('settings.scopeLocalRepo')}</span>
+              </label>
+            </div>
+            <label className="field">
+              <span>{tr('settings.name')}</span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={tr('settings.namePh')}
+                autoFocus
+              />
+            </label>
+            <label className="field">
+              <span>{tr('settings.email')}</span>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                inputMode="email"
+              />
+            </label>
+            {error && <div className="error">{error}</div>}
+            {saved && <div className="success">{tr('settings.saved')}</div>}
+          </div>
+          <div className="two-col-col">
+            <div className="dlg-section">{tr('settings.secFetch')}</div>
+            <label className="field">
+              <span>{tr('settings.autoFetch')}</span>
+              <select value={String(autoFetchMin)} onChange={(e) => setAutoFetchMin(Number(e.target.value))}>
+                <option value="0">{tr('settings.autoFetchOff')}</option>
+                <option value="5">5 min</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="60">60 min</option>
+              </select>
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={autoFetchBg}
+                disabled={autoFetchMin === 0}
+                onChange={(e) => setAutoFetchBg(e.target.checked)}
+              />
+              <span className={autoFetchMin === 0 ? 'grow muted' : 'grow'}>{tr('settings.autoFetchBg')}</span>
+            </label>
+            {autoFetchMin > 0 && (
+              <p className="muted" style={{ fontSize: '11px', marginTop: 4 }}>
+                {tr('settings.autoFetchDesc')}
+              </p>
+            )}
+          </div>
+          <div className="two-col-col">
+            <div className="dlg-section">{tr('settings.shortcuts')}</div>
+            <ShortcutsEditor />
+          </div>
         </div>
-        <label className="field">
-          <span>{tr('settings.name')}</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={tr('settings.namePh')}
-            autoFocus
-          />
-        </label>
-        <label className="field">
-          <span>{tr('settings.email')}</span>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            inputMode="email"
-          />
-        </label>
-        {error && <div className="error">{error}</div>}
-        {saved && <div className="success">{tr('settings.saved')}</div>}
-        <label className="field">
-          <span>{tr('settings.autoFetch')}</span>
-          <select value={String(autoFetchMin)} onChange={(e) => setAutoFetchMin(Number(e.target.value))}>
-            <option value="0">{tr('settings.autoFetchOff')}</option>
-            <option value="5">5 min</option>
-            <option value="15">15 min</option>
-            <option value="30">30 min</option>
-            <option value="60">60 min</option>
-          </select>
-        </label>
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={autoFetchBg}
-            disabled={autoFetchMin === 0}
-            onChange={(e) => setAutoFetchBg(e.target.checked)}
-          />
-          <span className={autoFetchMin === 0 ? 'grow muted' : 'grow'}>{tr('settings.autoFetchBg')}</span>
-        </label>
-        {autoFetchMin > 0 && (
-          <p className="muted" style={{ fontSize: '11px', marginTop: 4 }}>{tr('settings.autoFetchDesc')}</p>
-        )}
-        <ShortcutsEditor />
         <div className="modal-actions">
           <button className="tool-btn" onClick={closeSettings}>
             {tr('settings.close')}

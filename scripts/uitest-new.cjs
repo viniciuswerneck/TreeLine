@@ -8,9 +8,13 @@
  *   3. node scripts/uitest-new.cjs
  * Não commita, não dá push e não deleta nada fora do userData do app.
  */
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright-core');
 
 const LFS_REPO = process.env.LFS_REPO || '/tmp/opencode/lfs-test';
+const SUB_REPO = process.env.SUB_REPO || '/tmp/opencode/sub-test';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
@@ -25,17 +29,53 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   };
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
-  page.on('console', (m) => {
-    if (m.type() === 'error') errors.push('[console] ' + m.text().slice(0, 160));
+  page.on('console', async (m) => {
+    if (m.type() !== 'error') return;
+    // React deixa %s sem resolver no text(); resolver os args ajuda a achar a chave.
+    let extra = '';
+    if (/%s/.test(m.text())) {
+      const args = await Promise.all(m.args().map((a) => a.jsonValue().catch(() => '?')));
+      extra = ' | args: ' + JSON.stringify(args).slice(0, 200);
+    }
+    errors.push('[console] ' + m.text().slice(0, 160) + extra);
   });
 
+  // Atalhos voltam ao default: execucoes anteriores podem ter deixado remapeado.
+  const hadShortcuts = await page.evaluate(() => {
+    if (!localStorage.getItem('treeline-shortcuts')) return false
+    localStorage.removeItem('treeline-shortcuts')
+    return true
+  })
+  if (hadShortcuts) {
+    await page.reload()
+    await page.waitForSelector('.toolbar', { timeout: 30000 })
+    await sleep(2000)
+  }
+
   // --- LFS: abre o repo com .gitattributes de LFS ------------------------
+  // Fixture e/tmp e pode sumir (limpeza do SO): recria para o teste ser autossuficiente.
+  if (!fs.existsSync(LFS_REPO) || !fs.existsSync(SUB_REPO)) {
+    console.log('fixtures ausentes, rodando make-fixture-repos.js...')
+    execFileSync(process.execPath, [path.join(__dirname, 'make-fixture-repos.js')], { stdio: 'inherit' })
+  }
+
   await page.evaluate(async (r) => {
     await window.treeline.addRecent(r)
   }, LFS_REPO);
   await page.reload();
   await page.waitForSelector('.sidebar-row', { timeout: 30000 });
   await sleep(1500);
+
+  // addRecent nao garante que o repo fique ATIVO (a 1a aba pode ser outra):
+  // clica na linha da sidebar com title == caminho do fixture.
+  const repoRow = page.locator(`.sidebar-row[title="${LFS_REPO}"]`).first();
+  if ((await repoRow.count()) > 0) {
+    const selected = await repoRow.getAttribute('aria-selected');
+    if (selected !== 'true') {
+      await repoRow.click();
+      await sleep(2500);
+    }
+  }
 
   // Ancorado no titulo da secao: o nome do repo pode conter "lfs".
   const lfsRow = page.locator(
@@ -68,6 +108,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(900);
   check('dialog Custom Actions abre', /Custom Actions/i.test((await page.locator('.modal').first().textContent()) || ''));
 
+  // Limpa acoes E2E de execucoes anteriores (o config e real, nao um temp dir).
+  const stale = await page.evaluate(async () => {
+    const list = await window.treeline.getCustomActions()
+    const olds = list.filter((a) => a.name === 'E2E ANSI')
+    for (const a of olds) await window.treeline.deleteCustomAction(a.id)
+    return olds.length
+  })
+  if (stale) console.log('acoes E2E antigas removidas:', stale)
+
   const nameInput = page.locator('.modal input').first();
   const cmdInput = page.locator('.modal input').nth(1);
   const argsInput = page.locator('.modal input').nth(2);
@@ -87,6 +136,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const colors = await page.locator('.modal pre span[style*="color"]').evaluateAll((els) => els.map((e) => e.getAttribute('style')));
   check('saida ANSI virou HTML colorido', spans.length >= 2, `${spans.length} spans: ${colors.join(' | ').slice(0, 120)}`);
   check('token {{repo}} nao aparece na saida', !/{{/.test((await page.locator('.modal pre').first().textContent()) || ''));
+
+  // Nao deixa a acao de teste no config do usuario.
+  const created = await page.evaluate(async () => {
+    const list = await window.treeline.getCustomActions()
+    const mine = list.filter((a) => a.name === 'E2E ANSI')
+    for (const a of mine) await window.treeline.deleteCustomAction(a.id)
+    return mine.length
+  })
+  check('acao de teste removida ao final', created === 1, `${created} criada(s)`)
   await page.keyboard.press('Escape');
   await sleep(400);
 

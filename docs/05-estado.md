@@ -2,7 +2,7 @@
 
 > Atualizar ao fim de cada sessão. Este é o arquivo que a próxima IA deve ler junto com `00-referencia-assistente.md`.
 
-## Última atualização: 2026-10-04 (v0.6.1: LFS, Custom Actions, abas multi-repo, atalhos remapeáveis, CI de release, Flatpak + screenshots, perf 10k commits)
+## Última atualização: 2026-10-04 (v0.6.2: Settings em 2 colunas, Reflog em 2 abas, key da paleta corrigido, screenshots Flatpak regenerados)
 
 ## Onde estamos
 
@@ -18,7 +18,7 @@
 - [x] Stage por hunk/linha + Discard por hunk (`git apply`, patch parcial validado em fixture); Ours/Theirs por arquivo (conflict-bar + menu); Push `--force-with-lease` com confirmação; Blame + File history; paleta `Ctrl+K`; sidebar colapsável (`Ctrl+B`).
 - [x] Fixture de teste: `/home/vinicius/www/exemple` (forks/merges, hotfix, tags v1.0.0/v1.1.0, 3 autores, stash, worktree suja, origin com ahead 1) + gerador `/home/vinicius/www/gerar-exemple.sh`.
 - [ ] Fase 1 restante: nada — Fase 1/2/3 de uso diário completas (ver `02-roadmap.md`).
-- [ ] Testes automatizados (Vitest p/ lane engine + parsers; Playwright p/ fluxo) — parcial: Vitest 23/23 (lane engine, ANSI, atalhos) e 2 harnesses CDP (`npm run test:ui` 33/33, `npm run test:ui:new` 19/19). Falta Playwright de verdade (o CDP dá o mesmo controle sem download de browser).
+- [ ] Testes automatizados (Vitest p/ lane engine + parsers; Playwright p/ fluxo) — parcial: Vitest 23/23 (lane engine, ANSI, atalhos) e 2 harnesses CDP (`npm run test:ui` 37/37, `npm run test:ui:new` 20/20). Falta Playwright de verdade (o CDP dá o mesmo controle sem download de browser).
 
 ## Ambiente verificado
 
@@ -28,11 +28,10 @@
 
 ## Próximo passo imediato
 
-1. Build de release da 0.6.1 (`.deb` + AppImage) e smoke test do pacote instalado.
-2. Tag `v0.6.1` + push dos assets (o workflow `.github/workflows/release.yml` faz upload automático ao receber a tag).
-3. Submissão no Flathub: falta conta/app-id e provavelmente migrar `--filesystem=host` para FilePortal (ver `build/flatpak/dev.treeline.app.yml`).
-4. `libsecret`/GNOME Keyring para `credential.helper` e aviso de revogação do token `store` (ver Riscos).
-3. Restante Fase 2-4: fetch auto com intervalo, LFS badge, Submodules, Custom Actions, Multi-repo tabs, atalhos remapeáveis, keyring `libsecret`.
+1. Instalar a 0.6.2 no sistema (`sudo apt install ./treeline_0.6.2_amd64.deb`) — nesta máquina o `sudo` pede senha, então o pacote final só foi testado extraído.
+2. Submissão no Flathub: falta conta/app-id e provavelmente migrar `--filesystem=host` para FilePortal (ver `build/flatpak/dev.treeline.app.yml`).
+3. `libsecret`/GNOME Keyring para `credential.helper` e aviso de revogação do token `store` (ver Riscos).
+4. Restante Fase 4: `--rpm`/AUR, remapeamento de atalhos por sistema operacional, LFS ponta a ponta (depende de `git-lfs` na máquina).
 
 ## Riscos/pendências
 
@@ -100,4 +99,5 @@
 - 2026-10-04 (release v0.6.0): versão bumpada (package.json, StatusBar, README trilíngue); distribuição `.deb` + AppImage 0.6.0 geradas e instaladas na máquina (`treeline 0.6.0` via apt). Validação final: Vitest 9/9, harness UI 33/33, virtualização do histórico (41 linhas renderizadas com 2000 commits, scroll 57fps), zero erros JS.
 - 2026-10-04 (v0.6.1): LFS (status/tracking/pull/push/untrack em `LfsDialog`, badge no `Sidebar`, padrões lidos de `.gitattributes` — validado na UI, `git-lfs` ausente na máquina); Custom Actions com **argumentos**, contexto (`{{repo}}`, `{{branch}}`, `{{remoteBranch}}`, `{{file}}`, `{{commit}}`, `shellQuote`) e saída ANSI colorida no renderer (`ansiToHtml` escapado, `dangerouslySetInnerHTML` só com HTML sanitizado); abas multi-repo com **drag-and-drop** (`moveTab` + ordem manual persistida, antes era MRU); atalhos remapeáveis com filtro, **detecção de conflito** e reset por linha; `autoFetchBg` (fetch em segundo plano) no Settings; `getSubmodules` agora usa `--recursive` (sub-submódulos aparecem na sidebar) e `updateSubmodules` usa `submodule update --init --recursive`; perf do `HistoryGraph` (scroll coalescido em rAF, cache de offset, `visibleRows` memoizado, datas em cache) — **10.000 commits, 33 linhas no DOM, 58fps**; workflow de release (`.github/workflows/release.yml`: typecheck+test+build+deb+AppImage+GitHub Release em tag `v*`); Flatpak com metainfo, 3 screenshots gerados por `npm run shots` e validação de XML/YAML.
 - 2026-10-04: validação da v0.6.1 — typecheck OK, Vitest **23/23**, harness CDP antigo **33/33**, harness novo **19/19** (LFS 7, Custom Actions 5, atalhos 5, abas 2), submódulo recursivo ponta a ponta via `git daemon` (sub-submódulo saiu de `∅` para inicializado), stress 10k OK, zero erros JS.
+- 2026-10-04 (v0.6.2): UI alta demais em telas de operação. (1) **Settings em 2 colunas** — grid 2x2 (General/Author identity na 1ª linha, Sync/Shortcuts na 2ª), modal 760px com `max-height: calc(100vh - 48px)`, corpo rolável e 1 coluna abaixo de 760px de viewport; na janela de 1321x699 ficou 610px sem rolagem (antes estourava); chaves `settings.secGeneral/secIdentity/secFetch` + CSS `.modal.two-col`, `.two-col-body`, `.two-col-col`. (2) **History/Reflog em 2 abas** — Reflog e Bundle backups com scroll próprio, contador por aba e `min-height` no painel (modal 374px em vez de 700+); CSS próprio `.dlg-tabs`/`.dlg-tab`/`.dlg-tab-count`/`.dlg-tabpanel`/`.dlg-list-tall` (não reaproveita `.tab`, que é a aba de repo do TabBar); chave `reflog.tabHistory`. (3) **Bug real da paleta**: `CommandPalette.tsx` usava `cmd.label` como React key, então dois custom actions com o mesmo nome quebravam a lista — agora `custom:<id>` com `PalCmd.id` opcional. (4) Harnesses mais honestos: `uitest-new.cjs` limpa a ação `E2E ANSI` que criava (o config é real, não temp) e reseta `treeline-shortcuts` no início; `uitest.cjs` fixa o repo via `$REPO`/`process.cwd()` (antes dava 30 checks num fixture de 1 commit e 33 no repo real) e ganhou 6 checks das abas do Reflog; `uitest-new.cjs` recria as fixtures se sumirem (o `/tmp` do SO apagou a `lfs-test` e o harness caía para 12/14 sem avisar) e seleciona a `lfs-test` pela sidebar (o `addRecent` não torna o repo ativo). Screenshots do Flatpak regenerados (03-settings agora 2 colunas, pt-BR) + metainfo com release 0.6.2. Validação: typecheck OK, Vitest 23/23, harness antigo 37/37, novo 20/20, zero erros JS.
 - 2026-10-04: ferramentas novas commitáveis — `scripts/make-fixture-repos.js` (fixtures `lfs-test` e `sub-test` reproduzíveis, com `git daemon`), `scripts/make-stress-repo.js` + `scripts/stress.cjs` (`npm run test:stress`), `scripts/shots.cjs` (`npm run shots`), `scripts/uitest-new.cjs` (`npm run test:ui:new`); versão alinhada em `package.json`, `package-lock.json`, StatusBar e README trilíngue.

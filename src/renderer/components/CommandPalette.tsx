@@ -3,6 +3,8 @@ import type { CustomAction } from '../../shared/types'
 import { dialogOps, useStore } from '../store'
 
 interface PalCmd {
+  /** id estável quando o label pode repetir (custom actions). */
+  id?: string
   label: string
   hint: string
   run: () => void | Promise<unknown>
@@ -76,7 +78,8 @@ export default function CommandPalette() {
       { label: 'About', hint: 'view', run: () => openDlg('about') },
       { label: 'Toggle sidebar', hint: 'view', run: toggleSidebar },
       { label: 'Custom Actions…', hint: 'view', run: () => openDlg('custom') },
-      ...custom.map((a) => ({ label: `▶ ${a.name}`, hint: 'custom', run: () => runCustom(a.id) })),
+      // id no key: dois custom actions podem ter o mesmo nome.
+      ...custom.map((a) => ({ id: `custom:${a.id}`, label: `▶ ${a.name}`, hint: 'custom', run: () => runCustom(a.id) })),
       { label: 'Settings', hint: 'view', run: openSettings },
       { label: 'Refresh', hint: 'view', run: refresh },
     ],
@@ -127,7 +130,7 @@ export default function CommandPalette() {
           <div className="palette-list">
             {filtered.map((cmd, i) => (
               <button
-                key={cmd.label}
+                key={cmd.id ?? cmd.label}
                 className={i === index ? 'palette-item active' : 'palette-item'}
                 onClick={() => exec(cmd)}
                 onMouseEnter={() => setIndex(i)}
