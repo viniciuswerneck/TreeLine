@@ -13,7 +13,9 @@ extraResources:
     to: splash.jpg
 linux:
   category: Development
-  executableName: treeline
+  # "treeline" tambem e o binario do pacote Ubuntu (gerenciador de dados).
+  # Nome proprio evita roubar /usr/bin/treeline via update-alternatives.
+  executableName: treeline-git-gui
   icon: build/icon.png
   syncDesktopName: true
   target:
@@ -21,3 +23,6 @@ linux:
     - AppImage
 deb:
   packageCategory: devel
+  # "treeline" ja e um pacote do Ubuntu universe (gerenciador de dados, v3.1.5).
+  # Nome proprio evita sobrescrever/remover aquele pacote no dpkg.
+  packageName: treeline-git-gui

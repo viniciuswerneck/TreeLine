@@ -4,7 +4,7 @@ runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
 base: org.electronjs.Electron2.BaseApp
 base-version: '24.08'
-command: treeline
+command: treeline-git-gui
 separate-locales: false
 finish-args:
   # O app abre repos em qualquer path e usa ssh-agent/credential helper do host.
@@ -20,16 +20,16 @@ finish-args:
   - --device=all
   - --talk-name=org.freedesktop.Notifications
 modules:
-  - name: treeline
+  - name: treeline-git-gui
     buildsystem: simple
     build-commands:
-      - install -D treeline /app/bin/treeline
+      - install -D treeline-git-gui /app/bin/treeline-git-gui
       - cp -r resources /app/resources
       - install -D dev.treeline.app.desktop /app/share/applications/dev.treeline.app.desktop
       - install -D dev.treeline.app.metainfo.xml /app/share/metainfo/dev.treeline.app.metainfo.xml
       - install -D icon.png /app/share/icons/hicolor/512x512/apps/dev.treeline.app.png
       # O .desktop precisa ter o mesmo id do app para o Flathub aceitar.
-      - desktop-file-edit --set-key=StartupWMClass --set-value=treeline /app/share/applications/dev.treeline.app.desktop
+      - desktop-file-edit --set-key=StartupWMClass --set-value=dev.treeline.app /app/share/applications/dev.treeline.app.desktop
     sources:
       - type: dir
         path: ../dist/linux-unpacked

@@ -1,7 +1,7 @@
 {
-  "name": "treeline",
+  "name": "treeline-git-gui",
   "productName": "TreeLine",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Git GUI for Linux with a familiar SourceTree-like workflow. Original implementation, not affiliated with Atlassian.",
   "author": {
     "name": "TreeLine Contributors",

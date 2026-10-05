@@ -53,6 +53,13 @@
   </screenshots>
 
   <releases>
+    <release version="0.6.3" date="2026-10-05">
+      <description>
+        <p>The Debian package and the executable are now named treeline-git-gui, so
+        installing TreeLine no longer collides with the unrelated treeline package from
+        the Ubuntu universe repository.</p>
+      </description>
+    </release>
     <release version="0.6.2" date="2026-10-04">
       <description>
         <p>Settings in a two-column layout: general, author identity, sync and shortcuts

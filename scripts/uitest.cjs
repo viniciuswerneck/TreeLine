@@ -2,7 +2,7 @@
  * Harness E2E do TreeLine via Chrome DevTools Protocol (playwright-core).
  * Uso:
  *   1. Rode o app com a porta de debug:
- *      ./dist/linux-unpacked/treeline --no-sandbox --disable-setuid-sandbox --disable-gpu \
+ *      ./dist/linux-unpacked/treeline-git-gui --no-sandbox --disable-setuid-sandbox --disable-gpu \
  *        --ozone-platform-hint=auto --remote-debugging-port=9222
  *   2. npm run test:ui
  * Screenshots em /tmp/opencode/ui-*.png (ou $SHOTS_DIR). Só abre/fecha

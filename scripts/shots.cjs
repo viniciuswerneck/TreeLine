@@ -2,8 +2,8 @@
  * Gera screenshots do TreeLine para o AppStream/Flathub.
  * Uso:
  *   1. Build: npm run build && npx electron-vite preview --outDir dist/linux-unpacked
- *      (ou use o .deb instalado: dist/linux-unpacked/treeline)
- *   2. ./dist/linux-unpacked/treeline --no-sandbox --disable-setuid-sandbox \
+ *      (ou use o .deb instalado: dist/linux-unpacked/treeline-git-gui)
+ *   2. ./dist/linux-unpacked/treeline-git-gui --no-sandbox --disable-setuid-sandbox \
  *        --disable-gpu --ozone-platform-hint=auto --remote-debugging-port=9222
  *   3. node scripts/shots.cjs [repoPath]
  * Saída: build/flatpak/meta/screenshots/0{1,2,3}-*.png

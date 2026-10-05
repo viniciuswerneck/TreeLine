@@ -38,7 +38,7 @@ Outras alternativas que as pessoas comparam: GitKraken, GitHub Desktop (sem vers
 Baixe o `.deb` ou o `.AppImage` na página de **Releases** e instale:
 
 ```bash
-sudo apt install ./treeline_0.6.2_amd64.deb
+sudo apt install ./treeline-git-gui_0.6.3_amd64.deb
 ```
 
 Requisito: `git >= 2.40`. Opcional: `git-lfs`, `git-flow`.
@@ -58,7 +58,7 @@ npm run test:ui    # harness Playwright via CDP (app precisa rodar com --remote-
 Para rodar o binário local sem instalar:
 
 ```bash
-./dist/linux-unpacked/treeline --no-sandbox
+./dist/linux-unpacked/treeline-git-gui --no-sandbox
 ```
 
 ## Estrutura

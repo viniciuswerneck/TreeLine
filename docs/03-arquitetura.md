@@ -72,7 +72,9 @@ Canais IPC implementados (2026-10-03; +P0/P1 em 2026-10-04):
 
 ## 6. Empacotamento Ubuntu
 
-`electron-builder.yml`: target `deb` (x64) + `AppImage`. Categoria `Development`, ícone PNG/SVG próprio, arquivo `.desktop` `treeline.desktop` com `Exec=treeline %F` para abrir pelo Nautilus.
+`electron-builder.yml`: target `deb` (x64) + `AppImage`. Categoria `Development`, ícone PNG/SVG próprio, arquivo `.desktop` `dev.treeline.app.desktop` com `Exec=/opt/TreeLine/treeline-git-gui %F` para abrir pelo Nautilus.
+
+Nomes de pacote/binário são `treeline-git-gui` (não `treeline`): o Ubuntu universe já tem um pacote `treeline` (gerenciador de dados) que ocupa `/usr/bin/treeline` e `/usr/share/doc/treeline`. O `productName` continua `TreeLine` (nome de exibição), o `appId` continua `dev.treeline.app` (não mexer: é o `StartupWMClass` e o id do Flatpak).
 
 Comandos:
 `npm run dev` (Vite + Electron hot reload), `npm run dist` (gera dist/*.deb).

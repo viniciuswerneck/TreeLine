@@ -2,7 +2,7 @@
 
 > Atualizar ao fim de cada sessão. Este é o arquivo que a próxima IA deve ler junto com `00-referencia-assistente.md`.
 
-## Última atualização: 2026-10-04 (v0.6.2: Settings em 2 colunas, Reflog em 2 abas, key da paleta corrigido, screenshots Flatpak regenerados)
+## Última atualização: 2026-10-05 (v0.6.3: pacote/binário renomeado para `treeline-git-gui`, instalado no sistema)
 
 ## Onde estamos
 
@@ -28,10 +28,9 @@
 
 ## Próximo passo imediato
 
-1. Instalar a 0.6.2 no sistema (`sudo apt install ./treeline_0.6.2_amd64.deb`) — nesta máquina o `sudo` pede senha, então o pacote final só foi testado extraído.
-2. Submissão no Flathub: falta conta/app-id e provavelmente migrar `--filesystem=host` para FilePortal (ver `build/flatpak/dev.treeline.app.yml`).
-3. `libsecret`/GNOME Keyring para `credential.helper` e aviso de revogação do token `store` (ver Riscos).
-4. Restante Fase 4: `--rpm`/AUR, remapeamento de atalhos por sistema operacional, LFS ponta a ponta (depende de `git-lfs` na máquina).
+1. Submissão no Flathub: falta conta/app-id e provavelmente migrar `--filesystem=host` para FilePortal (ver `build/flatpak/dev.treeline.app.yml`).
+2. `libsecret`/GNOME Keyring para `credential.helper` e aviso de revogação do token `store` (ver Riscos).
+3. Restante Fase 4: `--rpm`/AUR, remapeamento de atalhos por sistema operacional, LFS ponta a ponta (depende de `git-lfs` na máquina).
 
 ## Riscos/pendências
 
@@ -39,6 +38,9 @@
 - LFS validado só na UI: sem `git-lfs` na máquina, `lfs pull`/`lfs push` seguem sem prova de ponta a ponta.
 - Flatpak: `--filesystem=host` é o ponto frágil para o review do Flathub; sem FilePortal o app não abre repo por portal.
 - `electron-builder` pode demorar muito nesta máquina (build de AppImage já passou de 900 s uma vez); preferir `--linux deb` no loop local e deixar o AppImage para o CI.
+- Colisão de nome no dpkg: o Ubuntu universe tem o pacote `treeline` (gerenciador de dados, 3.1.5) que é dono de `/usr/bin/treeline` e `/usr/share/doc/treeline`. Por isso `deb.packageName` + `linux.executableName` = `treeline-git-gui`. Não voltar para `treeline` — o postinst usaria `update-alternatives` em `/usr/bin/treeline` e o apt recusaria sobrescrever o arquivo do Ubuntu (o app ficaria sem entrada no PATH).
+- O `comm` do Linux corta em 15 chars: o processo aparece como `treeline-git-gu`, então `pkill -x treeline-git-gui` **não** funciona. Usar `pkill -x treeline-git-gu`.
+- `sudo` não tem TTY nesta sessão de shell; instalar com `pkexec apt install -y ./dist/treeline-git-gui_<ver>_amd64.deb` (abre diálogo gráfico).
 - Nome "git nexts" digitado pelo usuário em 2026-10-03 foi interpretado como **TreeLine** (singular). Confirmado implicitamente — se mudar, renomear pasta/pacote.
 
 ## Log de sessões

@@ -39,7 +39,7 @@
 1. Ler este arquivo + `05-estado.md`.
 2. `ls /home/vinicius/gitnest` para confirmar estrutura.
 3. Não scaffolding sem confirmação se `05-estado.md` disser "aguardando usuário".
-4. Ao terminar mudança: `npm run typecheck`, `npm test`, `npm run build`, reempacotar (`npx electron-builder --linux dir`), reiniciar o app (`pkill -x treeline` + `setsid nohup ./dist/linux-unpacked/treeline --no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto > /tmp/opencode/treeline.log 2>&1 < /dev/null &`) e atualizar `05-estado.md` + `02-roadmap.md`.
+4. Ao terminar mudança: `npm run typecheck`, `npm test`, `npm run build`, reempacotar (`npx electron-builder --linux dir`), reiniciar o app (`pkill -x treeline-git-gu` + `setsid nohup ./dist/linux-unpacked/treeline-git-gui --no-sandbox --disable-setuid-sandbox --disable-gpu --ozone-platform-hint=auto > /tmp/opencode/treeline.log 2>&1 < /dev/null &`) e atualizar `05-estado.md` + `02-roadmap.md`.
 5. Harnesses CDP (exigem o app com `--remote-debugging-port=9222`): `npm run test:ui` (33/33), `npm run test:ui:new` (19/19), `npm run test:stress` (10k commits), `npm run shots` (screenshots Flatpak), `npm run fixture:repos` (fixtures `lfs-test` e `sub-test` com sub-submódulo via `git daemon`).
 5. Responder em pt-BR, objetivo, com caminho:linha quando citar código.
 

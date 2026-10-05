@@ -93,5 +93,6 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | Fetch automático | 2 | ☑ (intervalo por repo + toggle de segundo plano) |
 | Flatpak/AppStream | 4 | ◑ (manifesto, metainfo e screenshots prontos; submissão no Flathub pendente) |
 | CI de release | 4 | ☑ (typecheck + Vitest + build + `.deb`/AppImage + GitHub Release em tag `v*`) |
+| Pacote/binário sem colisão | 4 | ☑ (`treeline-git-gui` no `.deb`, `/usr/bin` e Flatpak; `TreeLine` segue como nome de exibição) |
 
 Legenda: ☐TODO / ◐parcial / ☑pronto / ◑em andamento. Atualizar por release.

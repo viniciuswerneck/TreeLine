@@ -38,7 +38,7 @@ Other alternatives people compare: GitKraken, GitHub Desktop (no official Linux 
 Download the `.deb` or `.AppImage` from the **Releases** page and install:
 
 ```bash
-sudo apt install ./treeline_0.6.2_amd64.deb
+sudo apt install ./treeline-git-gui_0.6.3_amd64.deb
 ```
 
 Requirement: `git >= 2.40`. Optional: `git-lfs`, `git-flow`.
@@ -58,7 +58,7 @@ npm run test:ui    # Playwright CDP harness (app must run with --remote-debuggin
 To run the local binary without installing:
 
 ```bash
-./dist/linux-unpacked/treeline --no-sandbox
+./dist/linux-unpacked/treeline-git-gui --no-sandbox
 ```
 
 ## Structure

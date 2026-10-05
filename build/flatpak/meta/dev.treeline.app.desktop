@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=TreeLine
 Comment=Git GUI for Linux with a familiar SourceTree-like workflow
-Exec=treeline %F
+Exec=treeline-git-gui %F
 Icon=dev.treeline.app
 Type=Application
 Categories=Development;
-StartupWMClass=treeline
+StartupWMClass=dev.treeline.app

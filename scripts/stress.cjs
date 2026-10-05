@@ -2,7 +2,7 @@
  * Stress test da virtualização do HistoryGraph com 10k+ commits.
  * Uso:
  *   1. node scripts/make-stress-repo.js 10000
- *   2. ./dist/linux-unpacked/treeline --no-sandbox --disable-setuid-sandbox \
+ *   2. ./dist/linux-unpacked/treeline-git-gui --no-sandbox --disable-setuid-sandbox \
  *        --disable-gpu --ozone-platform-hint=auto --remote-debugging-port=9222
  *   3. node scripts/stress.cjs /tmp/opencode/stress-10k
  * Reporta: total de commits carregados, linhas no DOM, FPS durante scroll
