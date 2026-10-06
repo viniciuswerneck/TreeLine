@@ -53,6 +53,16 @@
   </screenshots>
 
   <releases>
+    <release version="0.6.4" date="2026-10-06">
+      <description>
+        <p>Three-way conflict resolver: full-screen WinMerge-style overlay with A | Result | B
+        columns, CodeMirror editors, a four-state region selector (A, B, both, none) and
+        opt-in rerere in Settings.</p>
+        <p>Unstaged and Staged panels now expand together, side by side, with Esc closing both.</p>
+        <p>Branch combo in the history: multi-select with type-to-filter search, optional remote
+        branches, and the selection is what git log reads.</p>
+      </description>
+    </release>
     <release version="0.6.3" date="2026-10-05">
       <description>
         <p>The Debian package and the executable are now named treeline-git-gui, so

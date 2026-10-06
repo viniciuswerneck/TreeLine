@@ -12,6 +12,8 @@ export default function MergeDialog() {
   const setRefPreset = useStore((s) => s.setRefPreset)
   const tr = useStore((s) => s.tr)
   const { busy, run } = useDialogRunner()
+  const openResolver = useStore((s) => s.openResolver)
+  const closeDlg = useStore((s) => s.closeDlg)
 
   const others = branches.filter((b) => !b.current)
   const [ref, setRef] = useState(refPreset ?? others[0]?.name ?? '')
@@ -54,10 +56,29 @@ export default function MergeDialog() {
         )}
         <p className="muted">{tr('op.conflicted', { n: conflicted.length })}</p>
         <div className="modal-actions">
+          {conflicted.length > 0 && (
+            <button
+              className="tool-btn primary"
+              disabled={busy}
+              onClick={() => {
+                // Fecha o dialog e abre o overlay de tela cheia: resolver 1 a 1
+                // na lista não cabe num modal estreito.
+                closeDlg()
+                void openResolver()
+              }}
+            >
+              {tr('cr.title')}
+            </button>
+          )}
           <button className="tool-btn" disabled={busy} onClick={() => void run(() => dialogOps.abortMerge())}>
             {tr('dlg.abort')}
           </button>
-          <button className="tool-btn primary" disabled={busy} onClick={() => void run(() => dialogOps.mergeContinue())}>
+          <button
+            className="tool-btn primary"
+            disabled={busy || conflicted.length > 0}
+            title={conflicted.length > 0 ? tr('cr.markerLeft') : undefined}
+            onClick={() => void run(() => dialogOps.mergeContinue())}
+          >
             {busy ? tr('dlg.working') : tr('dlg.continue')}
           </button>
         </div>

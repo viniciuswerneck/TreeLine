@@ -4,6 +4,7 @@ import { DATE_LOCALE } from '../i18n'
 import { layoutGraph, topTouches, bottomTouches, type LaneCommit } from '../lib/graph'
 import { formatShortcut } from '../shortcuts'
 import { dialogOps, useStore } from '../store'
+import BranchCombo from './BranchCombo'
 
 /** Largura por lane e altura da linha — espelham o CSS (.history-row height). */
 const LANE_W = 16
@@ -188,6 +189,7 @@ export default function HistoryGraph() {
   const filter = useStore((s) => s.filter)
   const setFilter = useStore((s) => s.setFilter)
   const branchFilter = useStore((s) => s.branchFilter)
+  const branchSel = useStore((s) => s.branchSel)
   const selectedCommit = useStore((s) => s.selectedCommit)
   const selectCommit = useStore((s) => s.selectCommit)
   const copyText = useStore((s) => s.copyText)
@@ -316,7 +318,7 @@ export default function HistoryGraph() {
 
   // Ao mudar a lista (repo, filtro, página), volta para o topo da janela.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => setWin([0, 40]), [rows.length, branchFilter])
+  useEffect(() => setWin([0, 40]), [rows.length, branchFilter, branchSel])
   // Recalcula o offset do spacer uma vez por mudança de lista.
   useEffect(() => {
     const cont = contRef.current
@@ -325,7 +327,7 @@ export default function HistoryGraph() {
       cont && anchor
         ? anchor.getBoundingClientRect().top - cont.getBoundingClientRect().top + cont.scrollTop
         : 0
-  }, [rows.length, dirtyCount, branchFilter])
+  }, [rows.length, dirtyCount, branchFilter, branchSel])
   // Coluna do grafo encolhe para as lanes usadas (não mais 120–220px fixos).
   const graphCol = `${(maxLane + 1) * LANE_W + 24}px`
   const gridCols = `${graphCol} 1fr 140px 130px 80px`
@@ -373,6 +375,7 @@ export default function HistoryGraph() {
         {branchFilter === 'current' && currentBranch && (
           <span className="history-count">{tr('hist.onBranch', { n: currentBranch })}</span>
         )}
+        <BranchCombo />
         <span className="history-search">
           <Search size={14} />
           <input

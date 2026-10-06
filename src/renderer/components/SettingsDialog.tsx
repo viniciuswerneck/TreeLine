@@ -124,6 +124,9 @@ export default function SettingsDialog() {
   const setAutoFetchMin = useStore((s) => s.setAutoFetchMin)
   const autoFetchBg = useStore((s) => s.autoFetchBg)
   const setAutoFetchBg = useStore((s) => s.setAutoFetchBg)
+  const current = useStore((s) => s.current)
+  const rerere = useStore((s) => s.rerere)
+  const toggleRerere = useStore((s) => s.toggleRerere)
   const tr = useStore((s) => s.tr)
 
   const [name, setName] = useState(identity.name)
@@ -276,6 +279,27 @@ export default function SettingsDialog() {
           <div className="two-col-col">
             <div className="dlg-section">{tr('settings.shortcuts')}</div>
             <ShortcutsEditor />
+          </div>
+          {/* rerere é opt-in e POR REPO: o toggle só aparece com repo aberto,
+              porque `rerere.enabled` é config local do repositório. */}
+          <div className="two-col-col">
+            <div className="dlg-section">{tr('settings.secConflicts')}</div>
+            <label className="check-row" title={current ? undefined : tr('cr.noFiles')}>
+              <input
+                type="checkbox"
+                checked={rerere}
+                disabled={!current}
+                onChange={(e) => void toggleRerere(e.target.checked)}
+              />
+              <span className={current ? 'grow' : 'grow muted'}>{tr('cr.rerere')}</span>
+              {current && <span className="sub">{current.split('/').pop()}</span>}
+            </label>
+            <p className="muted" style={{ fontSize: '11px', marginTop: 4 }}>
+              {tr('cr.rerereHint')}
+            </p>
+            <p className="muted" style={{ fontSize: '11px', marginTop: 4 }}>
+              {rerere ? tr('cr.rerereOn') : tr('cr.rerereOff')}
+            </p>
           </div>
         </div>
         <div className="modal-actions">

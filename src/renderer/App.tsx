@@ -5,6 +5,7 @@ import BlameDialog from './components/BlameDialog'
 import BranchDialog from './components/BranchDialog'
 import CommandPalette from './components/CommandPalette'
 import CompareDialog from './components/CompareDialog'
+import ConflictResolver from './components/ConflictResolver'
 import ConfirmDialog from './components/ConfirmDialog'
 import CustomActionsDialog from './components/CustomActionsDialog'
 import ContextMenu from './components/ContextMenu'
@@ -170,6 +171,7 @@ export default function App() {
       <SyncToast />
       {settingsOpen && <SettingsDialog />}
       {dialog === 'branch' && <BranchDialog />}
+      <ConflictResolver />
       {dialog === 'merge' && <MergeDialog />}
       {dialog === 'stash' && <StashDialog />}
       {dialog === 'tag' && <TagDialog />}

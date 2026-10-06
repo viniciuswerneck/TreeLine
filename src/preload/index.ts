@@ -7,7 +7,7 @@ const api: TreeLineAPI = {
   openRepo: () => ipcRenderer.invoke('treeline:openRepo'),
   addRecent: (path: string) => ipcRenderer.invoke('treeline:addRecent', path),
   getStatus: (repo: string) => ipcRenderer.invoke('treeline:getStatus', repo),
-  getLog: (repo: string, limit?: number, skip?: number, ref?: string) => ipcRenderer.invoke('treeline:getLog', repo, limit, skip, ref),
+  getLog: (repo: string, limit?: number, skip?: number, ref?: string | string[]) => ipcRenderer.invoke('treeline:getLog', repo, limit, skip, ref),
   getBranches: (repo: string) => ipcRenderer.invoke('treeline:getBranches', repo),
   getDiff: (repo: string, file: string, staged: boolean, lang?: string) =>
     ipcRenderer.invoke('treeline:getDiff', repo, file, staged, lang),
@@ -27,6 +27,15 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:resolveOurs', repo, file, lang),
   resolveTheirs: (repo: string, file: string, lang?: string) =>
     ipcRenderer.invoke('treeline:resolveTheirs', repo, file, lang),
+  getConflictFiles: (repo: string) => ipcRenderer.invoke('treeline:getConflictFiles', repo),
+  getConflictStages: (repo: string, file: string) => ipcRenderer.invoke('treeline:getConflictStages', repo, file),
+  getConflictOp: (repo: string) => ipcRenderer.invoke('treeline:getConflictOp', repo),
+  resolveConflictSide: (repo: string, file: string, side: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:resolveConflictSide', repo, file, side, lang),
+  applyConflictResult: (repo: string, file: string, content: string, del: boolean) =>
+    ipcRenderer.invoke('treeline:applyConflictResult', repo, file, content, del),
+  setRerere: (repo: string, on: boolean) => ipcRenderer.invoke('treeline:setRerere', repo, on),
+  getRerere: (repo: string) => ipcRenderer.invoke('treeline:getRerere', repo),
   pushForce: (repo: string, forceLease: boolean, lang?: string) =>
     ipcRenderer.invoke('treeline:pushForce', repo, forceLease, lang),
   pushPublish: (repo: string, lang?: string) =>
@@ -99,6 +108,7 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:mergeBranch', repo, ref, noFf, lang),
   mergeContinue: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:mergeContinue', repo, lang),
   abortMerge: (repo: string) => ipcRenderer.invoke('treeline:abortMerge', repo),
+  abortStash: (repo: string) => ipcRenderer.invoke('treeline:abortStash', repo),
   getStashes: (repo: string) => ipcRenderer.invoke('treeline:getStashes', repo),
   createStash: (repo: string, message: string, includeUntracked: boolean, lang?: string) =>
     ipcRenderer.invoke('treeline:createStash', repo, message, includeUntracked, lang),
@@ -120,6 +130,7 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:rebaseOnto', repo, ref, lang, autostash),
   getRevertState: (repo: string) => ipcRenderer.invoke('treeline:getRevertState', repo),
   abortRevert: (repo: string) => ipcRenderer.invoke('treeline:abortRevert', repo),
+  revertContinue: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:revertContinue', repo, lang),
   getWorktreeInfo: (repo: string) => ipcRenderer.invoke('treeline:getWorktreeInfo', repo),
   getLfsInfo: (repo: string) => ipcRenderer.invoke('treeline:getLfsInfo', repo),
   getSubmodules: (repo: string) => ipcRenderer.invoke('treeline:getSubmodules', repo),

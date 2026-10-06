@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { SHORTCUT_DEFAULTS, eventShortcut, loadShortcuts, saveShortcuts, type ShortcutAction } from './shortcuts'
-import type { BlameLine, BranchDetail, BranchInfo, CompareSummary, CommitDetail, CommitInfo, FileHistoryEntry, FlowType, GitIdentity, HunkInfo, LfsInfo, OpState, RebasePlanEntry, ReflogEntry, RemoteBranchInfo, RemoteInfo, RepoStatus, ResetMode, StashInfo, SubmoduleInfo, SyncOp, TagInfo, WorktreeInfo } from '../shared/types'
+import type { BlameLine, BranchDetail, BranchInfo, CompareSummary, CommitDetail, CommitInfo, ConflictFile, ConflictOp, ConflictSide, FileHistoryEntry, FlowType, GitIdentity, HunkInfo, LfsInfo, OpState, RebasePlanEntry, ReflogEntry, RemoteBranchInfo, RemoteInfo, RepoStatus, ResetMode, StashInfo, SubmoduleInfo, SyncOp, TagInfo, WorktreeInfo } from '../shared/types'
 import { applyTheme, loadTheme } from './themes'
 import { applyLang, loadLang, t, type DictKey, type Lang } from './i18n'
 import type { MenuItem } from './components/ContextMenu'
@@ -29,6 +29,32 @@ let confirmResolve: ((v: boolean) => void) | null = null
 export interface SelectedFile {
   path: string
   staged: boolean
+}
+
+/**
+ * Refs do `git log`: seleção do combo de branches do history > modo "só
+ * branch atual" > `--all` (undefined). Sempre qualificado (refs/heads/…,
+ * refs/remotes/…) para o git nunca confundir com path ou tag de nome igual.
+ */
+function logRefs(s: {
+  branchSel: string[]
+  branchFilter: 'all' | 'current'
+  branches: BranchInfo[]
+  remoteBranches: RemoteBranchInfo[]
+  status: RepoStatus | null
+}): string[] | undefined {
+  if (s.branchSel.length) {
+    const remotes = new Set(s.remoteBranches.map((r) => r.name))
+    return s.branchSel.map((n) => (remotes.has(n) ? `refs/remotes/${n}` : `refs/heads/${n}`))
+  }
+  if (s.branchFilter === 'current') {
+    const cur = s.branches.find((b) => b.current)?.name
+    if (cur) return [`refs/heads/${cur}`]
+    // Fallback `status.branch`: pode ser hash em detached HEAD — manda cru.
+    const st = s.status?.branch
+    if (st && st !== '(detached)') return [st]
+  }
+  return undefined
 }
 
 export type SyncPhase = 'running' | 'success' | 'error'
@@ -63,6 +89,8 @@ interface TreeLineState {
   error: string | null
   filter: string
   branchFilter: 'all' | 'current'
+  /** Seleção do combo de branches do history (vazio = todos os branches). */
+  branchSel: string[]
   logPage: number
   hasMoreCommits: boolean
   loadingMore: boolean
@@ -79,6 +107,7 @@ interface TreeLineState {
   setAmend: (a: boolean) => void
   setFilter: (f: string) => void
   setBranchFilter: (f: 'all' | 'current') => Promise<void>
+  setBranchSel: (sel: string[]) => Promise<void>
   stageSelected: () => Promise<void>
   unstageSelected: () => Promise<void>
   stageAll: () => Promise<void>
@@ -93,6 +122,33 @@ interface TreeLineState {
   doReset: (ref: string, mode: ResetMode) => Promise<boolean>
   resolveOurs: (path: string) => Promise<void>
   resolveTheirs: (path: string) => Promise<void>
+  // Resolvedor de conflito de 3 vias (overlay em tela cheia)
+  conflictFiles: ConflictFile[]
+  conflictOp: ConflictOp
+  conflictIndex: number
+  resolverOpen: boolean
+  conflictLoading: boolean
+  /**
+   * Sobe sempre que o overlay reabre ou o `continue` avança para um conflito
+   * novo (rebase multi-commit). O componente usa para invalidar o cache de
+   * "arquivo já carregado": sem isso ele mostraria os marcadores antigos do
+   * mesmo caminho recém-reconflitado.
+   */
+  conflictEpoch: number
+  rerere: boolean
+  openResolver: () => Promise<void>
+  closeResolver: () => void
+  gotoConflictFile: (index: number) => Promise<void>
+  /** Resolve o arquivo por um lado e avança para o próximo. */
+  resolveConflictBySide: (path: string, side: ConflictSide) => Promise<void>
+  /** Salva o resultado editado no editor 3-vias e avança. */
+  saveConflictResult: (path: string, content: string, del: boolean) => Promise<void>
+  /** Aplica uma escolha a todos os arquivos restantes. */
+  resolveAllRemaining: (side: ConflictSide) => Promise<void>
+  advanceAfterResolve: (path: string) => Promise<void>
+  toggleRerere: (on: boolean) => Promise<void>
+  abortCurrentOp: () => Promise<void>
+  continueCurrentOp: () => Promise<void>
   stageHunk: (hunkIndex: number) => Promise<void>
   discardHunk: (hunkIndex: number) => Promise<void>
   stageLines: (hunkIndex: number, lines: number[]) => Promise<void>
@@ -265,6 +321,7 @@ moveTab: (from, to) => {
   error: null,
   filter: '',
   branchFilter: 'all',
+  branchSel: [],
   logPage: 0,
   hasMoreCommits: false,
   loadingMore: false,
@@ -274,8 +331,7 @@ moveTab: (from, to) => {
     set({ loadingMore: true })
     const PAGE = 300
     const st = get()
-    const cur = st.branches.find((b) => b.current)?.name ?? st.status?.branch
-    const ref = st.branchFilter === 'current' && cur && cur !== '(detached)' ? cur : undefined
+    const ref = logRefs(st)
     const next = await fail(window.treeline.getLog(current, PAGE, commits.length, ref), (e) => set({ error: e }))
     if (next !== null) {
       // Dedupe por hash: repo pode ter mudado entre páginas (skip desloca).
@@ -320,7 +376,7 @@ moveTab: (from, to) => {
     } catch {
       /* ignora */
     }
-    set({ current: path, openTabs: tabs, status: null, commits: [], branches: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, lfs: null, submodules: [], selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, fileHistory: [], fileHistoryPath: null, compareA: null, compareB: null, compare: null, dialog: null })
+    set({ current: path, openTabs: tabs, status: null, commits: [], branches: [], branchSel: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, lfs: null, submodules: [], selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, fileHistory: [], fileHistoryPath: null, compareA: null, compareB: null, compare: null, dialog: null })
     await window.treeline.addRecent(path)
     await get().refresh()
   },
@@ -334,8 +390,7 @@ moveTab: (from, to) => {
       fail(window.treeline.getStatus(current), (e) => set({ error: e })),
       fail(window.treeline.getBranches(current), (e) => set({ error: e }))
     ])
-    const cur = branches?.find((b) => b.current)?.name ?? status?.branch
-    const ref = get().branchFilter === 'current' && cur && cur !== '(detached)' ? cur : undefined
+    const ref = logRefs({ ...get(), branches: branches ?? [], status })
     const [commits, branchesDetailed, remoteBranches, stashes, tags, remotes, reflog, mergeState, rebaseState, pickState, revertState, worktree, lfs, submodules, flow] = await Promise.all([
       fail(window.treeline.getLog(current, 300, 0, ref), (e) => set({ error: e })),
       fail(window.treeline.getBranchesDetailed(current), (e) => set({ error: e })),
@@ -353,7 +408,32 @@ moveTab: (from, to) => {
       fail(window.treeline.getSubmodules(current), (e) => set({ error: e })),
       fail(window.treeline.detectFlow(current), (e) => set({ error: e }))
     ])
+    // Conflitos: quando existe operação interrompida, e também enquanto o
+    // overlay está aberto. `git stash pop` conflitante não deixa state file
+    // (nem MERGE_HEAD), então sem este ramo o refresh disparado ao resolver o
+    // último arquivo zerava a lista e apagava o `op` — o Continue do stash
+    // ficava mudo para sempre, com "Nenhum arquivo em conflito".
+    const resolverOpen = get().resolverOpen
+    const wantConflicts =
+      !!mergeState?.inProgress ||
+      !!rebaseState?.inProgress ||
+      !!pickState?.inProgress ||
+      !!revertState?.inProgress ||
+      resolverOpen
+    const [conflictFiles, conflictOp, rerere] = wantConflicts
+      ? await Promise.all([
+          fail(window.treeline.getConflictFiles(current), (e) => set({ error: e })),
+          fail(window.treeline.getConflictOp(current), (e) => set({ error: e })),
+          fail(window.treeline.getRerere(current), (e) => set({ error: e }))
+        ])
+      : [null, null, null]
     set({
+      conflictFiles: conflictFiles ?? (wantConflicts ? get().conflictFiles : []),
+      // `getConflictOp` só devolve 'stash' enquanto há unmerged no index: no
+      // momento em que o último arquivo é staged ele vira null e some. Com o
+      // overlay aberto o op é STICKY — ele só termina pelo Continue/Abort.
+      conflictOp: conflictOp ?? (resolverOpen ? get().conflictOp : null),
+      rerere: rerere ?? get().rerere,
       status: status ?? get().status,
       commits: commits ?? get().commits,
       logPage: 0,
@@ -394,8 +474,15 @@ moveTab: (from, to) => {
   setAmend: (a) => set({ amend: a }),
   setFilter: (f) => set({ filter: f }),
   setBranchFilter: async (f) => {
-    set({ branchFilter: f })
+    // Modos mutuamente exclusivos: "só branch atual" zera a seleção do combo.
+    set({ branchFilter: f, ...(f === 'current' ? { branchSel: [] } : {}) })
     // O log vem com ancestry real do servidor: trocar o filtro recarrega.
+    await get().refresh()
+  },
+
+  setBranchSel: async (sel) => {
+    // Seleção explícita no combo desliga o modo "só branch atual".
+    set({ branchSel: sel, ...(sel.length ? { branchFilter: 'all' as const } : {}) })
     await get().refresh()
   },
 
@@ -580,6 +667,146 @@ moveTab: (from, to) => {
     await get().runOp((repo, l) => window.treeline.resolveTheirs(repo, path, l))
   },
 
+  openResolver: async () => {
+    const { current } = get()
+    if (!current) return
+    set({ conflictLoading: true, resolverOpen: true, conflictIndex: 0, conflictEpoch: get().conflictEpoch + 1 })
+    const [files, op] = await Promise.all([
+      fail(window.treeline.getConflictFiles(current), (e) => set({ error: e })),
+      fail(window.treeline.getConflictOp(current), (e) => set({ error: e }))
+    ])
+    set({ conflictFiles: files ?? [], conflictOp: op ?? null, conflictLoading: false })
+  },
+
+  closeResolver: () => set({ resolverOpen: false, conflictIndex: 0, conflictFiles: [], conflictOp: null }),
+
+  gotoConflictFile: async (index: number) => {
+    const files = get().conflictFiles
+    if (index < 0 || index >= files.length) return
+    set({ conflictIndex: index, conflictLoading: true })
+    const cur = get().current
+    if (cur) await fail(window.treeline.getConflictStages(cur, files[index].path), (e) => set({ error: e }))
+    set({ conflictLoading: false })
+  },
+
+  resolveConflictBySide: async (path: string, side: ConflictSide) => {
+    const ok = await get().runOp((repo, l) => window.treeline.resolveConflictSide(repo, path, side, l))
+    if (!ok) return
+    set({ message: get().tr('cr.applied', { f: path }) })
+    await get().advanceAfterResolve(path)
+  },
+
+  saveConflictResult: async (path: string, content: string, del: boolean) => {
+    const ok = await get().runOp((repo) => window.treeline.applyConflictResult(repo, path, content, del))
+    if (!ok) return
+    set({ message: del ? get().tr('cr.deleteApplied', { f: path }) : get().tr('cr.applied', { f: path }) })
+    await get().advanceAfterResolve(path)
+  },
+
+  /**
+   * Sai do arquivo resolvido e segue para o próximo em conflito; se era o
+   * último, FICA no overlay mostrando "sem conflitos" — é ali que mora o
+   * Continue da operação (no Revert é a única saída, não existe diálogo).
+   * A lista é recarregada porque o `git add` remove o arquivo de
+   * `conflictFiles` e pode destravar a operação.
+   */
+  advanceAfterResolve: async (path: string) => {
+    const { current, conflictFiles, conflictIndex } = get()
+    if (!current) return
+    const remaining = await fail(window.treeline.getConflictFiles(current), (e) => set({ error: e }))
+    if (!remaining) return
+    if (remaining.length === 0) {
+      // NÃO fecha: o rodapé vira "0 conflitos" com Continue habilitado.
+      set({ conflictFiles: [], conflictIndex: 0 })
+      await get().refresh()
+      return
+    }
+    // Mantém o cursor na posição atual: a lista só encolhe à frente dele.
+    const next = Math.min(conflictIndex, remaining.length - 1)
+    set({ conflictFiles: remaining, conflictIndex: path && remaining[next]?.path === path ? next : Math.min(next + 1, remaining.length - 1) })
+    if (remaining[next]) await fail(window.treeline.getConflictStages(current, remaining[next].path), (e) => set({ error: e }))
+    await get().refresh()
+  },
+
+  resolveAllRemaining: async (side: ConflictSide) => {
+    const { current, conflictFiles } = get()
+    if (!current) return
+    const files = conflictFiles.map((f) => f.path)
+    for (const p of files) {
+      // Sequencial: um único lock por repo na fila do main, e o usuário vê
+      // o progresso arquivo a arquivo em vez de tudo sumir de uma vez.
+      await get().runOp((repo, l) => window.treeline.resolveConflictSide(repo, p, side, l))
+    }
+    set({ conflictFiles: [], conflictIndex: 0, message: get().tr('cr.applied', { f: `${files.length} file(s)` }) })
+    // Igual a advanceAfterResolve: fica no overlay para o Continue da operação.
+    await get().refresh()
+  },
+
+  toggleRerere: async (on: boolean) => {
+    const ok = await get().runOp((repo) => window.treeline.setRerere(repo, on))
+    if (ok) set({ rerere: on })
+  },
+
+  /**
+   * Fecha a operação: `git <op> --continue` do jeito que o Git espera.
+   * Fica no overlay porque é onde o usuário termina de resolver.
+   */
+  continueCurrentOp: async () => {
+    const { current, conflictOp } = get()
+    if (!current) return
+    const op = conflictOp ?? 'merge'
+    // `stash apply` não tem `--continue`: o resolve por lado/já feito deixou
+    // tudo staged. Concluir é só sair do overlay; a entrada do stash continua
+    // existindo e o drop (ou commit do resultado) é decisão do usuário.
+    if (op === 'stash') {
+      set({
+        resolverOpen: false,
+        conflictFiles: [],
+        conflictIndex: 0,
+        message: get().tr('cr.stashDone')
+      })
+      await get().refresh()
+      return
+    }
+    const ok = await get().runOp((repo, lang) => {
+      if (op === 'rebase') return window.treeline.rebaseContinue(repo, lang)
+      if (op === 'cherry-pick') return window.treeline.cherryPickContinue(repo, lang)
+      if (op === 'revert') return window.treeline.revertContinue(repo, lang)
+      return window.treeline.mergeContinue(repo, lang)
+    })
+    if (!ok) {
+      // `runOp` já mostrou o erro (pode ser "commit vazio" ou "avancei e
+      // parou em OUTRO conflito"). Se sobraram conflitos, a lista velha está
+      // obsoleta: recarrega e mantém o overlay aberto mostrando os novos —
+      // sem isso o usuário ficaria olhando marcadores que o rebase já jogou
+      // fora. O bump de epoch faz o componente releer o mesmo caminho.
+      const rest = await window.treeline.getConflictFiles(current).catch(() => null)
+      if (rest && rest.length > 0) {
+        set({ conflictFiles: rest, conflictIndex: 0, conflictEpoch: get().conflictEpoch + 1 })
+        const first = rest[0]
+        if (first) await fail(window.treeline.getConflictStages(current, first.path), (e) => set({ error: e }))
+      }
+      return
+    }
+    set({ resolverOpen: false, conflictFiles: [], conflictIndex: 0 })
+    await get().refresh()
+  },
+
+  abortCurrentOp: async () => {
+    const { current, conflictOp } = get()
+    if (!current) return
+    const op = conflictOp ?? 'merge'
+    await get().runOp((repo) => {
+      if (op === 'rebase') return window.treeline.abortRebase(repo)
+      if (op === 'cherry-pick') return window.treeline.abortCherryPick(repo)
+      if (op === 'revert') return window.treeline.abortRevert(repo)
+      if (op === 'stash') return window.treeline.abortStash(repo)
+      return window.treeline.abortMerge(repo)
+    })
+    set({ resolverOpen: false, conflictFiles: [], conflictIndex: 0 })
+    await get().refresh()
+  },
+
   stageHunk: async (hunkIndex: number) => {
     const { current, selectedFile, lang } = get()
     if (!current || !selectedFile) return
@@ -646,7 +873,14 @@ moveTab: (from, to) => {
     set({ settingsOpen: true, identityError: null, identitySaved: false })
     const { current } = get()
     if (current) {
-      const eff = await fail(window.treeline.getEffectiveIdentity(current), (e) => set({ identityError: e }))
+      // `rerere.enabled` é config LOCAL do repo: lê aqui para o Settings não
+      // herdar o valor deixado por outra operação/repo (fora de conflito o
+      // refresh nem consulta).
+      const [eff, rerere] = await Promise.all([
+        fail(window.treeline.getEffectiveIdentity(current), (e) => set({ identityError: e })),
+        fail(window.treeline.getRerere(current), (e) => set({ error: e }))
+      ])
+      if (rerere !== null) set({ rerere })
       if (eff !== null) {
         set({
           identity: { name: eff.name, email: eff.email },
@@ -936,6 +1170,13 @@ moveTab: (from, to) => {
   lfs: null,
   submodules: [],
   flowInstalled: false,
+  conflictFiles: [],
+  conflictOp: null,
+  conflictIndex: 0,
+  resolverOpen: false,
+  conflictLoading: false,
+  conflictEpoch: 0,
+  rerere: false,
 
   confirmAction: (title, message, detail, ok) =>
     new Promise<boolean>((resolve) => {

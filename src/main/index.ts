@@ -2,7 +2,19 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { simpleGit } from 'simple-git'
-import type { BranchInfo, CommitDetail, CommitInfo, GitIdentity, RepoStatus, SyncResult } from '../shared/types'
+import type {
+  BranchInfo,
+  CommitDetail,
+  CommitInfo,
+  ConflictFile,
+  ConflictOp,
+  ConflictSide,
+  ConflictStages,
+  GitIdentity,
+  RepoStatus,
+  SyncResult
+} from '../shared/types'
+import { conflictKindOf, looksBinary, parseLsFilesU, parseUnmergedXY, shortRef, stagesByPath, type UnmergedEntry } from './conflict-stages'
 import { SPLASH_H, SPLASH_MIN_MS, SPLASH_W, splashHtml, splashImagePath, splashLang, type SplashLang } from './splash'
 
 const APP_TITLE: Record<SplashLang, string> = {
@@ -194,6 +206,16 @@ const STR: Record<string, Record<UILang, string>> = {
     pt: 'Revert parou em conflitos — resolva os arquivos, depois commite, ou rode `git revert --abort`. {d}',
     es: 'Revert detenido por conflictos — resuelve los archivos, luego commitea, o ejecuta `git revert --abort`. {d}'
   },
+  continueNextConflict: {
+    pt: 'Avancei, mas parou em outro conflito ({n} arquivo: {f}). Resolva para prosseguir.',
+    en: 'Advanced, but stopped on another conflict ({n} file: {f}). Resolve to continue.',
+    es: 'Avancé, pero se detuvo en otro conflicto ({n} archivo: {f}). Resuelve para continuar.'
+  },
+  continueEmpty: {
+    pt: 'O git recusou {cmd}: nada a commitar (resolução igual ao original). Use Abort para desfazer ou conclua pelo terminal:\n{out}',
+    en: 'Git rejected {cmd}: nothing to commit (resolution identical to original). Use Abort to undo, or finish in the terminal:\n{out}',
+    es: 'Git rechazó {cmd}: no hay nada que confirmar (resolución igual al original). Usa Abort para deshacer, o termina en la terminal:\n{out}'
+  },
   revertNothing: {
     en: 'No revert in progress — nothing to abort.',
     pt: 'Nenhum revert em andamento — nada para abortar.',
@@ -228,6 +250,41 @@ const STR: Record<string, Record<UILang, string>> = {
     en: 'Checkout blocked: uncommitted changes would be overwritten. Commit, stash or discard them first, then checkout again. {d}',
     pt: 'Checkout bloqueado: há alterações não commitadas que seriam sobrescritas. Commite, dê stash ou descarte antes, e faça checkout de novo. {d}',
     es: 'Checkout bloqueado: hay cambios sin commitear que se sobrescribirían. Commitea, haz stash o descarta antes, e intenta de nuevo. {d}'
+  },
+  mergeUnresolved: {
+    en: 'Cannot continue: {n} file(s) still have conflicts ({f}). Resolve them first.',
+    pt: 'Não dá para continuar: {n} arquivo(s) ainda em conflito ({f}). Resolva antes.',
+    es: 'No se puede continuar: {n} archivo(s) siguen en conflicto ({f}). Resuélvelos primero.'
+  },
+  rebaseUnresolved: {
+    en: 'Cannot continue the rebase: {n} file(s) still have conflicts ({f}). Resolve them first.',
+    pt: 'Não dá para continuar o rebase: {n} arquivo(s) ainda em conflito ({f}). Resolva antes.',
+    es: 'No se puede continuar el rebase: {n} archivo(s) siguen en conflicto ({f}). Resuélvelos primero.'
+  },
+  pickUnresolved: {
+    en: 'Cannot continue the cherry-pick: {n} file(s) still have conflicts ({f}). Resolve them first.',
+    pt: 'Não dá para continuar o cherry-pick: {n} arquivo(s) ainda em conflito ({f}). Resolva antes.',
+    es: 'No se puede continuar el cherry-pick: {n} archivo(s) siguen en conflicto ({f}). Resuélvelos primero.'
+  },
+  revertUnresolved: {
+    en: 'Cannot continue the revert: {n} file(s) still have conflicts ({f}). Resolve them first.',
+    pt: 'Não dá para continuar o revert: {n} arquivo(s) ainda em conflito ({f}). Resolva antes.',
+    es: 'No se puede continuar el revert: {n} archivo(s) siguen en conflicto ({f}). Resuélvelos primero.'
+  },
+  conflictOursLabel: {
+    en: 'ours — {r}',
+    pt: 'nosso — {r}',
+    es: 'nuestro — {r}'
+  },
+  conflictTheirsLabel: {
+    en: 'theirs — {r}',
+    pt: 'deles — {r}',
+    es: 'suyo — {r}'
+  },
+  conflictNoBothSides: {
+    en: 'Cannot keep both sides of {f}: one side was deleted (no stage 2 or 3).',
+    pt: 'Não dá para manter os dois lados de {f}: um dos lados foi apagado (sem stage 2 ou 3).',
+    es: 'No se pueden mantener ambos lados de {f}: un lado se borró (sin stage 2 ni 3).'
   },
   resetDone: {
     en: 'Reset {m} to {r} done (backup bundle kept).',
@@ -599,19 +656,64 @@ ipcMain.handle('treeline:mergeBranch', (_event, repo: string, ref: string, noFf:
   })
 )
 
+/**
+ * Arquivos ainda unmerged (`git ls-files -u`). Continuar a operação com um
+ * destes no index cria um commit que carrega os marcadores de conflito —
+ * por isso abortamos antes, com o nome do arquivo na mensagem.
+ */
+async function unmergedPaths(repo: string): Promise<string[]> {
+  const raw = await simpleGit(repo).raw(['ls-files', '-u', '-z']).catch(() => '')
+  return parseLsFilesU(raw)
+    .map((e) => e.path)
+    .filter((p, i, a) => a.indexOf(p) === i)
+}
+
+/**
+ * `simple-git` só transforma em erro quando o git escreve no STDERR.
+ * `git commit --no-edit` / `--continue` recusados por "nada a commitar"
+ * escrevem em STDOUT e saem com 1 — o promise RESOLVE e a UI reporta
+ * sucesso enquanto a operação continua parada (revert vazio, merge vazio,
+ * cherry-pick vazio). Confiamos no resultado: se a operação segue viva,
+ * o comando não terminou o trabalho.
+ */
+async function runContinue(repo: string, args: string[], l: UILang, conflictKey: string): Promise<void> {
+  let out = ''
+  try {
+    out = (await simpleGit(repo).raw(args)).trim()
+  } catch (e) {
+    // stderr real: falha genuína (ex.: rebase não consegue aplicar o patch)
+    throw conflictErr(conflictKey, e, l)
+  }
+  if ((await conflictLabels(repo)).op === null) return
+  const rest = await unmergedPaths(repo)
+  if (rest.length > 0) throw new Error(mx(l, 'continueNextConflict', { n: rest.length, f: rest[0] }))
+  throw new Error(mx(l, 'continueEmpty', { cmd: `git ${args.join(' ')}`, out: out.slice(0, 400) || '—' }))
+}
+
 ipcMain.handle('treeline:mergeContinue', (_event, repo: string, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
-    try {
-      await simpleGit(repo).raw(['commit', '--no-edit'])
-    } catch (e) {
-      throw conflictErr('mergeConflicts', e, l)
-    }
+    const unmerged = await unmergedPaths(repo)
+    if (unmerged.length > 0) throw new Error(mx(l, 'mergeUnresolved', { n: unmerged.length, f: unmerged[0] }))
+    await runContinue(repo, ['commit', '--no-edit'], l, 'mergeConflicts')
   })
 )
 
 ipcMain.handle('treeline:abortMerge', (_event, repo: string) =>
   enqueue(repo, () => simpleGit(repo).merge(['--abort']).then(() => undefined))
+)
+
+/**
+ * Aborta um `stash apply/pop` conflitante. Não existe `stash --abort` e
+ * `merge --abort` falha ("no MERGE_HEAD"): `reset --merge` devolve index e
+ * worktree ao HEAD descartando o merge parcial, e a entrada do stash intacta
+ * — é ela a fonte da verdade, então nada se perde.
+ */
+ipcMain.handle('treeline:abortStash', (_event, repo: string) =>
+  enqueue(repo, async () => {
+    await backupBundle(repo)
+    await simpleGit(repo).raw(['reset', '--merge'])
+  })
 )
 
 // ---------------------------------------------------------------------------
@@ -768,11 +870,9 @@ ipcMain.handle('treeline:rebaseOnto', (_event, repo: string, ref: string, lang?:
 ipcMain.handle('treeline:rebaseContinue', (_event, repo: string, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
-    try {
-      await simpleGit(repo).raw(['rebase', '--continue'])
-    } catch (e) {
-      throw conflictErr('rebaseConflicts', e, l)
-    }
+    const unmerged = await unmergedPaths(repo)
+    if (unmerged.length > 0) throw new Error(mx(l, 'rebaseUnresolved', { n: unmerged.length, f: unmerged[0] }))
+    await runContinue(repo, ['rebase', '--continue'], l, 'rebaseConflicts')
   })
 )
 
@@ -804,11 +904,9 @@ ipcMain.handle('treeline:cherryPick', (_event, repo: string, hash: string, lang?
 ipcMain.handle('treeline:cherryPickContinue', (_event, repo: string, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
-    try {
-      await simpleGit(repo).raw(['cherry-pick', '--continue'])
-    } catch (e) {
-      throw conflictErr('pickConflicts', e, l)
-    }
+    const unmerged = await unmergedPaths(repo)
+    if (unmerged.length > 0) throw new Error(mx(l, 'pickUnresolved', { n: unmerged.length, f: unmerged[0] }))
+    await runContinue(repo, ['cherry-pick', '--continue'], l, 'pickConflicts')
   })
 )
 
@@ -1359,12 +1457,17 @@ ipcMain.handle('treeline:getStatus', ( _event, repo: string) =>
   })
 )
 
-ipcMain.handle('treeline:getLog', (_event, repo: string, limit?: number, skip?: number, ref?: string) =>
+ipcMain.handle('treeline:getLog', (_event, repo: string, limit?: number, skip?: number, ref?: string | string[]) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async (): Promise<CommitInfo[]> => {
     const n = Math.min(Math.max(limit ?? 300, 1), 2000)
     const s = Math.min(Math.max(skip ?? 0, 0), 100000)
-    const onlyRef = ref?.trim() || ''
+    // `ref` aceita um ref (modo "branch atual") ou a seleção do combo de
+    // branches do history. Vem qualificado (refs/heads/…, refs/remotes/…),
+    // então nunca briga com path/tag de nome igual.
+    const onlyRefs = (Array.isArray(ref) ? ref : ref?.trim() ? [ref] : [])
+      .map((r) => r.trim())
+      .filter(Boolean)
     // %x1e (record separator) delimita commits; %x00 delimita campos.
     // Não usar \0\0 como separador: %P vazio (root commit) gera NUL duplo.
     // --topo-order é contrato do lane allocator single-pass: garante que
@@ -1372,9 +1475,10 @@ ipcMain.handle('treeline:getLog', (_event, repo: string, limit?: number, skip?: 
     // embaralha a cadeia quando há múltiplas tips com clock skew, e cada
     // commit órfão de reserva vira uma lane nova = staircase).
     // --skip pagina: mesma ordem estável enquanto o repo não muda.
-    // ref (branch atual): ancestry real em vez de heurística de refs.
+    // refs explícitos (branch atual ou seleção múltipla): ancestry real em
+    // vez de heurística de refs; sem seleção, `--all`.
     const raw = await simpleGit(repo).raw([
-      'log', ...(onlyRef ? [onlyRef] : ['--all']), '--topo-order', `--max-count=${n}`, `--skip=${s}`, '--date=iso',
+      'log', ...(onlyRefs.length ? onlyRefs : ['--all']), '--topo-order', `--max-count=${n}`, `--skip=${s}`, '--date=iso',
       '--pretty=format:%H%x00%P%x00%an%x00%ad%x00%D%x00%s%x1e'
     ])
     if (!raw.trim()) return []
@@ -1399,18 +1503,50 @@ ipcMain.handle('treeline:getDiff', (_event, repo: string, file: string, staged: 
     const args = staged ? ['diff', '--cached', '--unified=3', '--', file] : ['diff', '--unified=3', '--', file]
     const out = await simpleGit(repo).raw(args)
     if (out.trim()) return out
-    // Arquivo em conflito: `git diff` sai vazio. Mostra os dois lados
-    // (`:2` ours, `:3` theirs) em blocos rotulados para leitura.
+    // Arquivo em conflito: `git diff` sai vazio porque o index tem 3 estágios
+    // e não existe blob "único" para comparar. O BUG anterior devolvia um
+    // pseudo-diff (`@@ ours @@` sem contagem de linhas), que o DiffViewer não
+    // consegue parsear — a aba ficava em branco. Agora emitimos diff unificado
+    // de verdade: o git aceita specs de blob no lugar de um commit, então
+    // `git diff :1:f :2:f` funciona mesmo com o index unmerged.
     try {
       const l = asLang(lang)
       const unmerged = (await simpleGit(repo).raw(['ls-files', '-u', '--', file])).trim()
       if (!unmerged) return out
-      const ours = await simpleGit(repo).raw(['show', `:2:${file}`]).catch(() => '')
-      const theirs = await simpleGit(repo).raw(['show', `:3:${file}`]).catch(() => '')
-      if (!ours.trim() && !theirs.trim()) return out
-      const block = (s: string): string =>
-        s.replace(/\n$/, '').split('\n').map((ln) => (ln ? ` ${ln}` : '')).join('\n')
-      return `@@ ${mx(l, 'diff.oursSide', { f: file })} @@\n${block(ours)}\n@@ ${mx(l, 'diff.theirsSide', { f: file })} @@\n${block(theirs)}\n`
+      const exists = async (spec: string): Promise<string> =>
+        simpleGit(repo)
+          .raw(['cat-file', '-e', spec])
+          .then(() => spec)
+          .catch(() => '')
+      const s1 = await exists(`:1:${file}`)
+      const s2 = await exists(`:2:${file}`)
+      const s3 = await exists(`:3:${file}`)
+      if (!s2 && !s3) return out
+
+      /**
+       * Um lado como diff unificado. Descarta o cabeçalho `diff --git`/`index`
+       * do git e emite `---`/`+++` próprios com o rótulo do lado, que é o que
+       * o usuário precisa ler; o DiffViewer só exige o `@@`.
+       */
+      const side = async (from: string, to: string, label: string): Promise<string> => {
+        const d = await simpleGit(repo).raw(['diff', '--unified=3', from, to])
+        const at = d.indexOf('@@')
+        if (at < 0) return ''
+        return `--- a/${label}\n+++ b/${label}\n${d.slice(at)}`
+      }
+
+      // Rótulos de verdade (branch de cada lado): o cabeçalho do diff é a
+      // única pista de qual linha veio de qual branch durante a resolução.
+      const { ours: oursRef, theirs: theirsRef } = await conflictLabels(repo)
+      const oursLabel = `${file} — ${mx(l, 'conflictOursLabel', { r: oursRef })}`
+      const theirsLabel = `${file} — ${mx(l, 'conflictTheirsLabel', { r: theirsRef })}`
+      const parts: string[] = []
+      if (s1 && s2) parts.push(await side(s1, s2, oursLabel))
+      if (s1 && s3) parts.push(await side(s1, s3, theirsLabel))
+      // add/add não tem base: a única comparação útil é um lado contra o outro.
+      if (!s1 && s2 && s3) parts.push(await side(s2, s3, `${oursLabel} -> ${theirsLabel}`))
+      const body = parts.filter(Boolean).join('')
+      return body || out
     } catch {
       return out
     }
@@ -1986,6 +2122,17 @@ ipcMain.handle('treeline:getRevertState', (_event, repo: string) =>
   }))
 )
 
+ipcMain.handle('treeline:revertContinue', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    // Revert em conflito não tinha Continue: a operação ficava travada até
+    // o usuário usar o terminal. Mesma guarda dos outros continues.
+    const unmerged = await unmergedPaths(repo)
+    if (unmerged.length > 0) throw new Error(mx(l, 'revertUnresolved', { n: unmerged.length, f: unmerged[0] }))
+    await runContinue(repo, ['revert', '--continue'], l, 'revertConflicts')
+  })
+)
+
 ipcMain.handle('treeline:abortRevert', (_event, repo: string, lang?: unknown) =>
   enqueue(repo, async () => {
     try {
@@ -2155,17 +2302,270 @@ ipcMain.handle('treeline:resetTo', (_event, repo: string, ref: string, mode: imp
   })
 )
 
-ipcMain.handle('treeline:resolveOurs', (_event, repo: string, file: string) =>
-  enqueue(repo, async () => {
-    await simpleGit(repo).raw(['checkout', '--ours', '--', file])
-    await simpleGit(repo).raw(['add', '--', file])
+ipcMain.handle('treeline:resolveOurs', (_event, repo: string, file: string, lang?: unknown) =>
+  enqueue(repo, () => resolveSideRaw(repo, file, 'ours', asLang(lang)))
+)
+
+ipcMain.handle('treeline:resolveTheirs', (_event, repo: string, file: string, lang?: unknown) =>
+  enqueue(repo, () => resolveSideRaw(repo, file, 'theirs', asLang(lang)))
+)
+// ---------------------------------------------------------------------------
+// IPC: resolvedor de conflito de 3 vias.
+// ---------------------------------------------------------------------------
+/**
+ * Operação interrompida e rótulos dos dois lados, para a UI dizer
+ * "ours: main" / "theirs: develop" em vez de "ours/theirs" genéricos.
+ */
+async function conflictLabels(repo: string): Promise<{ op: ConflictOp; ours: string; theirs: string }> {
+  const gd = await gitDirOf(repo)
+  const headRef = await simpleGit(repo)
+    .raw(['rev-parse', '--abbrev-ref', 'HEAD'])
+    .then((r) => r.trim())
+    .catch(() => '')
+  const ours = headRef && headRef !== 'HEAD' ? headRef : 'HEAD'
+
+  // Rebase: o lado "theirs" é a série de commits sendo reaplicada, não um ref.
+  const rebaseHeadName = join(gd, 'rebase-merge', 'head-name')
+  if (await exists(rebaseHeadName)) {
+    const head = (await fs.readFile(rebaseHeadName, 'utf-8').catch(() => '')).trim()
+    return { op: 'rebase', ours: headRef || 'HEAD', theirs: shortRef(head.replace(/^refs\/heads\//, '')) || 'commits' }
+  }
+  if (await exists(join(gd, 'rebase-apply'))) return { op: 'rebase', ours: headRef || 'HEAD', theirs: 'commits' }
+
+  const refAt = async (file: string): Promise<string> => {
+    if (!(await exists(join(gd, file)))) return ''
+    const sha = (await fs.readFile(join(gd, file), 'utf-8').catch(() => '')).trim()
+    if (!sha) return ''
+    // `--refs` aceita UM glob, não uma lista separada por vírgula: passar
+    // `refs/heads/*,refs/remotes/*` casa com nada e o name-rev responde
+    // "undefined" (rc 0). `refs/*` cobre heads, remotes e tags.
+    const name = await simpleGit(repo)
+      .raw(['name-rev', '--name-only', '--refs=refs/*', sha])
+      .then((r) => r.trim())
+      .catch(() => '')
+    // CUIDADO: `name-rev` NÃO falha quando não acha nome — ele imprime a
+    // string literal "undefined" (e "ambiguous") e sai com 0. Sem este
+    // filtro o rótulo do lado deles virava literalmente "undefined" na UI.
+    // O fallback honesto é o sha curto, que sempre identifica o commit.
+    if (!name || name === 'undefined' || name.startsWith('ambiguous')) return sha.slice(0, 8)
+    return shortRef(name)
+  }
+
+  const mergeHead = await refAt('MERGE_HEAD')
+  if (mergeHead) return { op: 'merge', ours, theirs: mergeHead }
+  const cherry = await refAt('CHERRY_PICK_HEAD')
+  if (cherry) return { op: 'cherry-pick', ours, theirs: cherry }
+  const revert = await refAt('REVERT_HEAD')
+  if (revert) return { op: 'revert', ours, theirs: revert }
+  return { op: null, ours, theirs: 'theirs' }
+}
+
+ipcMain.handle('treeline:getConflictFiles', (_event, repo: string) =>
+  // READ: fora da fila de escrita (o overlay abre enquanto outra op termina).
+  readOp(async (): Promise<ConflictFile[]> => {
+    const git = simpleGit(repo)
+    const { ours: oursLabel, theirs: theirsLabel } = await conflictLabels(repo)
+    const stages = stagesByPath(parseLsFilesU(await git.raw(['ls-files', '-u', '-z'])))
+    const out: ConflictFile[] = []
+    for (const { xy, path } of parseUnmergedXY(await git.raw(['status', '--porcelain=v2', '-z']))) {
+      const st = stages.get(path) ?? []
+      // Só rotula como binário depois de olhar o blob; aqui é pré-checagem
+      // barata (os 3 estágios presentes sem marcador).
+      out.push({
+        path,
+        xy,
+        kind: conflictKindOf(xy, st),
+        oursLabel,
+        theirsLabel,
+        stages: st,
+        binary: false
+      })
+    }
+    return out
   })
 )
 
-ipcMain.handle('treeline:resolveTheirs', (_event, repo: string, file: string) =>
+ipcMain.handle('treeline:getConflictOp', (_event, repo: string) =>
+  // READ: os rótulos mudam com a operação; fora da fila.
+  readOp(async (): Promise<ConflictOp> => {
+    const op = (await conflictLabels(repo)).op
+    if (op) return op
+    // `git stash apply/pop` conflitante NÃO deixa MERGE_HEAD nem cabeça de
+    // rebase: o único sinal é o index ainda conflitante. `checkout -m` e
+    // `restore --merge` caem no mesmo balde e também não têm `--continue`,
+    // então o tratamento (concluir sem comando git) é o mesmo para os três.
+    return (await unmergedPaths(repo)).length > 0 ? 'stash' : null
+  })
+)
+
+ipcMain.handle('treeline:getConflictStages', (_event, repo: string, file: string) =>
+  // READ: 3 `cat-file` + 1 `merge-file`, sem tocar no index.
+  readOp(async (): Promise<ConflictStages> => {
+    const git = simpleGit(repo)
+    const entries = parseLsFilesU(await git.raw(['ls-files', '-u', '-z', '--', file]))
+    if (entries.length === 0) throw new Error(`not unmerged: ${file}`)
+    const byStage = new Map(entries.map((e) => [e.stage, e]))
+    const { ours: oursLabel, theirs: theirsLabel } = await conflictLabels(repo)
+
+    const readBlob = async (stage: number): Promise<{ text: string; binary: boolean } | null> => {
+      const e = byStage.get(stage)
+      if (!e) return null
+      const raw = await git.raw(['cat-file', 'blob', e.sha])
+      return { text: raw, binary: looksBinary(Buffer.from(raw, 'utf8')) }
+    }
+    const s2 = await readBlob(2)
+    const s3 = await readBlob(3)
+    const s1 = await readBlob(1)
+
+    // Binário: a UI mostra "resolver por lado" e não tenta merge de texto.
+    if (s2?.binary || s3?.binary) {
+      return {
+        path: file,
+        kind: 'binary',
+        marked: '',
+        ours: null,
+        theirs: null,
+        base: null,
+        oursLabel,
+        theirsLabel,
+        binary: true
+      }
+    }
+
+    // delete/modify e both-deleted: falta um dos estágios e o git NÃO deixa
+    // marcador no worktree. Devolvemos os lados crus com o ausente = null, e o
+    // renderer monta a região (contrato 4 do `conflict3.ts`).
+    if (byStage.size < 3) {
+      return {
+        path: file,
+        kind: byStage.has(2) ? 'deleted-by-them' : byStage.has(3) ? 'deleted-by-us' : 'both-deleted',
+        marked: '',
+        ours: s2?.text ?? null,
+        theirs: s3?.text ?? null,
+        base: s1?.text ?? null,
+        oursLabel,
+        theirsLabel,
+        binary: false
+      }
+    }
+
+    // add/add não tem stage 1. O `merge-file --object-id` exige que o sha da
+    // base exista no object store, então gravamos o blob vazio (imutável, sem
+    // risco — é o mesmo objeto que o `git add` de arquivo vazio cria).
+    // simple-git não faz stdin, então o vazio vai por arquivo temporário.
+    let baseSha = byStage.get(1)?.sha
+    if (!baseSha) {
+      const { tmpdir } = await import('node:os')
+      const { randomBytes } = await import('node:crypto')
+      const tmp = join(tmpdir(), `treeline-${randomBytes(6).toString('hex')}.empty`)
+      try {
+        await fs.writeFile(tmp, '')
+        baseSha = (await git.raw(['hash-object', '-w', '-t', 'blob', tmp])).trim()
+      } finally {
+        await fs.rm(tmp, { force: true })
+      }
+    }
+
+    const marked = await git
+      .raw([
+        'merge-file',
+        '-p',
+        '--object-id',
+        '--zdiff3',
+        '-L',
+        'ours',
+        '-L',
+        'base',
+        '-L',
+        'theirs',
+        byStage.get(2)!.sha,
+        baseSha,
+        byStage.get(3)!.sha
+      ])
+      .catch((e: unknown) => {
+        // rc = número de conflitos (1 um, N vários): o stdout é o que serve.
+        const err = e as { stdout?: string }
+        if (typeof err.stdout === 'string') return err.stdout
+        throw e
+      })
+
+    return {
+      path: file,
+      kind: byStage.has(1) ? 'both-modified' : 'both-added',
+      marked,
+      ours: s2?.text ?? '',
+      theirs: s3?.text ?? '',
+      base: byStage.has(1) ? (s1?.text ?? '') : null,
+      oursLabel,
+      theirsLabel,
+      binary: false
+    }
+  })
+)
+
+/** ours + theirs com \n garantido entre os dois (union sem "No newline" no meio). */
+function joinSides(a: string, b: string): string {
+  return (a.endsWith('\n') || a === '' ? a : `${a}\n`) + (b.endsWith('\n') || b === '' ? b : `${b}\n`)
+}
+
+/**
+ * Resolve o arquivo inteiro por um lado. É destrutivo, então grava bundle
+ * antes (mesma política de reset hard/rebase).
+ */
+async function resolveSideRaw(repo: string, file: string, side: ConflictSide, l: UILang): Promise<void> {
+  await backupBundle(repo)
+  const git = simpleGit(repo)
+  if (side === 'both-deleted') {
+    await git.raw(['rm', '-f', '--', file])
+    return
+  }
+  if (side === 'both') {
+    const entries = parseLsFilesU(await git.raw(['ls-files', '-u', '-z', '--', file]))
+    const byStage = new Map(entries.map((e) => [e.stage, e]))
+    const s2 = byStage.get(2)
+    const s3 = byStage.get(3)
+    if (!s2 || !s3) throw new Error(mx(l, 'conflictNoBothSides', { f: file }))
+    await fs.writeFile(join(repo, file), joinSides(await git.raw(['cat-file', 'blob', s2.sha]), await git.raw(['cat-file', 'blob', s3.sha])))
+    await git.raw(['add', '--', file])
+    return
+  }
+  await git.raw(['checkout', `--${side}`, '--', file])
+  await git.raw(['add', '--', file])
+}
+
+ipcMain.handle('treeline:resolveConflictSide', (_event, repo: string, file: string, side: ConflictSide, lang?: unknown) =>
+  enqueue(repo, () => resolveSideRaw(repo, file, side, asLang(lang)))
+)
+
+ipcMain.handle('treeline:applyConflictResult', (_event, repo: string, file: string, content: string, del: boolean) =>
   enqueue(repo, async () => {
-    await simpleGit(repo).raw(['checkout', '--theirs', '--', file])
-    await simpleGit(repo).raw(['add', '--', file])
+    const git = simpleGit(repo)
+    // Sem bundle aqui de propósito: o editor salva a cada região e um
+    // `bundle create --all` por região custaria O(repo) inteiro. O undo é o
+    // add, e o bundle do `Continue`/abort cobre a operação como um todo.
+    if (del) {
+      await git.raw(['rm', '-f', '--', file])
+      return
+    }
+    await fs.writeFile(join(repo, file), content)
+    await git.raw(['add', '--', file])
+  })
+)
+
+ipcMain.handle('treeline:getRerere', (_event, repo: string) =>
+  // READ: só lê config do repo.
+  readOp(async (): Promise<boolean> => {
+    const v = await simpleGit(repo)
+      .raw(['config', '--get', 'rerere.enabled'])
+      .catch(() => '')
+    return v.trim() === 'true'
+  })
+)
+
+ipcMain.handle('treeline:setRerere', (_event, repo: string, on: boolean) =>
+  enqueue(repo, async () => {
+    // Opt-in explícito: mexe só no repo aberto, nunca no global.
+    await simpleGit(repo).raw(on ? ['config', 'rerere.enabled', 'true'] : ['config', '--unset', 'rerere.enabled'])
   })
 )
 

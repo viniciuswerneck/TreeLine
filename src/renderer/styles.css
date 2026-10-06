@@ -222,6 +222,55 @@ body {
   border: 1px solid var(--border-line); border-radius: var(--radius-sm);
   background: var(--bg-app); color: var(--text-1); padding: 5px 10px; width: 200px; font: inherit; font-size: 12.5px;
 }
+/* ---- Combo de branches do history (estilo Git Graph) ---- */
+.branch-combo { position: relative; }
+.branch-combo-btn {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 340px;
+  border: 1px solid var(--border-line); background: var(--bg-app); color: var(--text-1);
+  border-radius: var(--radius-sm); padding: 4px 8px; font: inherit; font-size: 11.5px; cursor: pointer;
+}
+.branch-combo-btn:hover { background: var(--bg-hover); }
+.branch-combo-btn.open { border-color: var(--accent); background: var(--bg-hover); }
+.branch-combo-btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+.branch-combo-btn .bc-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.branch-combo-btn svg { flex-shrink: 0; opacity: .7; }
+.branch-combo-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; width: 292px; z-index: 30;
+  background: var(--bg-panel); border: 1px solid var(--border-line); border-radius: var(--radius-sm);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .35); padding: 6px;
+}
+.bc-search { display: flex; align-items: center; gap: 6px; color: var(--text-2); }
+.bc-search input {
+  flex: 1; min-width: 0; border: 1px solid var(--border-line); border-radius: var(--radius-sm);
+  background: var(--bg-app); color: var(--text-1); padding: 5px 8px; font: inherit; font-size: 12px;
+}
+.bc-search input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.bc-check {
+  display: flex; align-items: center; gap: 7px; padding: 6px 4px 4px;
+  font-size: 11.5px; color: var(--text-2); cursor: pointer;
+}
+.bc-check input { accent-color: var(--accent); }
+.bc-list { max-height: 264px; overflow: auto; margin-top: 4px; }
+.bc-group {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-2);
+  padding: 7px 4px 3px;
+}
+.bc-item {
+  display: flex; align-items: center; gap: 7px; padding: 4px; border-radius: 6px;
+  font-size: 12px; color: var(--text-1); cursor: pointer;
+}
+.bc-item:hover { background: var(--bg-hover); }
+.bc-item input { accent-color: var(--accent); }
+.bc-item .bc-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-item.remote .bc-name { color: var(--text-2); }
+.bc-item .ref-badge { margin-right: 0; }
+.bc-empty { padding: 10px 4px; font-size: 11.5px; color: var(--text-2); }
+.bc-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  border-top: 1px solid var(--border-line); margin-top: 6px; padding-top: 6px;
+}
+.bc-count { font-size: 11px; color: var(--text-2); }
+.bc-foot .mini-btn { margin-left: 0; }
 .history-head, .history-row {
   display: grid; grid-template-columns: minmax(120px, 220px) 1fr 140px 130px 80px;
   gap: 8px; align-items: center; padding: 0 12px;
@@ -319,6 +368,12 @@ body {
   border: 1px solid var(--border-line); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1); overflow: auto; padding: 12px;
 }
+/* Unstaged e Staged maximizam JUNTOS, lado a lado: o par divide a janela ao
+   meio (encostados, com a borda direita do Unstaged fazendo a divisória) e
+   os dois ficam acima do backdrop. Só essas duas colunas fazem isso — diff e
+   conflicted continuam Maximizando sozinhos. */
+.file-col.expanded.pair-unstaged { left: 12px; right: 50%; width: auto; }
+.file-col.expanded.pair-staged { left: 50%; right: 12px; width: auto; }
 .pane-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.4); }
 
 /* ---- Terminal integrado (drawer inferior, expansível) ---- */
@@ -809,3 +864,421 @@ body {
 .tab-x:hover { background: rgba(127, 127, 127, 0.2); color: var(--text-1); }
 .tab.dragging { opacity: 0.45; }
 .tab.drop-target { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* ---- Resolvedor de conflito 3-vias (overlay em tela cheia) ----
+   Sem backdrop-filter: cobre a janela inteira e blur em 3 colunas de texto
+   sairia caro sem ganho (regra do design system: mica só em sidebar/modal).
+   Só sidebar e modais pequenos usam composition; aqui é superfície opaca. */
+.cr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+  color: var(--text-1);
+}
+.cr-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-line);
+  background: var(--bg-panel);
+}
+.cr-header h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.cr-sub { color: var(--text-2); font-size: 12px; }
+.cr-spacer { flex: 1; }
+.cr-rerere {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.cr-rerere-state { font-size: 11px; opacity: 0.75; }
+
+.cr-files {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-line);
+  background: var(--bg-panel);
+}
+.cr-file {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-width: 240px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+.cr-file:hover { background: var(--bg-hover); }
+.cr-file.active {
+  background: var(--bg-selected);
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+.cr-file-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.cr-file-kind { font-size: 11px; opacity: 0.7; }
+.cr-none { color: var(--text-2); font-size: 12px; align-self: center; }
+
+.cr-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 196, 0, 0.12);
+  border-bottom: 1px solid var(--border-line);
+  color: var(--text-1);
+  font-size: 12px;
+}
+
+/* Merge Editor no padrão WinMerge: A | Resultado | B em TRÊS colunas
+   verticais de altura cheia (uma linha só), como os file panes lado a lado
+   dele. `.cr-main.no-result` cai para A|B puro — o toggle da toolbar. */
+.cr-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  gap: 1px;
+  background: var(--border-line);
+}
+.cr-main.no-result { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.cr-main.no-result .cr-result { display: none; }
+/* Estado final do overlay: todos os arquivos resolvidos. Ele NÃO fecha
+   sozinho porque é ali que mora o Continue da operação (Revert só tem essa
+   saída), então precisa de um vazio apresentável em vez de 3 colunas mortas. */
+.cr-done {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--bg-panel);
+  color: var(--text-1);
+  text-align: center;
+  padding: 40px 32px;
+}
+.cr-done svg { color: var(--accent); }
+.cr-done-title { margin: 0; font-size: 16px; font-weight: 600; }
+.cr-done-hint { margin: 0; font-size: 13px; color: var(--text-2); max-width: 440px; }
+
+.cr-panel, .cr-result {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-panel);
+}
+.cr-result { min-width: 0; }
+.cr-result-file {
+  color: var(--text-2);
+  font-weight: 400;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Toolbar do resolvedor: navegação ▲▼ + contador + seletor de 4 estados. */
+.cr-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border-line);
+  background: var(--bg-panel);
+  flex: none;
+  min-width: 0;
+}
+.cr-toolbar .cr-region-nav { flex: none; }
+.cr-counter {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cr-seg {
+  display: inline-flex;
+  border: 1px solid var(--border-line);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--bg-app);
+  overflow: hidden;
+  flex: none;
+}
+.cr-seg-btn {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 14px;
+  background: transparent;
+  color: var(--text-2);
+  border: none;
+  border-right: 1px solid var(--border-line);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+.cr-seg-btn:last-child { border-right: none; }
+.cr-seg-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-1); }
+.cr-seg-btn.on {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text-1);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.cr-seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.cr-panel-head, .cr-result-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-line);
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 34px;
+}
+.cr-panel-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+}
+.cr-panel-name { color: var(--text-1); }
+.cr-panel-ref {
+  color: var(--text-2);
+  font-weight: 400;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.cr-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cr-panel-empty { margin: 0; padding: 6px 4px; color: var(--text-2); font-size: 12px; font-weight: 400; }
+
+/* Um bloco de conflito = uma região com seus 3 lados. A caixa "pending"
+   (escolha nula) fica com borda tracejada para não parecer já decidida. */
+.cr-block {
+  border: 1px solid var(--border-line);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--bg-app);
+  overflow: hidden;
+}
+.cr-block.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-line));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.cr-block.pending { border-style: dashed; }
+.cr-block-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-line);
+  font-size: 11px;
+  color: var(--text-2);
+}
+.cr-block-n { font-weight: 600; color: var(--text-1); }
+.cr-block-flag {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #d83b01 16%, transparent);
+  color: #c42b1c;
+}
+.cr-block-head:has(.cr-block-chips) .cr-block-flag { margin-left: 0; }
+.cr-block-chips { margin-left: auto; display: flex; gap: 6px; }
+.cr-block-body {
+  margin: 0;
+  padding: 8px 10px;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 4;
+  overflow-x: auto;
+  max-height: 13em;
+}
+.cr-block-base { border-top: 1px solid var(--border-line); }
+.cr-block-base summary {
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-2);
+  user-select: none;
+}
+.cr-block-base summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cr-block-base pre {
+  margin: 0;
+  padding: 0 10px 8px;
+  color: var(--text-2);
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.cr-cb {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: none;
+}
+.cr-cb:disabled { opacity: 0.4; cursor: default; }
+.cr-cb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.cr-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-line);
+  background: var(--bg-hover);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cr-chip:hover:not(:disabled) { color: var(--text-1); border-color: color-mix(in srgb, var(--accent) 45%, var(--border-line)); }
+.cr-chip:active:not(:disabled) { transform: translateY(1px); }
+.cr-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cr-chip.ghost { background: transparent; }
+
+.cr-region-nav { display: flex; align-items: center; gap: 4px; font-weight: 400; color: var(--text-2); }
+.cr-result-title { font-weight: 600; }
+.cr-pill {
+  font-size: 11px;
+  font-weight: 400;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.cr-pill.warn { background: color-mix(in srgb, #d83b01 16%, transparent); color: #c42b1c; }
+
+.cr-cm { flex: 1; min-height: 0; }
+.cm-host { display: block; width: 100%; min-height: 0; }
+.cm-host .cm-editor { height: 100%; }
+
+/* Sintaxe — tema claro (gerada pelo HighlightStyle com classe `.cm-t-*`) */
+.cm-t-kw { color: #8250df; }
+.cm-t-fn { color: #0550ae; }
+.cm-t-type { color: #953800; }
+.cm-t-str { color: #0a7d38; }
+.cm-t-num { color: #0550ae; }
+.cm-t-com { color: #6a737d; }
+.cm-t-prop { color: #0550ae; }
+.cm-t-tag { color: #116329; }
+.cm-t-meta { color: #57606a; }
+.cm-t-link { color: #0969da; }
+.cm-t-invalid { color: #cf222e; text-decoration: underline; }
+
+/* Sintaxe — tema escuro (`.cm-t-*.d`, escolhido pelo JS via panelIsDark) */
+.cm-t-kw.d { color: #c586c0; }
+.cm-t-fn.d { color: #dcdcaa; }
+.cm-t-type.d { color: #4ec9b0; }
+.cm-t-str.d { color: #ce9178; }
+.cm-t-num.d { color: #b5cea8; }
+.cm-t-com.d { color: #8b949e; }
+.cm-t-prop.d { color: #9cdcfe; }
+.cm-t-tag.d { color: #569cd6; }
+.cm-t-meta.d { color: #c586c0; }
+.cm-t-link.d { color: #4fc1ff; }
+.cm-t-invalid.d { color: #f47067; text-decoration: underline; }
+
+.cr-binary { padding: 20px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.cr-binary p { margin: 0; color: var(--text-2); font-size: 13px; }
+.cr-binary-actions { display: flex; gap: 8px; }
+
+.cr-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-line);
+  background: var(--bg-panel);
+  font-size: 12px;
+}
+.cr-status { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.cr-all { display: flex; align-items: center; gap: 6px; color: var(--text-2); }
+
+.cr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--border-line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+.cr-btn:hover:not(:disabled) { background: var(--bg-hover); }
+.cr-btn:active:not(:disabled) { transform: translateY(1px); }
+.cr-btn:disabled { opacity: 0.45; cursor: default; }
+.cr-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cr-btn.ghost { background: transparent; color: var(--text-2); }
+.cr-btn.primary { background: var(--accent); border-color: transparent; color: var(--accent-text); }
+.cr-btn.danger { color: #c42b1c; }
+.cr-btn kbd {
+  padding: 0 4px;
+  border: 1px solid var(--border-line);
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-2);
+}
+.cr-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+.cr-icon:hover { background: var(--bg-hover); color: var(--text-1); }

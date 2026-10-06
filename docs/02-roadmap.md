@@ -16,7 +16,7 @@ Aceite: `npm run dev` abre repo, `npm run dist` gera `.deb` instalável.
 
 Paridade do loop básico do SourceTree.
 
-- [x] History: `log --all --topo-order` com grafo SVG colorido, colunas Message/Date/Author/Hash, filtro branch atual/all + busca (Ctrl+F) com highlight de seleção, avatares de iniciais
+- [x] History: `log --topo-order` (refs selecionados ou `--all`) com grafo SVG colorido, colunas Message/Date/Author/Hash, **combo de branches** (seleção múltipla com busca incremental + checkbox de remotos, estilo Git Graph), filtro branch atual/all + busca (Ctrl+F) com highlight de seleção, avatares de iniciais
 - [x] Working Copy: status, Unstaged/Staged lado a lado, Stage/Unstage por arquivo/hunk/linha + Stage All/Unstage All, Discard por hunk, linha Working Copy no topo do histórico
 - [x] Diff unified, Commit (incl. Amend, com guarda anti-commit-vazio e botão desabilitado sem stage, Ctrl+Enter, hint convencional)
 - [x] Push/Pull (`--ff-only`)/Fetch (`--all --prune`) com toast de progresso/resultado/erro + timeout 120s; Push `--force-with-lease` explícito com confirmação (toolbar botão direito, Remotes)
@@ -74,12 +74,13 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | Recurso SourceTree | TreeLine Fase | Status |
 |---|---|---|
 | Bookmarks/Open/Clone/Init | 0-1 | ☑ (open/list/clone/init + remote manager) |
-| Graph + History + Search | 1 | ☑ (paridade GitGraph: dots cheios, split/join, spine-first + steal, datas absolutas, badges por branch, avatares, compare 2 commits, blame/file-history; virtualização validada com 10.000 commits a 58fps) |
+| Graph + History + Search | 1 | ☑ (paridade GitGraph: dots cheios, split/join, spine-first + steal, datas absolutas, badges por branch, avatares, compare 2 commits, blame/file-history; combo de branches com busca + remotos; virtualização validada com 10.000 commits a 58fps) |
 | Stage arquivo/hunk/linha | 1-2 | ☑ (arquivo + all + hunk + linha via `git apply`, discard por hunk) |
 | Commit/Amend/Push/Pull/Fetch | 1 | ☑ (com toast, timeout, ff-only no pull, `--force-with-lease` explícito com confirmação) |
 | Branch/Merge/Tag | 1-2 | ☑ (dialogs + sidebar detalhada; revert e reset direto ok; checkout de branch/remota/tag com HEAD marcado) |
 | Stash/Cherry-pick/Revert | 2 | ☑ (stash + cherry-pick + revert com confirmação) |
 | Conflito Ours/Theirs | 2 | ☑ (ours/theirs por arquivo na conflict-bar + menu; continue/abort) |
+| Resolvedor 3 vias (WinMerge/Merge Editor) | 3 | ☑ (3 colunas A|Result|B de altura cheia, toolbar com ▲▼ + contador + seletor A/B/Ambos/Nenhum, toggle da coluna Result, CodeMirror 6, rerere opt-in no Settings; E2E das 5 operações: merge, rebase, cherry-pick, revert, stash) |
 | Rebase interativo + Undo | 3 | ☑ (simples + interativo pick/reword/edit/squash/fixup/drop/reorder + undo via reflog com bundle; History/Reflog em abas Reflog/Backups) |
 | Git-flow | 3 | ☑ (start/finish feature/release/hotfix, com e sem `git flow`) |
 | LFS/Submodules | 2-3 | ☑ (LFS com dialog pull/push/track/untrack + badge; submodules recursivos com update/init) |

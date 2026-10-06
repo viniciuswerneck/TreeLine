@@ -4,7 +4,7 @@
 
 **TreeLine is a SourceTree alternative for Linux**: a visual Git client (Git GUI) for Ubuntu/Debian with the familiar workflow of SourceTree on Windows/Mac. If you were looking for *SourceTree for Linux*, *SourceTree on Ubuntu* or a *Git client for Linux* — this is it.
 
-![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.6.2-green)
+![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.6.4-green)
 
 > 100% original implementation — not affiliated with Atlassian. Inspired by the SourceTree workflow, without copying brand, icons or texts.
 
@@ -23,11 +23,12 @@ Other alternatives people compare: GitKraken, GitHub Desktop (no official Linux 
 
 ## Features
 
-- **4 regions**: toolbar, sidebar (Bookmarks, Workspace, Branches, Remotes, Tags, Stashes), history with graph and File Status + diff panel
-- **Git Graph-style graph**: colored lanes, merge curves, badges per ref type, absolute dates, avatars, compare between 2 commits (Ctrl+click)
+- **4 regions**: toolbar, sidebar (Bookmarks, Workspace, Branches, Remotes, Tags, Stashes), history with graph and File Status + diff panel (Unstaged/Staged expand together, side by side)
+- **Git Graph-style graph**: colored lanes, merge curves, badges per ref type, absolute dates, avatars, branch combo with type-to-filter selection and optional remotes, compare between 2 commits (Ctrl+click)
 - **Full flow**: Stage/Unstage (per file, hunk and line + Stage All), side-by-side diff with arrows per block, Commit with Amend (Ctrl+Enter), **Push (`--force-with-lease` on demand) / Pull (`--ff-only`) / Fetch** with progress toast
 - **Commit search**, current-branch filter, click a commit to see files + diff, Blame and file history
-- **Branch/Merge/Stash/Tag/Rebase (simple + interactive)/Cherry-Pick/Revert/Reset/Git-flow/Reflog+Undo** with bundle backup before destructive ops, conflict resolver (Ours/Theirs)
+- **Branch/Merge/Stash/Tag/Rebase (simple + interactive)/Cherry-Pick/Revert/Reset/Git-flow/Reflog+Undo** with bundle backup before destructive ops
+- **3-way conflict resolver**: full-screen A | Result | B columns (WinMerge style) with CodeMirror editors, one-click region choices (A/B/both/none), optional **rerere**, and Continue/Abort for merge, rebase, cherry-pick, revert and stash
 - **Right-click** menus everywhere, `Ctrl+K` command palette, collapsible sidebar (`Ctrl+B`), integrated terminal, clickable status bar
 - **10 themes** (5 light + 5 dark + System) and **Settings** with author identity (name/email)
 - **3 languages**: English, Português and Español (detects the system, switch in Settings)
@@ -38,7 +39,7 @@ Other alternatives people compare: GitKraken, GitHub Desktop (no official Linux 
 Download the `.deb` or `.AppImage` from the **Releases** page and install:
 
 ```bash
-sudo apt install ./treeline-git-gui_0.6.3_amd64.deb
+sudo apt install ./treeline-git-gui_0.6.4_amd64.deb
 ```
 
 Requirement: `git >= 2.40`. Optional: `git-lfs`, `git-flow`.
@@ -51,8 +52,9 @@ npm run dev        # Vite + Electron with hot reload
 npm run typecheck  # tsc (node + web)
 npm run build      # compile only
 npm run dist       # .deb + AppImage in dist/
-npm test           # Vitest (graph engine)
+npm test           # Vitest (graph engine + parsers)
 npm run test:ui    # Playwright CDP harness (app must run with --remote-debugging-port=9222)
+npm run test:ui:new # second CDP harness (LFS, tabs, shortcuts, E2E flows)
 ```
 
 To run the local binary without installing:
@@ -74,12 +76,13 @@ docs/         # vision, roadmap, architecture, ADRs, status, design system
 
 Product documentation and decisions in [`docs/`](docs/).
 
-## Roadmap (summary)
+## Status / Roadmap (summary)
 
-- **0.5.0** — Branch/Merge dialogs, remote manager (clone/init), stage per hunk/line, split diff
-- **0.9.0** — stash, cherry-pick, revert, tags, conflict resolver, force-with-lease
-- **1.0.0** — interactive rebase with undo, git-flow, reflog + bundle backup
-- **1.1.0+** — Flatpak, keyring, auto-update, remappable shortcuts
+- **0.5.0** — stage per hunk/line, split diff, revert/reset, `--force-with-lease`, blame/compare, command palette
+- **0.6.0 – 0.6.2** — watcher + auto-fetch, LFS, recursive submodules, custom actions, tabs with drag, remappable shortcuts, Flatpak/CI, 10k-commit virtualization, two-column Settings
+- **0.6.3** — package and binary renamed to `treeline-git-gui` (no clash with the Ubuntu `treeline` package)
+- **0.6.4** — 3-way conflict resolver with rerere, Unstaged/Staged panels expanding together, branch combo with search + remotes in the history
+- **Next** — Flathub submission, `libsecret`/GNOME Keyring, auto-update, `--rpm`/AUR
 
 Detail and SourceTree parity in [`docs/02-roadmap.md`](docs/02-roadmap.md).
 

@@ -217,6 +217,65 @@ export interface OpState {
   target?: string
 }
 
+/**
+ * Como os dois lados colidiram. Sai do código XY do `status --porcelain=v2`
+ * combinado com quais estágios existem no index (`git ls-files -u`):
+ * delete/modify NÃO tem stage 2 (deleted-by-them) nem stage 3 (deleted-by-us),
+ * e add/add não tem stage 1 (não existia na base).
+ */
+export type ConflictKind =
+  | 'both-modified'
+  | 'both-added'
+  | 'deleted-by-them'
+  | 'deleted-by-us'
+  | 'both-deleted'
+  | 'submodule'
+  | 'binary'
+
+/** Um arquivo em conflito, com o motivo e os rótulos dos dois lados. */
+export interface ConflictFile {
+  path: string
+  /** Código XY cru do porcelain v2 (ex.: "UU", "DU", "AA"). */
+  xy: string
+  kind: ConflictKind
+  /** Rótulo do stage 2 (nosso lado): branch/HEAD, ou rótulo da operação. */
+  oursLabel: string
+  /** Rótulo do stage 3 (lado deles): ref do MERGE_HEAD, etc. */
+  theirsLabel: string
+  /** Estágios presentes no index: 1 = base, 2 = ours, 3 = theirs. */
+  stages: number[]
+  /** Confere se o blob tem byte NUL (não é texto). */
+  binary: boolean
+}
+
+/** Operação Git interrompida no momento, para a UI rotular os lados. */
+export type ConflictOp = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'stash' | null
+
+/**
+ * Os três lados de um arquivo em conflito, prontos para o parser do renderer
+ * (`renderer/lib/conflict3.ts`): `marked` é a saída do
+ * `git merge-file --object-id --zdiff3`, que já vem com marcadores e a seção
+ * base. `ours`/`theirs` vêm crus para delete/modify, que não tem marcador.
+ */
+export interface ConflictStages {
+  path: string
+  kind: ConflictKind
+  /** Texto com marcadores do merge-file (vazio em delete/modify e binário). */
+  marked: string
+  /** Conteúdo do stage 2; null se ausente (deleted-by-them). */
+  ours: string | null
+  /** Conteúdo do stage 3; null se ausente (deleted-by-us). */
+  theirs: string | null
+  /** Conteúdo do stage 1 (base); null em add/add. */
+  base: string | null
+  oursLabel: string
+  theirsLabel: string
+  binary: boolean
+}
+
+/** Qual lado resolver sem abrir o editor (atalho de 1 clique). */
+export type ConflictSide = 'ours' | 'theirs' | 'both' | 'both-deleted'
+
 /** Arquivos que um merge traria (preview `HEAD...ref`). */
 export interface MergePreview {
   files: string[]
@@ -235,7 +294,8 @@ export interface TreeLineAPI {
   openRepo(): Promise<string | null>
   addRecent(path: string): Promise<string[]>
   getStatus(repo: string): Promise<RepoStatus>
-  getLog(repo: string, limit?: number, skip?: number, ref?: string): Promise<CommitInfo[]>
+  /** Um ref (branch atual) ou a seleção do combo de branches do history. */
+  getLog(repo: string, limit?: number, skip?: number, ref?: string | string[]): Promise<CommitInfo[]>
   getBranches(repo: string): Promise<BranchInfo[]>
   getDiff(repo: string, file: string, staged: boolean, lang?: string): Promise<string>
   getHunks(repo: string, file: string, staged: boolean): Promise<HunkInfo[]>
@@ -248,6 +308,19 @@ export interface TreeLineAPI {
   resetTo(repo: string, ref: string, mode: ResetMode, lang?: string): Promise<void>
   resolveOurs(repo: string, file: string, lang?: string): Promise<void>
   resolveTheirs(repo: string, file: string, lang?: string): Promise<void>
+  /** Lista os arquivos unmerged com tipo de conflito e rótulos dos dois lados. */
+  getConflictFiles(repo: string): Promise<ConflictFile[]>
+  /** Os 3 estágios + saída do `merge-file --zdiff3` para o editor 3-vias. */
+  getConflictStages(repo: string, file: string): Promise<ConflictStages>
+  /** Qual operação está interrompida agora (para rótulos e Continuar certo). */
+  getConflictOp(repo: string): Promise<ConflictOp>
+  /** Resolve o arquivo inteiro por um lado, com backup bundle antes. */
+  resolveConflictSide(repo: string, file: string, side: ConflictSide, lang?: string): Promise<void>
+  /** Grava o resultado da resolução 3-vias no worktree e dá stage. */
+  applyConflictResult(repo: string, file: string, content: string, del: boolean, lang?: string): Promise<void>
+  /** Liga/desliga `rerere.enabled` neste repo (opt-in do usuário). */
+  setRerere(repo: string, on: boolean): Promise<void>
+  getRerere(repo: string): Promise<boolean>
   pushForce(repo: string, forceLease: boolean, lang?: string): Promise<SyncResult>
   pushPublish(repo: string, lang?: string): Promise<SyncResult>
   cancelSync(repo: string, op: string): Promise<void>
@@ -296,6 +369,7 @@ export interface TreeLineAPI {
   mergeBranch(repo: string, ref: string, noFf: boolean, lang?: string): Promise<void>
   mergeContinue(repo: string, lang?: string): Promise<void>
   abortMerge(repo: string): Promise<void>
+  abortStash(repo: string): Promise<void>
   // Stash
   getStashes(repo: string): Promise<StashInfo[]>
   createStash(repo: string, message: string, includeUntracked: boolean, lang?: string): Promise<void>
@@ -315,6 +389,7 @@ export interface TreeLineAPI {
   // Revert
   getRevertState(repo: string): Promise<OpState>
   abortRevert(repo: string): Promise<void>
+  revertContinue(repo: string, lang?: string): Promise<void>
   // Worktree
   getWorktreeInfo(repo: string): Promise<WorktreeInfo>
   // LFS + Submodules

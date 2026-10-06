@@ -9,6 +9,8 @@ export default function PickDialog() {
   const status = useStore((s) => s.status)
   const tr = useStore((s) => s.tr)
   const { busy, run } = useDialogRunner()
+  const openResolver = useStore((s) => s.openResolver)
+  const closeDlg = useStore((s) => s.closeDlg)
 
   const [hash, setHash] = useState(selectedCommit ?? '')
 
@@ -28,10 +30,27 @@ export default function PickDialog() {
         )}
         <p className="muted">{tr('op.conflicted', { n: conflicted.length })}</p>
         <div className="modal-actions">
+          {conflicted.length > 0 && (
+            <button
+              className="tool-btn primary"
+              disabled={busy}
+              onClick={() => {
+                closeDlg()
+                void openResolver()
+              }}
+            >
+              {tr('cr.title')}
+            </button>
+          )}
           <button className="tool-btn" disabled={busy} onClick={() => void run(() => dialogOps.abortCherryPick())}>
             {tr('dlg.abort')}
           </button>
-          <button className="tool-btn primary" disabled={busy} onClick={() => void run(() => dialogOps.cherryPickContinue())}>
+          <button
+            className="tool-btn primary"
+            disabled={busy || conflicted.length > 0}
+            title={conflicted.length > 0 ? tr('cr.markerLeft') : undefined}
+            onClick={() => void run(() => dialogOps.cherryPickContinue())}
+          >
             {busy ? tr('dlg.working') : tr('dlg.continue')}
           </button>
         </div>

@@ -9,6 +9,10 @@ import { RefBadge, visibleRefs } from './HistoryGraph'
  * diff ao lado e commit box sempre visível embaixo (stage → mensagem → Commit
  * na mesma tela, sem trocar de aba).
  */
+
+/** Colunas que maximizam JUNTAS: Unstaged e Staged são os dois lados do mesmo quadro. */
+const PAIRED = new Set(['unstaged', 'staged'])
+
 const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, commitRef) {
   const status = useStore((s) => s.status)
   const selectedFile = useStore((s) => s.selectedFile)
@@ -26,6 +30,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const setAmend = useStore((s) => s.setAmend)
   const doCommit = useStore((s) => s.doCommit)
   const resolveOurs = useStore((s) => s.resolveOurs)
+  const openResolver = useStore((s) => s.openResolver)
   const resolveTheirs = useStore((s) => s.resolveTheirs)
 
   const unstaged = status?.unstaged ?? []
@@ -100,22 +105,30 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
     return () => window.removeEventListener('keydown', onKey)
   }, [expanded])
 
+  // Um id do par `files` maximiza as DUAS colunas de arquivo ao mesmo tempo,
+  // lado a lado (cada uma com metade da janela). Diff/conflicted continuam
+  // Maximizando sozinhos.
+  const isOpen = (id: string): boolean => (PAIRED.has(id) ? expanded === 'files' : expanded === id)
+
   const expandBtn = (id: string): React.ReactNode => {
-    const open = expanded === id
+    const open = isOpen(id)
     return (
       <button
         className="pane-expand"
         title={open ? tr('det.collapse') : tr('det.expand')}
         onClick={(e) => {
           e.stopPropagation()
-          setExpanded(open ? null : id)
+          setExpanded(open ? null : PAIRED.has(id) ? 'files' : id)
         }}
       >
         {open ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
       </button>
     )
   }
-  const expandedClass = (id: string): string => `expandable${expanded === id ? ' expanded' : ''}`
+  const expandedClass = (id: string): string => {
+    const open = isOpen(id)
+    return `expandable${open ? ' expanded' : ''}${open && PAIRED.has(id) ? ` pair-${id}` : ''}`
+  }
 
   const fileMenu = (e: React.MouseEvent, path: string, staged: boolean, tracked: boolean): void => {
     e.preventDefault()
@@ -123,9 +136,15 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
     const conflicted = (status?.conflicted ?? []).includes(path)
     void selectFile({ path, staged }).then(() => {
       openMenu(e.clientX, e.clientY, [
-        { label: staged ? tr('menu.unstageFile') : tr('menu.stageFile'), onClick: () => void toggle() },
+        // Em unmerged, `stage`/`unstage` não resolvem nada (o `git add` sozinho
+        // até grava os marcadores) e `discard` perderia um dos lados. Então o
+        // stage some e o discard vira "resolver por um lado".
+        ...(conflicted
+          ? []
+          : [{ label: staged ? tr('menu.unstageFile') : tr('menu.stageFile'), onClick: () => void toggle() }]),
         ...(conflicted
           ? [
+              { label: tr('cr.title'), onClick: () => void openResolver() },
               { label: tr('menu.ours'), onClick: () => void resolveOurs(path) },
               { label: tr('menu.theirs'), onClick: () => void resolveTheirs(path) }
             ]
@@ -134,11 +153,15 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
         { label: tr('menu.reveal'), onClick: () => void revealRepoFile(path) },
         { label: tr('menu.blame'), onClick: () => { void loadBlame(path); openDlg('blame') } },
         { label: tr('menu.fileHistory'), onClick: () => { void loadFileHistory(path); openDlg('fileHistory') } },
-        {
-          label: tr('menu.discard'),
-          danger: true,
-          onClick: () => void discardFile(path, tracked)
-        }
+        ...(conflicted
+          ? []
+          : [
+              {
+                label: tr('menu.discard'),
+                danger: true,
+                onClick: () => void discardFile(path, tracked)
+              }
+            ])
       ])
     })
   }
@@ -262,6 +285,21 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
                 <span className="code conflict-code">!</span>
                 <span className="grow">{p}</span>
                 <button
+                  className="mini-btn primary"
+                  title={tr('cr.title')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    // Abre o overlay já posicionado neste arquivo.
+                    const i = conflicted.indexOf(p)
+                    void useStore
+                      .getState()
+                      .openResolver()
+                      .then(() => (i >= 0 ? useStore.getState().gotoConflictFile(i) : undefined))
+                  }}
+                >
+                  {tr('cr.editBoth')}
+                </button>
+                <button
                   className="mini-btn"
                   title={tr('conflict.ours')}
                   onClick={(e) => {
@@ -382,6 +420,19 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           {isConflicted && (
             <div className="conflict-bar" title={tr('conflict.hint')}>
               <span>{tr('conflict.hint')}</span>
+              <button
+                className="mini-btn primary"
+                title={tr('cr.title')}
+                onClick={() => {
+                  const i = conflicted.indexOf(selectedFile?.path ?? '')
+                  void useStore
+                    .getState()
+                    .openResolver()
+                    .then(() => (i >= 0 ? useStore.getState().gotoConflictFile(i) : undefined))
+                }}
+              >
+                {tr('cr.editBoth')}
+              </button>
               <button className="mini-btn" onClick={() => selectedFile && void resolveOurs(selectedFile.path)}>
                 {tr('conflict.ours')}
               </button>

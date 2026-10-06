@@ -13,6 +13,7 @@ export default function StatusBar() {
   const lfs = useStore((s) => s.lfs)
   const confirmAction = useStore((s) => s.confirmAction)
   const openDlg = useStore((s) => s.openDlg)
+  const openResolver = useStore((s) => s.openResolver)
   const doFetch = useStore((s) => s.doFetch)
   const tr = useStore((s) => s.tr)
 
@@ -46,8 +47,24 @@ export default function StatusBar() {
             })}
           </span>
           {conflicted > 0 && (
-            <button className="status-link warn" title={tr('conflict.hint')} onClick={() => openDlg('merge')}>
+            <button
+              className="status-link warn"
+              title={tr('conflict.hint')}
+              onClick={() => void openResolver()}
+            >
               {tr('op.conflicted', { n: conflicted })}
+            </button>
+          )}
+          {/* Operação interrompida SEM conflito ainda (tudo já resolvido, falta
+              o Continue): abre o dialog da operação certa. Revert não tem
+              dialog — ele tem o botão de abort logo abaixo. */}
+          {(mergeBusy || rebaseBusy || pickBusy) && conflicted === 0 && (
+            <button
+              className="status-link warn"
+              title={tr('conflict.hint')}
+              onClick={() => openDlg(rebaseBusy ? 'rebase' : pickBusy ? 'pick' : 'merge')}
+            >
+              {tr('op.conflicted', { n: 0 })}
             </button>
           )}
           {revertBusy && (
@@ -97,7 +114,7 @@ export default function StatusBar() {
       <span style={{ marginLeft: 'auto' }} title={tr('status.credit')}>
         {tr('status.developedBy')}
       </span>
-      <span>TreeLine 0.6.3</span>
+      <span>TreeLine 0.6.4</span>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 {
   "name": "treeline-git-gui",
   "productName": "TreeLine",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Git GUI for Linux with a familiar SourceTree-like workflow. Original implementation, not affiliated with Atlassian.",
   "author": {
     "name": "TreeLine Contributors",
@@ -24,9 +24,18 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-html": "^6.4.12",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/legacy-modes": "^6.5.4",
+    "@lezer/highlight": "^1.2.5",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "chokidar": "^5.0.0",
+    "codemirror": "^6.0.2",
     "lucide-react": "^1.50.0",
     "node-pty": "^1.1.0",
     "react": "^19.1.0",

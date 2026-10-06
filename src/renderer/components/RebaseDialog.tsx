@@ -12,6 +12,8 @@ export default function RebaseDialog() {
   const openDlg = useStore((s) => s.openDlg)
   const tr = useStore((s) => s.tr)
   const { busy, run } = useDialogRunner()
+  const openResolver = useStore((s) => s.openResolver)
+  const closeDlg = useStore((s) => s.closeDlg)
 
   const others = branches.filter((b) => !b.current)
   const [ref, setRef] = useState(refPreset ?? others[0]?.name ?? '')
@@ -38,10 +40,27 @@ export default function RebaseDialog() {
         )}
         <p className="muted">{tr('op.conflicted', { n: conflicted.length })}</p>
         <div className="modal-actions">
+          {conflicted.length > 0 && (
+            <button
+              className="tool-btn primary"
+              disabled={busy}
+              onClick={() => {
+                closeDlg()
+                void openResolver()
+              }}
+            >
+              {tr('cr.title')}
+            </button>
+          )}
           <button className="tool-btn" disabled={busy} onClick={() => void run(() => dialogOps.abortRebase())}>
             {tr('dlg.abort')}
           </button>
-          <button className="tool-btn primary" disabled={busy} onClick={() => void run(() => dialogOps.rebaseContinue())}>
+          <button
+            className="tool-btn primary"
+            disabled={busy || conflicted.length > 0}
+            title={conflicted.length > 0 ? tr('cr.markerLeft') : undefined}
+            onClick={() => void run(() => dialogOps.rebaseContinue())}
+          >
             {busy ? tr('dlg.working') : tr('dlg.continue')}
           </button>
         </div>
