@@ -72,9 +72,11 @@ src/
   renderer/   # React + zustand: Toolbar/Sidebar/HistoryGraph/DetailsPanel/StatusBar/SyncToast/SettingsDialog
   shared/     # IPC types
 docs/         # vision, roadmap, architecture, ADRs, status, design system
+manual/       # user manual in pt-BR with screenshots (Git for beginners)
 ```
 
 Product documentation and decisions in [`docs/`](docs/).
+User manual (pt-BR, Git explained from scratch) in [`manual/`](manual/).
 
 ## Status / Roadmap (summary)
 

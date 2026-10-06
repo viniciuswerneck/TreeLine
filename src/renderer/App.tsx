@@ -157,7 +157,11 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar onCommitFocus={() => commitRef.current?.focus()} />
+      <Toolbar onCommitFocus={() => {
+        // Volta para Working Copy e foca o campo de commit.
+        void useStore.getState().selectCommit(null)
+        setTimeout(() => commitRef.current?.focus(), 80)
+      }} />
       <TabBar />
       <div className="body">
         <Sidebar />

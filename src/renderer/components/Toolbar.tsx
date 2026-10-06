@@ -32,7 +32,13 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
   const doFetch = useStore((s) => s.doFetch)
   const busy = sync.phase === 'running'
   const stagedCount = useStore((s) => s.status?.staged.length ?? 0)
+  const untrackedCount = useStore((s) => s.status?.untracked.length ?? 0)
+  const unstagedCount = useStore((s) => s.status?.unstaged.length ?? 0)
+  const toStageCount = unstagedCount + untrackedCount
+  const totalToCommit = stagedCount + toStageCount
+  const dirtyCount = totalToCommit
   const ahead = useStore((s) => s.status?.ahead ?? 0)
+  const behind = useStore((s) => s.status?.behind ?? 0)
   const stashCount = useStore((s) => s.stashes.length)
   const mergeBusy = useStore((s) => s.mergeState.inProgress)
   const rebaseBusy = useStore((s) => s.rebaseState.inProgress)
@@ -84,8 +90,10 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
       <div className="toolbar-group">
         <ActionButton
           title={stagedCount > 0 ? tr('toolbar.commitStaged') : tr('toolbar.commitEmpty')}
-          primary
-          disabled={stagedCount === 0}
+          primary={stagedCount > 0 && !busy}
+          attention={(stagedCount > 0) || (toStageCount > 0)}
+          disabled={busy}
+          count={stagedCount > 0 ? stagedCount : (toStageCount > 0 ? toStageCount : 0)}
           onClick={onCommitFocus}
         >
           <Check size={16} /> {tr('toolbar.commit')}
@@ -102,6 +110,7 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
           <ActionButton
             title={ahead > 0 ? tr('toolbar.pushAhead', { n: ahead }) : tr('toolbar.pushTo')}
             primary={ahead > 0 && !busy}
+            attention={ahead > 0}
             disabled={busy}
             count={ahead}
             onClick={() => void doPush()}
@@ -109,7 +118,14 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
             <Upload size={16} /> {sync.op === 'push' && busy ? '…' : tr('toolbar.push')}
           </ActionButton>
         </span>
-        <ActionButton title={tr('toolbar.pullFrom')} disabled={busy} onClick={() => void doPull()}>
+        <ActionButton
+          title={tr('toolbar.pullFrom')}
+          disabled={busy}
+          onClick={() => void doPull()}
+          primary={behind > 0 && !busy}
+          attention={behind > 0}
+          count={behind > 0 ? behind : undefined}
+        >
           <Download size={16} /> {sync.op === 'pull' && busy ? '…' : tr('toolbar.pull')}
         </ActionButton>
         <ActionButton title={tr('toolbar.fetchFrom')} disabled={busy} onClick={() => void doFetch()}>

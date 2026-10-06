@@ -190,6 +190,10 @@ body {
   font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
   color: var(--text-2); padding: 12px 8px 4px;
 }
+.sidebar-section-title.collapsible {
+  cursor: pointer; user-select: none;
+}
+.sidebar-section-title.collapsible:hover { background: var(--bg-hover); border-radius: var(--radius-sm); }
 .sidebar-row {
   display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 8px;
   border-radius: var(--radius-sm); border: 1px solid transparent;
@@ -368,12 +372,17 @@ body {
   border: 1px solid var(--border-line); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1); overflow: auto; padding: 12px;
 }
-/* Unstaged e Staged maximizam JUNTOS, lado a lado: o par divide a janela ao
-   meio (encostados, com a borda direita do Unstaged fazendo a divisória) e
-   os dois ficam acima do backdrop. Só essas duas colunas fazem isso — diff e
-   conflicted continuam Maximizando sozinhos. */
-.file-col.expanded.pair-unstaged { left: 12px; right: 50%; width: auto; }
-.file-col.expanded.pair-staged { left: 50%; right: 12px; width: auto; }
+/* Unstaged e Staged maximizam JUNTOS em cima, lado a lado, e o diff ocupa a
+   segunda linha do overlay: clicar num arquivo de qualquer coluna abre o
+   diff embaixo (2 linhas, altura toda da janela). Os três encostados formam
+   uma superfície só (sem gap — as bordas internas fazem as divisorias). Só
+   essas duas colunas fazem isso — diff e conflicted continuam Maximizando
+   sozinhos. */
+.file-col.expanded.pair-unstaged { left: 12px; right: 50%; top: 12px; bottom: 55%; width: auto; border-radius: var(--radius-lg) 0 0 0; }
+.file-col.expanded.pair-staged { left: 50%; right: 12px; top: 12px; bottom: 55%; width: auto; border-radius: 0 var(--radius-lg) 0 0; }
+/* Detalhe do commit espelha o par: Arquivos em cima (largura cheia), diff embaixo. */
+.file-col.expanded.pair-cfiles { left: 12px; right: 12px; top: 12px; bottom: 55%; width: auto; border-radius: var(--radius-lg) 0 0 0; }
+.diff-pane.expanded.pair-diff { left: 12px; right: 12px; top: 45%; bottom: 12px; border-top: 1px solid var(--border-line); border-radius: 0 0 var(--radius-lg) var(--radius-lg); box-shadow: none; }
 .pane-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.4); }
 
 /* ---- Terminal integrado (drawer inferior, expansível) ---- */

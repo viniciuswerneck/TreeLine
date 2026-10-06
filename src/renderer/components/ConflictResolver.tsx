@@ -441,10 +441,10 @@ export default function ConflictResolver() {
           {tr('cr.rerere')}
           <span className="cr-rerere-state">{rerere ? tr('cr.rerereOn') : tr('cr.rerereOff')}</span>
         </label>
-        <button className="cr-icon" title="Refresh" onClick={() => file && void load(file.path)}>
+        <button className="cr-icon" title={tr('common.refresh')} onClick={() => file && void load(file.path)}>
           <RefreshCw size={15} />
         </button>
-        <button className="cr-icon" title="Close" onClick={close}>
+        <button className="cr-icon" title={tr('dlg.close')} onClick={close}>
           <X size={16} />
         </button>
       </header>

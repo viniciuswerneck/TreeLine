@@ -94,7 +94,22 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
 
   useEffect(() => {
     setCommitFile(null)
+    // Troca de vista limpa o overlay, mas mantém o par de ARQUIVOS do commit
+    // aberto ao navegar entre commits (só fecha ao voltar pra Working Copy).
+    setExpanded((prev) => (selectedCommit && prev === 'cfiles' ? prev : null))
   }, [selectedCommit])
+
+  // Detalhe do commit espelha o par da Working Copy: expandir Arquivos abre
+  // 2 linhas (lista em cima, diff embaixo) com o primeiro arquivo selecionado.
+  const commitPairOpen = expanded === 'cfiles'
+  useEffect(() => {
+    if (!commitPairOpen || commitFile || !commitDetail) return
+    const first = (commitDetail.files ?? [])[0]
+    if (first) {
+      setCommitFile(first)
+      void selectCommitFile(first)
+    }
+  }, [commitPairOpen, commitFile, commitDetail])
 
   useEffect(() => {
     if (!expanded) return
@@ -106,7 +121,8 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   }, [expanded])
 
   // Um id do par `files` maximiza as DUAS colunas de arquivo ao mesmo tempo,
-  // lado a lado (cada uma com metade da janela). Diff/conflicted continuam
+  // lado a lado, e o diff entra como segunda linha do overlay (clique em
+  // qualquer arquivo mostra o diff embaixo). Diff/conflicted continuam
   // Maximizando sozinhos.
   const isOpen = (id: string): boolean => (PAIRED.has(id) ? expanded === 'files' : expanded === id)
 
@@ -175,6 +191,21 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   }
 
   const isConflicted = selectedFile ? (status?.conflicted ?? []).includes(selectedFile.path) : false
+  // Par maximizado = 2 linhas: listas Unstaged|Staged em cima, diff embaixo.
+  const pairOpen = expanded === 'files'
+
+  // Ao abrir o par sem seleção, pega o primeiro arquivo: a linha de baixo
+  // existe para revisar o código antes de commitar, não para ficar vazia
+  // esperando um clique. Ordem = ordem visual das colunas.
+  useEffect(() => {
+    if (!pairOpen || selectedFile || selectedCommit) return
+    const f = (status?.unstaged ?? [])[0] ?? null
+    const u = (status?.untracked ?? [])[0] ?? null
+    const s = (status?.staged ?? [])[0] ?? null
+    if (f) void selectFile({ path: f.path, staged: false })
+    else if (u) void selectFile({ path: u, staged: false })
+    else if (s) void selectFile({ path: s.path, staged: true })
+  }, [pairOpen, selectedFile, selectedCommit, status])
 
   // Vista de commit selecionado no histórico: meta + arquivos + diff.
   if (selectedCommit) {
@@ -183,7 +214,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
       <div className="details">
         {expanded && <div className="pane-backdrop" onClick={() => setExpanded(null)} />}
         <div className="details-title commit-title">
-          <button className="mini-btn" title="Back to working copy" onClick={() => void selectCommit(null)}>
+          <button className="mini-btn" title={tr('det.backWcTitle')} onClick={() => void selectCommit(null)}>
             <ArrowLeft size={13} /> {tr('det.backWc')}
           </button>
           <span className="mono muted">{selectedCommit.slice(0, 7)}</span>
@@ -219,7 +250,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           )}
         </div>
         <div className="details-body">
-          <div className={`file-col ${expandedClass('cfiles')}`}>
+          <div className={`file-col ${commitPairOpen ? 'expandable expanded pair-cfiles' : expandedClass('cfiles')}`}>
             <div className="file-col-head">
               <h4>{tr('det.files', { n: files.length })}</h4>
               {expandBtn('cfiles')}
@@ -248,8 +279,24 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             })}
             {commitDetail && files.length === 0 && <div className="file-empty">{tr('det.noFiles')}</div>}
           </div>
-          <div className={`diff-pane ${expandedClass('cdiff')}`}>
-            {expandBtn('cdiff')}
+          <div
+            className={`diff-pane ${commitPairOpen ? 'expandable expanded pair-diff' : expandedClass('cdiff')}`}
+          >
+            {commitPairOpen ? (
+              // No par, o diff é a linha de baixo do overlay: o botão recolhe tudo.
+              <button
+                className="pane-expand"
+                title={tr('det.collapse')}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setExpanded(null)
+                }}
+              >
+                <Minimize2 size={14} />
+              </button>
+            ) : (
+              expandBtn('cdiff')
+            )}
             {commitDiff ? <DiffViewer text={commitDiff} /> : tr('det.selectFile')}
           </div>
         </div>
@@ -415,8 +462,24 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           ))}
           {staged.length === 0 && <div className="file-empty">{tr('det.noStaged')}</div>}
         </div>
-        <div className={`diff-pane ${expandedClass('diff')}`}>
-          {expandBtn('diff')}
+        <div
+          className={`diff-pane ${pairOpen ? 'expandable expanded pair-diff' : expandedClass('diff')}`}
+        >
+          {pairOpen ? (
+            // No par, o diff é a linha de baixo do overlay: o botão recolhe tudo.
+            <button
+              className="pane-expand"
+              title={tr('det.collapse')}
+              onClick={(e) => {
+                e.stopPropagation()
+                setExpanded(null)
+              }}
+            >
+              <Minimize2 size={14} />
+            </button>
+          ) : (
+            expandBtn('diff')
+          )}
           {isConflicted && (
             <div className="conflict-bar" title={tr('conflict.hint')}>
               <span>{tr('conflict.hint')}</span>
@@ -443,9 +506,13 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           )}
           {diff ? (
             <>
-              <div className="diff-toolbar">
-                {modeToggle()}
-              </div>
+              {/* Split exige hunks: em diff sintético (untracked) não há stage
+                  por hunk, então o toggle só poluiria. */}
+              {hunks.length > 0 && (
+                <div className="diff-toolbar">
+                  {modeToggle()}
+                </div>
+              )}
               <DiffViewer
                 text={diff}
                 file={selectedFile?.path}
@@ -483,7 +550,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             disabled={!canCommit}
             title={!canCommit ? tr('det.commitHint') : `${tr('toolbar.commitStaged')} (${tr('det.ctrlEnter')})`}
           >
-            {tr('det.commit')}
+            {tr('det.commit')}{staged.length > 0 && !amend ? ` (${staged.length})` : ''}
           </button>
           {error && <span className="error">{error}</span>}
         </div>

@@ -75,7 +75,7 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 |---|---|---|
 | Bookmarks/Open/Clone/Init | 0-1 | ☑ (open/list/clone/init + remote manager) |
 | Graph + History + Search | 1 | ☑ (paridade GitGraph: dots cheios, split/join, spine-first + steal, datas absolutas, badges por branch, avatares, compare 2 commits, blame/file-history; combo de branches com busca + remotos; virtualização validada com 10.000 commits a 58fps) |
-| Stage arquivo/hunk/linha | 1-2 | ☑ (arquivo + all + hunk + linha via `git apply`, discard por hunk) |
+| Stage arquivo/hunk/linha | 1-2 | ☑ (arquivo + all + hunk + linha via `git apply`, discard por hunk; painéis Unstaged/Staged maximizados em 2 linhas com diff embaixo e auto-seleção; untracked mostra a fonte como diff sintético) |
 | Commit/Amend/Push/Pull/Fetch | 1 | ☑ (com toast, timeout, ff-only no pull, `--force-with-lease` explícito com confirmação) |
 | Branch/Merge/Tag | 1-2 | ☑ (dialogs + sidebar detalhada; revert e reset direto ok; checkout de branch/remota/tag com HEAD marcado) |
 | Stash/Cherry-pick/Revert | 2 | ☑ (stash + cherry-pick + revert com confirmação) |

@@ -201,6 +201,16 @@ const STR: Record<string, Record<UILang, string>> = {
     pt: 'Selecione ao menos uma linha alterada (+/−).',
     es: 'Selecciona al menos una línea cambiada (+/−).'
   },
+  newBinary: {
+    en: 'Binary file (new) — content not shown.',
+    pt: 'Arquivo binário (novo) — conteúdo não exibido.',
+    es: 'Archivo binario (nuevo) — contenido no mostrado.'
+  },
+  newTruncated: {
+    en: 'Large file — preview limited to the first 1 MB.',
+    pt: 'Arquivo grande — prévia limitada aos primeiros 1 MB.',
+    es: 'Archivo grande — vista previa limitada a los primeros 1 MB.'
+  },
   revertConflicts: {
     en: 'Revert stopped on conflicts — resolve the files, then commit, or run `git revert --abort`. {d}',
     pt: 'Revert parou em conflitos — resolva os arquivos, depois commite, ou rode `git revert --abort`. {d}',
@@ -466,6 +476,10 @@ function friendlySyncError(op: string, e: unknown, lang: UILang = 'en'): Error {
   const msg = e instanceof Error ? e.message : String(e)
   if (/could not read Username|terminal prompts disabled|authentication failed|invalid username|credential/i.test(msg)) {
     return new Error(mx(lang, 'authFail', { op, d: msg.split('\n')[0] as string }))
+  }
+  // Divergência de branches: Pull com --ff-only falha — orientar merge/rebase.
+  if (/diverg|non-fast-forward|cannot fast-forward|fast-forward.*failed/i.test(msg)) {
+    return new Error(mx(lang, 'pullDivergent', { op, d: msg.split('\n')[0] as string }))
   }
   return e instanceof Error ? e : new Error(msg)
 }
@@ -1503,6 +1517,34 @@ ipcMain.handle('treeline:getDiff', (_event, repo: string, file: string, staged: 
     const args = staged ? ['diff', '--cached', '--unified=3', '--', file] : ['diff', '--unified=3', '--', file]
     const out = await simpleGit(repo).raw(args)
     if (out.trim()) return out
+    // Arquivo novo (untracked): `git diff` sai vazio porque ele nunca entrou
+    // no index. Para revisar o código antes do commit, emite um diff sintético
+    // com o arquivo inteiro como adicionado; sem hunks reais o DiffViewer
+    // renderiza em modo somente leitura (stage continua na linha do arquivo).
+    if (!staged) {
+      try {
+        const tracked = (await simpleGit(repo).raw(['ls-files', '--', file])).trim()
+        if (!tracked) {
+          const l = asLang(lang)
+          const abs = isAbsolute(file) ? file : join(repo, file)
+          const buf = await fs.readFile(abs)
+          const head = `--- /dev/null\n+++ b/${file}\n`
+          if (looksBinary(buf)) return head + mx(l, 'newBinary') + '\n'
+          const MAX = 1024 * 1024
+          const trunc = buf.length > MAX
+          const lines = (trunc ? buf.subarray(0, MAX) : buf).toString('utf8').split('\n')
+          if (lines[lines.length - 1] === '') lines.pop()
+          if (lines.length > 0) {
+            // Nota antes do `@@`: sem hunk ainda, os contadores estão em 0 e
+            // os gutters saem vazios (num(0) === '').
+            const note = trunc ? mx(l, 'newTruncated') + '\n' : ''
+            return `${head}${note}@@ -0,0 +1,${lines.length} @@\n${lines.map((x) => `+${x}`).join('\n')}\n`
+          }
+        }
+      } catch {
+        // Sem fonte legível (sumiu, sem permissão): cai no placeholder.
+      }
+    }
     // Arquivo em conflito: `git diff` sai vazio porque o index tem 3 estágios
     // e não existe blob "único" para comparar. O BUG anterior devolvia um
     // pseudo-diff (`@@ ours @@` sem contagem de linhas), que o DiffViewer não
@@ -1904,20 +1946,32 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
     const [hashRaw, parentStr, author, committer, date, refStr, message] = parts as [string, string, string, string, string, string, string]
     const h = hashRaw.trim()
     if (!h) throw new Error(mx(l, 'commitNotFound'))
+    const parents = parentStr ? parentStr.split(/\s+/).map((p) => p.trim()).filter((p) => p.length > 0) : []
+    // Merge não tem diff próprio: `show --name-only` sai vazio (daí o famoso
+    // "Arquivos (0)"). Arquivos e stats de um merge = mudança contra o
+    // primeiro pai — o que ele trouxe para o branch.
+    const isMerge = parents.length > 1
     const refs = (refStr ? refStr.split(', ') : []).flatMap((r) => {
       if (r.startsWith('HEAD -> ')) return ['HEAD', r.slice('HEAD -> '.length)]
       if (r === 'HEAD') return ['HEAD']
       return [r]
     })
-    const files = rest
-      .join('\x1e')
-      .split('\n')
-      .map((f) => f.trim())
-      .filter((f) => f.length > 0)
+    const files = isMerge
+      ? (await simpleGit(repo).raw(['diff', '--name-only', `${h}^1`, h]))
+          .split('\n')
+          .map((f) => f.trim())
+          .filter((f) => f.length > 0)
+      : rest
+          .join('\x1e')
+          .split('\n')
+          .map((f) => f.trim())
+          .filter((f) => f.length > 0)
     // +/- por arquivo (merge sem diff próprio pode vir vazio: sem stats).
     let stats: import('../shared/types').FileStat[] = []
     try {
-      const ns = await simpleGit(repo).raw(['show', '--numstat', '--format=', hash])
+      const ns = await simpleGit(repo).raw(
+        isMerge ? ['diff', '--numstat', `${h}^1`, h] : ['show', '--numstat', '--format=', h]
+      )
       stats = ns.split('\n').flatMap((line) => {
         const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/)
         if (!m?.[3]) return []
@@ -1929,7 +1983,7 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
     }
     return {
       hash: h,
-      parents: parentStr ? parentStr.split(/\s+/).map((p) => p.trim()).filter((p) => p.length > 0) : [],
+      parents,
       author,
       committer,
       date,
@@ -1943,7 +1997,13 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
 
 ipcMain.handle('treeline:getCommitDiff', (_event, repo: string, hash: string, file: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  readOp(async () => simpleGit(repo).raw(['show', hash, '--unified=3', '--', file]))
+  readOp(async () => {
+    // Merge: `show -- <file>` sai vazio (diff combinado limpo não mostra
+    // nada). Compara com o primeiro pai, igual aos arquivos/stats.
+    const parents = (await simpleGit(repo).raw(['show', '-s', '--pretty=%P', hash])).trim().split(/\s+/).filter(Boolean)
+    if (parents.length > 1) return simpleGit(repo).raw(['diff', `${hash}^1`, hash, '--unified=3', '--', file])
+    return simpleGit(repo).raw(['show', hash, '--unified=3', '--', file])
+  })
 )
 
 // ---------------------------------------------------------------------------

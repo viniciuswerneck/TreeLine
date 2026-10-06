@@ -3,10 +3,18 @@ import { useState } from 'react'
 import { dialogOps, useStore } from '../store'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(true)
   return (
     <>
-      <div className="sidebar-section-title">{title}</div>
-      {children}
+      <div
+        className="sidebar-section-title collapsible"
+        onClick={() => setOpen((o) => !o)}
+        role="button"
+        aria-expanded={open}
+      >
+        {title}
+      </div>
+      {open && children}
     </>
   )
 }

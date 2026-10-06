@@ -369,7 +369,7 @@ export default function HistoryGraph() {
       }}
     >
       <div className="history-filter">
-        <span className="history-count" title="Commits listed">
+        <span className="history-count" title={tr('hist.listed')}>
           {tr('hist.commits', { n: rows.length })}
         </span>
         {branchFilter === 'current' && currentBranch && (
