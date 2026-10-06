@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=TreeLine
+GenericName=Git GUI
+Comment=Visual Git client with the familiar SourceTree workflow
+Exec=treeline-git-gui %F
+Icon=treeline-git-gui
+Terminal=false
+Type=Application
+Categories=Development;RevisionControl;
+Keywords=git;source control;scm;version control;vcs;diff;merge;commit;branch;repository;
+StartupWMClass=dev.treeline.app
+StartupNotify=true

@@ -1,0 +1,69 @@
+# Snap (Ubuntu Store) do TreeLine.
+#
+# Confinamento `classic` (não negociável para um Git GUI):
+#   - o app roda `git` do host e usa config/credential helper/ssh-agent reais;
+#   - `openTerminal` faz spawn de ptyxis/gnome-terminal/kgx/konsole/xterm
+#     detectados por `which` (src/main/index.ts:902-917) — num snap estrito
+#     nada disso existe no PATH;
+#   - precisa abrir repos em qualquer path do disco, não só em $HOME.
+# Consequência: exige aprovação manual do time do Snapcraft (pedido em
+# https://forum.snapcraft.io/ ). Sem isso o `snapcraft upload` é recusado.
+#
+# `base: core26` é obrigatório, não cosmético: o binário nativo do node-pty
+# (resources/app.asar.unpacked/.../pty.node) exige GLIBC_2.42 e o core24
+# (o anterior mais novo) para em GLIBC_2.39 — o Terminal integrado não abriria.
+name: treeline-git-gui
+base: core26
+version: "0.6.4"
+title: TreeLine — Git GUI for Linux
+summary: Visual Git client with the familiar SourceTree workflow
+license: MIT
+icon: snap/gui/treeline-git-gui.png
+
+confinement: classic
+grade: devel
+
+# lzo: squashfs de leitura rápida; economiza os ~30 MB de zstd.
+# Em apps que abrem em segundos (como o Electron) a troca compensa.
+compression: lzo
+
+environment:
+  # Sem TTY no Electron, prompt de senha travaria o main process.
+  GIT_TERMINAL_PROMPT: "0"
+  # LC_ALL=C: com LANG=pt_BR o git localiza "[ahead 1]" e o simple-git
+  # (regex /ahead (\d+)/) e o parser de `branch -vv` quebram. Mesma razão do
+  # processo principal (src/main/index.ts:333-343).
+  LC_ALL: C
+
+apps:
+  treeline-git-gui:
+    command: bin/treeline-git-gui
+    common-id: dev.treeline.app
+    desktop: share/applications/dev.treeline.app.desktop
+
+parts:
+  treeline-git-gui:
+    # `nil` = não compila nada, só empacota o build que o electron-builder
+    # já produz. O mesmo padrão do manifesto Flatpak (build/flatpak/).
+    plugin: nil
+    source-type: dir
+    source: dist/linux-unpacked
+
+    override-build: |
+      set -eu
+
+      mkdir -p "$CRAFT_PART_INSTALL/bin"
+      mkdir -p "$CRAFT_PART_INSTALL/share/applications"
+
+      cp -a treeline-git-gui "$CRAFT_PART_INSTALL/bin/treeline-git-gui"
+      cp -a resources locales "$CRAFT_PART_INSTALL/"
+      cp -a ./*.pak ./*.dat ./*.bin ./*.json ./*.so* "$CRAFT_PART_INSTALL/"
+      cp -a chrome_crashpad_handler LICENSE.electron.txt LICENSES.chromium.html \
+            "$CRAFT_PART_INSTALL/"
+
+      # O Chromium recusa iniciar sem o SUID sandbox setado. O postinst do
+      # .deb faz o mesmo (chown root:root + 4755).
+      install -Dm755 chrome-sandbox "$CRAFT_PART_INSTALL/bin/chrome-sandbox"
+
+      install -Dm644 "$CRAFT_PROJECT_DIR/snap/gui/dev.treeline.app.desktop" \
+        "$CRAFT_PART_INSTALL/share/applications/dev.treeline.app.desktop"
