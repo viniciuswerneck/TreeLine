@@ -72,6 +72,7 @@ export interface FileHistoryEntry {
   author: string
   date: string
   message: string
+  refs?: string
 }
 
 /** Linha do plano de rebase interativo. */
@@ -304,6 +305,8 @@ export interface TreeLineAPI {
   stageLines(repo: string, file: string, staged: boolean, hunkIndex: number, lineIndexes: number[], lang?: string): Promise<void>
   stage(repo: string, file: string): Promise<void>
   unstage(repo: string, file: string): Promise<void>
+  /** Lista todos os arquivos rastreados no HEAD (para índice de busca rápida). */
+  getTrackedFiles(repo: string): Promise<string[]>
   revertCommit(repo: string, hash: string, lang?: string): Promise<void>
   resetTo(repo: string, ref: string, mode: ResetMode, lang?: string): Promise<void>
   resolveOurs(repo: string, file: string, lang?: string): Promise<void>

@@ -30,6 +30,7 @@ import TabBar from './components/TabBar'
 import TagDialog from './components/TagDialog'
 import TerminalPanel from './components/TerminalPanel'
 import Toolbar from './components/Toolbar'
+import GoToFile from './components/GoToFile'
 import { useStore } from './store'
 import { applyLang } from './i18n'
 import { applyTheme } from './themes'
@@ -80,6 +81,12 @@ export default function App() {
       if (st0.matchShortcut('refresh', e)) {
         e.preventDefault()
         maybeRefresh()
+        return
+      }
+      if (st0.matchShortcut('gotoFile', e)) {
+        e.preventDefault()
+        const st = useStore.getState()
+        st.setGoToFileOpen(true)
         return
       }
       if (st0.matchShortcut('palette', e)) {
@@ -193,6 +200,7 @@ export default function App() {
       {dialog === 'custom' && <CustomActionsDialog />}
       {dialog === 'lfs' && <LfsDialog />}
       <CommandPalette />
+      <GoToFile />
       <ConfirmDialog />
       <ContextMenu />
     </div>

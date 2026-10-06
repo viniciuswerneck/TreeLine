@@ -61,6 +61,7 @@ const api: TreeLineAPI = {
   openPR: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:openPR', repo, lang),
   stage: (repo: string, file: string) => ipcRenderer.invoke('treeline:stage', repo, file),
   unstage: (repo: string, file: string) => ipcRenderer.invoke('treeline:unstage', repo, file),
+  getTrackedFiles: (repo: string) => ipcRenderer.invoke('treeline:getTrackedFiles', repo),
   commit: (repo: string, message: string, amend?: boolean, lang?: string) =>
     ipcRenderer.invoke('treeline:commit', repo, message, amend, lang),
   push: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:push', repo, lang),

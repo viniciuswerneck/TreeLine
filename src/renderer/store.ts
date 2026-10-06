@@ -218,6 +218,7 @@ interface TreeLineState {
   fileHistoryPath: string | null
   loadFileHistory: (path: string) => Promise<void>
   closeFileHistory: () => void
+  loadCommitDiffFile: (hash: string, path: string) => Promise<string>
   compareA: string | null
   compareB: string | null
   compare: CompareSummary | null
@@ -228,6 +229,10 @@ interface TreeLineState {
   selectCompareFile: (path: string) => Promise<void>
   paletteOpen: boolean
   setPalette: (open: boolean) => void
+  gotoFileOpen: boolean
+  gotoFileList: string[]
+  setGoToFileOpen: (open: boolean) => void
+  refreshFileIndex: () => Promise<void>
   autoFetchMin: number
   setAutoFetchMin: (min: number) => void
   autoFetchBg: boolean
@@ -1014,6 +1019,12 @@ moveTab: (from, to) => {
     set({ fileHistory: rows ?? [] })
   },
   closeFileHistory: () => set({ fileHistory: [], fileHistoryPath: null, dialog: get().dialog === 'fileHistory' ? null : get().dialog }),
+  loadCommitDiffFile: async (hash, path) => {
+    const { current } = get()
+    if (!current || !hash || !path) return ''
+    const diff = await fail(window.treeline.getCommitDiff(current, hash, path), (e) => set({ error: cleanErr(e) }))
+    return diff ?? ''
+  },
   compareA: null,
   compareB: null,
   compare: null,
@@ -1041,6 +1052,33 @@ moveTab: (from, to) => {
   },
   paletteOpen: false,
   setPalette: (open) => set({ paletteOpen: open }),
+  gotoFileOpen: false,
+  gotoFileList: [],
+  setGoToFileOpen: (open) => {
+    if (open) void get().refreshFileIndex()
+    set({ gotoFileOpen: open })
+  },
+  refreshFileIndex: async () => {
+    const { current, status } = get()
+    if (!current) return
+    try {
+      const tracked = await window.treeline.getTrackedFiles(current).catch(() => [] as string[])
+      const untracked = status?.untracked ?? []
+      const unstaged = (status?.unstaged ?? []).map((f) => f.path)
+      const staged = status?.staged ?? []
+      const stagedPaths = staged.map((f) => f.path)
+      const files = new Set<string>([...tracked, ...untracked, ...unstaged, ...stagedPaths])
+      set({ gotoFileList: [...files].sort((a, b) => a.localeCompare(b)) })
+    } catch {
+      try {
+        const s = get().status
+        const files = new Set<string>([...(s?.untracked ?? []), ...(s?.unstaged ?? []).map((f) => f.path), ...(s?.staged ?? []).map((f) => f.path)])
+        set({ gotoFileList: [...files].sort((a, b) => a.localeCompare(b)) })
+      } catch {
+        /* ignora */
+      }
+    }
+  },
   autoFetchMin: (() => {
     try {
       const v = Number(localStorage.getItem('treeline-autofetch'))

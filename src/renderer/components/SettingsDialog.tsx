@@ -7,6 +7,7 @@ import { SHORTCUT_DEFAULTS, eventShortcut, findShortcutConflicts, formatShortcut
 
 const SHORTCUT_LABELS: Record<ShortcutAction, DictKey> = {
   palette: 'pal.title',
+  gotoFile: 'pal.gotoFile',
   sidebar: 'side.workspace',
   search: 'side.search',
   refresh: 'common.refresh',

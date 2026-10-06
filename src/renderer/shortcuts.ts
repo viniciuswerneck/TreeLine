@@ -1,10 +1,11 @@
 // Atalhos remapeáveis do TreeLine (persistidos em localStorage).
 // Formato: "ctrl+k", "ctrl+shift+enter", "f5". Modificadores: ctrl/meta (+shift+alt).
 
-export type ShortcutAction = 'palette' | 'sidebar' | 'search' | 'refresh' | 'commit' | 'terminal'
+export type ShortcutAction = 'palette' | 'sidebar' | 'search' | 'refresh' | 'commit' | 'terminal' | 'gotoFile'
 
 export const SHORTCUT_DEFAULTS: Record<ShortcutAction, string> = {
   palette: 'ctrl+k',
+  gotoFile: 'ctrl+p',
   sidebar: 'ctrl+b',
   search: 'ctrl+f',
   refresh: 'f5',

@@ -51,8 +51,13 @@ const STR: Record<string, Record<UILang, string>> = {
   },
   pullUpToDate: {
     en: 'Pull done — already up to date.',
-    pt: 'Pull concluído — already up to date.',
-    es: 'Pull completado — already up to date.'
+    pt: 'Pull concluído — já atualizado.',
+    es: 'Pull completado — ya está actualizado.'
+  },
+  pullDivergent: {
+    en: 'Cannot fast-forward ({op}). Branches diverged. Use Merge (or Rebase) instead. {d}',
+    pt: 'Não é possível fazer fast-forward ({op}). As branches divergiram. Use Merge (ou Rebase). {d}',
+    es: 'No se puede hacer fast-forward ({op}). Las ramas divergieron. Usa Merge (o Rebase). {d}'
   },
   pullDone: {
     en: 'Pull done: {n} file(s), +{i} −{d}',
@@ -2745,17 +2750,17 @@ ipcMain.handle('treeline:getFileHistory', (_event, repo: string, file: string, l
   readOp(async (): Promise<import('../shared/types').FileHistoryEntry[]> => {
     const n = Math.min(Math.max(limit ?? 100, 1), 500)
     const raw = await simpleGit(repo).raw([
-      'log', '--follow', `--max-count=${n}`, '--date=iso',
-      '--pretty=format:%H%x00%an%x00%ad%x00%s%x1e', '--', file
+      'log', '--follow', `--max-count=${n}`, '--date=iso-strict',
+      '--pretty=format:%H%x00%an%x00%ad%x00%s%x00%D%x1e', '--', file
     ])
     if (!raw.trim()) return []
     return raw.split('\x1e').flatMap((block) => {
       const parts = block.split('\0')
-      if (parts.length < 4) return []
-      const [h, author, date, ...rest] = parts
+      if (parts.length < 5) return []
+      const [h, author, date, message, dec] = parts as [string, string, string, string, string]
       const hash = (h ?? '').trim()
       if (!hash) return []
-      return [{ hash, author: author ?? '', date: date ?? '', message: rest.join('\0').trim() }]
+      return [{ hash, author: author ?? '', date: date ?? '', message: message?.trim() ?? '', refs: (dec ?? '').trim() }]
     })
   })
 )
@@ -2888,6 +2893,17 @@ void app.whenReady().then(async () => {
     }
   })
 })
+
+ipcMain.handle('treeline:getTrackedFiles', (_event, repo: string) =>
+  readOp(async (): Promise<string[]> => {
+    try {
+      const out = await simpleGit(repo).raw(['ls-tree', '-r', '--name-only', 'HEAD'])
+      return out.split('\n').map((x) => x.trim()).filter(Boolean)
+    } catch {
+      return []
+    }
+  })
+)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
