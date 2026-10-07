@@ -52,7 +52,7 @@ export default function RemotesDialog() {
                     void run(() => dialogOps.editRemote(r.name, editUrl.trim())).then(() => setEditing(null))
                   }
                 >
-                  {tr('dlg.rename')}
+                  {tr('dlg.save')}
                 </button>
                 <button className="mini-btn" onClick={() => setEditing(null)}>
                   {tr('dlg.cancel')}

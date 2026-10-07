@@ -15,7 +15,6 @@ export default function ConfirmDialog() {
     if (!confirmState) return
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') resolveConfirm(false)
-      if (e.key === 'Enter') resolveConfirm(true)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -31,10 +30,10 @@ export default function ConfirmDialog() {
         <p className="confirm-msg">{confirmState.message}</p>
         {confirmState.detail && <p className="dlg-hint">{confirmState.detail}</p>}
         <div className="modal-actions">
-          <button className="tool-btn" onClick={() => resolveConfirm(false)}>
+          <button className="tool-btn" autoFocus onClick={() => resolveConfirm(false)}>
             {tr('dlg.cancel')}
           </button>
-          <button className="tool-btn primary" autoFocus onClick={() => resolveConfirm(true)}>
+          <button className="tool-btn primary" onClick={() => resolveConfirm(true)}>
             {confirmState.ok}
           </button>
         </div>

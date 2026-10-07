@@ -8,6 +8,7 @@ const MODES: ResetMode[] = ['soft', 'mixed', 'hard']
 /** Dialog Reset: ref manual (default: commit selecionado ou HEAD) + modo soft/mixed/hard. */
 export default function ResetDialog() {
   const selectedCommit = useStore((s) => s.selectedCommit)
+  const confirmAction = useStore((s) => s.confirmAction)
   const tr = useStore((s) => s.tr)
   const { busy, run } = useDialogRunner()
 
@@ -35,9 +36,21 @@ export default function ResetDialog() {
         <button
           className="tool-btn primary"
           disabled={busy}
-          onClick={() => void run(() => dialogOps.resetTo(ref.trim() || 'HEAD', mode))}
+          onClick={() =>
+            void run(async () => {
+              const target = ref.trim() || 'HEAD'
+              const ok = await confirmAction(
+                tr('reset.title'),
+                tr('reset.msg', { m: mode, r: target }),
+                tr('reset.detail'),
+                tr('dlg.reset')
+              )
+              if (!ok) return false
+              return dialogOps.resetTo(target, mode)
+            })
+          }
         >
-          {busy ? tr('dlg.working') : tr('dlg.undo')}
+          {busy ? tr('dlg.working') : tr('dlg.reset')}
         </button>
       </div>
     </Dialog>

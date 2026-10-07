@@ -14,6 +14,7 @@ export default function RebaseDialog() {
   const { busy, run } = useDialogRunner()
   const openResolver = useStore((s) => s.openResolver)
   const closeDlg = useStore((s) => s.closeDlg)
+  const confirmAction = useStore((s) => s.confirmAction)
 
   const others = branches.filter((b) => !b.current)
   const [ref, setRef] = useState(refPreset ?? others[0]?.name ?? '')
@@ -52,7 +53,23 @@ export default function RebaseDialog() {
               {tr('cr.title')}
             </button>
           )}
-          <button className="tool-btn" disabled={busy} onClick={() => void run(() => dialogOps.abortRebase())}>
+          <button
+            className="tool-btn"
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                const ok = await confirmAction(
+                  tr('abort.confirmT'),
+                  tr('abort.confirmM'),
+                  tr('abort.confirmD'),
+                  tr('dlg.abort')
+                )
+                if (!ok) return false
+                await dialogOps.abortRebase()
+                return false
+              })
+            }
+          >
             {tr('dlg.abort')}
           </button>
           <button

@@ -985,7 +985,14 @@ moveTab: (from, to) => {
   discardFile: async (path, tracked) => {
     const { current, lang } = get()
     if (!current) return
-    await fail(window.treeline.discard(current, path, tracked, lang), (e) => set({ error: e }))
+    const ok = await get().confirmAction(
+      t(lang, 'file.discardT'),
+      t(lang, 'file.discardM', { f: path }),
+      t(lang, tracked ? 'file.discardTrackedD' : 'file.discardUntrackedD'),
+      t(lang, 'dlg.discard')
+    )
+    if (!ok) return
+    await fail(window.treeline.discard(current, path, tracked), (e) => set({ error: e }))
     await get().refresh()
   },
 

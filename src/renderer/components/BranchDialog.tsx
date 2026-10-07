@@ -25,15 +25,13 @@ export default function BranchDialog() {
 
   const doDelete = (branch: string, force: boolean): Promise<void> =>
     run(async () => {
-      if (!force) {
-        const ok = await confirmAction(
-          tr('branch.delT'),
-          tr('branch.delM', { n: branch }),
-          tr('branch.delD'),
-          tr('dlg.delete')
-        )
-        if (!ok) return false
-      }
+      const ok = await confirmAction(
+        tr('branch.delT'),
+        tr('branch.delM', { n: branch }),
+        force ? tr('branch.delD') : tr('branch.delSafeD'),
+        force ? tr('dlg.force') : tr('dlg.delete')
+      )
+      if (!ok) return false
       const done = await dialogOps.deleteBranch(branch, force)
       if (!done) {
         const err = useStore.getState().error ?? ''

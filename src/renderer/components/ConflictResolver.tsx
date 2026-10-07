@@ -650,7 +650,17 @@ export default function ConflictResolver() {
         </button>
         <button
           className="cr-btn danger"
-          onClick={() => void abortOp()}
+          onClick={() =>
+            void (async () => {
+              const ok = await confirmAction(
+                tr('abort.confirmT'),
+                tr('abort.confirmM'),
+                tr('abort.confirmD'),
+                tr('dlg.abort')
+              )
+              if (ok) await abortOp()
+            })()
+          }
           disabled={!op}
           title={op ? (op === 'stash' ? 'git reset --merge' : `git ${op} --abort`) : undefined}
         >

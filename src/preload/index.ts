@@ -86,8 +86,8 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:getCommitDiff', repo, hash, file),
   reveal: (path: string) => ipcRenderer.invoke('treeline:reveal', path),
   removeRecent: (path: string) => ipcRenderer.invoke('treeline:removeRecent', path),
-  discard: (repo: string, file: string, tracked: boolean, lang?: string) =>
-    ipcRenderer.invoke('treeline:discard', repo, file, tracked, lang),
+  discard: (repo: string, file: string, tracked: boolean) =>
+    ipcRenderer.invoke('treeline:discard', repo, file, tracked),
   copyText: (text: string) => ipcRenderer.invoke('treeline:copyText', text),
   confirm: (title: string, message: string, detail: string, ok: string, cancel: string) =>
     ipcRenderer.invoke('treeline:confirm', title, message, detail, ok, cancel),

@@ -356,7 +356,7 @@ export interface TreeLineAPI {
   getCommitDiff(repo: string, hash: string, file: string): Promise<string>
   reveal(path: string): Promise<void>
   removeRecent(path: string): Promise<string[]>
-  discard(repo: string, file: string, tracked: boolean, lang?: string): Promise<void>
+  discard(repo: string, file: string, tracked: boolean): Promise<void>
   copyText(text: string): Promise<void>
   confirm(title: string, message: string, detail: string, ok: string, cancel: string): Promise<boolean>
   // Branch

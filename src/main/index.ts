@@ -124,28 +124,6 @@ const STR: Record<string, Record<UILang, string>> = {
     pt: 'Email inválido — confira o formato',
     es: 'Email inválido — revisa el formato'
   },
-  discardTitle: {
-    en: 'Discard changes',
-    pt: 'Descartar alterações',
-    es: 'Descartar cambios'
-  },
-  discardMsg: {
-    en: 'Discard changes in {f}?',
-    pt: 'Descartar alterações em {f}?',
-    es: '¿Descartar cambios en {f}?'
-  },
-  discardTracked: {
-    en: 'Tracked file: restores the last committed version. Cannot be undone.',
-    pt: 'Arquivo rastreado: restaura a última versão commitada. Não dá para desfazer.',
-    es: 'Archivo rastreado: restaura la última versión commiteada. No se puede deshacer.'
-  },
-  discardUntracked: {
-    en: 'Untracked file: moves it to the Trash. You can restore it from there.',
-    pt: 'Arquivo não rastreado: move para a Lixeira. Dá para restaurar de lá.',
-    es: 'Archivo no rastreado: lo mueve a la Papelera. Puedes restaurarlo desde allí.'
-  },
-  btnCancel: { en: 'Cancel', pt: 'Cancelar', es: 'Cancelar' },
-  btnDiscard: { en: 'Discard', pt: 'Descartar', es: 'Descartar' },
   nameInvalid: {
     en: 'Invalid name for git: {x}',
     pt: 'Nome inválido para o git: {x}',
@@ -2859,20 +2837,7 @@ ipcMain.handle('treeline:openPR', (_event, repo: string) =>
   })
 )
 
-ipcMain.handle('treeline:discard', async (event, repo: string, file: string, tracked: boolean, lang?: unknown) => {
-  const l = asLang(lang)
-  const win = BrowserWindow.fromWebContents(event.sender)
-  const opts = {
-    type: 'warning' as const,
-    title: mx(l, 'discardTitle'),
-    message: mx(l, 'discardMsg', { f: file }),
-    detail: tracked ? mx(l, 'discardTracked') : mx(l, 'discardUntracked'),
-    buttons: [mx(l, 'btnCancel'), mx(l, 'btnDiscard')],
-    defaultId: 0,
-    cancelId: 0
-  }
-  const res = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
-  if (res.response !== 1) return
+ipcMain.handle('treeline:discard', async (_event, repo: string, file: string, tracked: boolean) => {
   await enqueue(repo, async () => {
     if (tracked) {
       await backupBundle(repo)

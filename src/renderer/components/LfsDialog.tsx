@@ -97,7 +97,7 @@ export default function LfsDialog() {
       </label>
       <div className="modal-actions">
         <button className="tool-btn" onClick={closeDlg}>
-          {tr('settings.close')}
+          {tr('dlg.close')}
         </button>
         <button
           className="tool-btn primary"

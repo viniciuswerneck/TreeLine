@@ -95,5 +95,6 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | Flatpak/AppStream | 4 | ◑ (manifesto, metainfo e screenshots prontos; submissão no Flathub pendente) |
 | CI de release | 4 | ☑ (typecheck + Vitest + build + `.deb`/AppImage + GitHub Release em tag `v*`) |
 | Pacote/binário sem colisão | 4 | ☑ (`treeline-git-gui` no `.deb`, `/usr/bin` e Flatpak; `TreeLine` segue como nome de exibição) |
+| Hardening (segurança/estado/a11y) | 4 | ◐ revisão em `07-plano-de-acao.md` (9 partes); Parte 1 (confiança nos avisos) concluída — próximas: 2 (segurança), 3 (estado/troca de repo) |
 
 Legenda: ☐TODO / ◐parcial / ☑pronto / ◑em andamento. Atualizar por release.
