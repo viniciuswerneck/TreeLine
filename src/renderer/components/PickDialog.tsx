@@ -70,6 +70,14 @@ export default function PickDialog() {
           >
             {busy ? tr('dlg.working') : tr('dlg.continue')}
           </button>
+          <button
+            className="tool-btn"
+            disabled={busy}
+            title={tr('cr.skipOp')}
+            onClick={() => void run(() => dialogOps.skipCherryPick())}
+          >
+            {tr('cr.skipOp')}
+          </button>
         </div>
       </Dialog>
     )

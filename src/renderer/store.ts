@@ -24,7 +24,20 @@ export interface ConfirmState {
   ok: string
 }
 
-let confirmResolve: ((v: boolean) => void) | null = null
+// Fila de confirmações: se duas chegam juntas (ex.: reset + discard), a
+// primeira não "some" — o dialog mostra a seguinte ao resolver a atual.
+interface PendingConfirm extends ConfirmState {
+  resolve: (v: boolean) => void
+}
+
+let confirmQueue: PendingConfirm[] = []
+
+/** Cancela confirmações pendentes (ex.: troca de repo) sem travar o caller. */
+function dismissConfirmations() {
+  const pending = confirmQueue
+  confirmQueue = []
+  for (const c of pending) c.resolve(false)
+}
 
 export interface SelectedFile {
   path: string
@@ -96,6 +109,7 @@ interface TreeLineState {
   loadingMore: boolean
   loadMoreCommits: () => Promise<void>
   sync: SyncState
+  syncRepo: string | null
   theme: string
   lang: Lang
   loadRepos: () => Promise<void>
@@ -149,6 +163,7 @@ interface TreeLineState {
   toggleRerere: (on: boolean) => Promise<void>
   abortCurrentOp: () => Promise<void>
   continueCurrentOp: () => Promise<void>
+  skipCurrentOp: () => Promise<void>
   stageHunk: (hunkIndex: number) => Promise<void>
   discardHunk: (hunkIndex: number) => Promise<void>
   stageLines: (hunkIndex: number, lines: number[]) => Promise<void>
@@ -202,7 +217,7 @@ interface TreeLineState {
   confirmAction: (title: string, message: string, detail: string, ok: string) => Promise<boolean>
   confirmState: ConfirmState | null
   resolveConfirm: (v: boolean) => void
-  runOp: (op: (repo: string, lang: Lang) => Promise<unknown>) => Promise<boolean>
+  runOp: (op: (repo: string, lang: Lang) => Promise<unknown>, repo?: string) => Promise<boolean>
   cloneRepo: (url: string) => Promise<boolean>
   initRepo: () => Promise<boolean>
   terminalOpen: boolean
@@ -331,28 +346,30 @@ moveTab: (from, to) => {
   hasMoreCommits: false,
   loadingMore: false,
   loadMoreCommits: async () => {
-    const { current, commits, logPage, hasMoreCommits, loadingMore } = get()
-    if (!current || !hasMoreCommits || loadingMore) return
+    const repo = get().current
+    if (!repo || !get().hasMoreCommits || get().loadingMore) return
     set({ loadingMore: true })
     const PAGE = 300
-    const st = get()
-    const ref = logRefs(st)
-    const next = await fail(window.treeline.getLog(current, PAGE, commits.length, ref), (e) => set({ error: e }))
-    if (next !== null) {
-      // Dedupe por hash: repo pode ter mudado entre páginas (skip desloca).
-      const seen = new Set(commits.map((c) => c.hash))
+    const ref = logRefs(get())
+    const next = await fail(window.treeline.getLog(repo, PAGE, get().commits.length, ref), (e) => set({ error: e }))
+    if (next !== null && get().current === repo) {
+      // 3.2: dedupe/base pela lista ATUAL (não uma cópia capturada): um
+      // refresh pode ter recarregado a página 0 no meio do load. Sem isso,
+      // a cópia velha era reanexada e commits duplicados/deletados sumiam.
+      const base = get().commits
+      const seen = new Set(base.map((c) => c.hash))
       const fresh = next.filter((c) => !seen.has(c.hash))
       set({
-        commits: [...commits, ...fresh],
-        logPage: logPage + 1,
-        hasMoreCommits: next.length >= PAGE,
-        loadingMore: false
+        commits: [...base, ...fresh],
+        logPage: get().logPage + 1,
+        hasMoreCommits: next.length >= PAGE
       })
-    } else {
-      set({ loadingMore: false })
     }
+    // Se trocou de repo, a lista nova suplantou esta — não mexe em nada.
+    set({ loadingMore: false })
   },
-  sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false },
+sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false },
+  syncRepo: null,
   theme: loadTheme(),
   lang: loadLang(),
 
@@ -373,6 +390,8 @@ moveTab: (from, to) => {
   },
 
   selectRepo: async (path: string) => {
+    // 3.6: confirmações pendentes do repo anterior são canceladas (não "vazam").
+    dismissConfirmations()
     // Preserva a ordem manual das abas: só anexa se ainda não estiver aberta.
     const open = get().openTabs
     const tabs = open.includes(path) ? [...open] : [...open, path].slice(-20)
@@ -381,37 +400,40 @@ moveTab: (from, to) => {
     } catch {
       /* ignora */
     }
-    set({ current: path, openTabs: tabs, status: null, commits: [], branches: [], branchSel: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, lfs: null, submodules: [], selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, fileHistory: [], fileHistoryPath: null, compareA: null, compareB: null, compare: null, dialog: null })
+    set({ current: path, openTabs: tabs, status: null, commits: [], branches: [], branchSel: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, lfs: null, submodules: [], selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, fileHistory: [], fileHistoryPath: null, compareA: null, compareB: null, compare: null, dialog: null, confirmState: null, filter: '', branchFilter: 'all', resolverOpen: false, conflictFiles: [], conflictIndex: 0, conflictLoading: false, conflictOp: null, sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false }, syncRepo: null })
     await window.treeline.addRecent(path)
     await get().refresh()
   },
 
   refresh: async () => {
-    const { current } = get()
-    if (!current) return
+    const repo = get().current
+    if (!repo) return
     set({ loading: true, error: null })
     // Fase 1: branch atual (para o log com ancestry real no modo current).
     const [status, branches] = await Promise.all([
-      fail(window.treeline.getStatus(current), (e) => set({ error: e })),
-      fail(window.treeline.getBranches(current), (e) => set({ error: e }))
+      fail(window.treeline.getStatus(repo), (e) => set({ error: e })),
+      fail(window.treeline.getBranches(repo), (e) => set({ error: e }))
     ])
+    // 3.1: se trocou de repo durante a leitura, descarta — nunca mistura
+    // dados do repo A numa tela que já mostra o repo B.
+    if (get().current !== repo) return
     const ref = logRefs({ ...get(), branches: branches ?? [], status })
     const [commits, branchesDetailed, remoteBranches, stashes, tags, remotes, reflog, mergeState, rebaseState, pickState, revertState, worktree, lfs, submodules, flow] = await Promise.all([
-      fail(window.treeline.getLog(current, 300, 0, ref), (e) => set({ error: e })),
-      fail(window.treeline.getBranchesDetailed(current), (e) => set({ error: e })),
-      fail(window.treeline.getRemoteBranches(current), (e) => set({ error: e })),
-      fail(window.treeline.getStashes(current), (e) => set({ error: e })),
-      fail(window.treeline.getTags(current), (e) => set({ error: e })),
-      fail(window.treeline.getRemotes(current), (e) => set({ error: e })),
-      fail(window.treeline.getReflog(current, 50), (e) => set({ error: e })),
-      fail(window.treeline.getMergeState(current), (e) => set({ error: e })),
-      fail(window.treeline.getRebaseState(current), (e) => set({ error: e })),
-      fail(window.treeline.getCherryPickState(current), (e) => set({ error: e })),
-      fail(window.treeline.getRevertState(current), (e) => set({ error: e })),
-      fail(window.treeline.getWorktreeInfo(current), (e) => set({ error: e })),
-      fail(window.treeline.getLfsInfo(current), (e) => set({ error: e })),
-      fail(window.treeline.getSubmodules(current), (e) => set({ error: e })),
-      fail(window.treeline.detectFlow(current), (e) => set({ error: e }))
+      fail(window.treeline.getLog(repo, 300, 0, ref), (e) => set({ error: e })),
+      fail(window.treeline.getBranchesDetailed(repo), (e) => set({ error: e })),
+      fail(window.treeline.getRemoteBranches(repo), (e) => set({ error: e })),
+      fail(window.treeline.getStashes(repo), (e) => set({ error: e })),
+      fail(window.treeline.getTags(repo), (e) => set({ error: e })),
+      fail(window.treeline.getRemotes(repo), (e) => set({ error: e })),
+      fail(window.treeline.getReflog(repo, 50), (e) => set({ error: e })),
+      fail(window.treeline.getMergeState(repo), (e) => set({ error: e })),
+      fail(window.treeline.getRebaseState(repo), (e) => set({ error: e })),
+      fail(window.treeline.getCherryPickState(repo), (e) => set({ error: e })),
+      fail(window.treeline.getRevertState(repo), (e) => set({ error: e })),
+      fail(window.treeline.getWorktreeInfo(repo), (e) => set({ error: e })),
+      fail(window.treeline.getLfsInfo(repo), (e) => set({ error: e })),
+      fail(window.treeline.getSubmodules(repo), (e) => set({ error: e })),
+      fail(window.treeline.detectFlow(repo), (e) => set({ error: e }))
     ])
     // Conflitos: quando existe operação interrompida, e também enquanto o
     // overlay está aberto. `git stash pop` conflitante não deixa state file
@@ -427,11 +449,13 @@ moveTab: (from, to) => {
       resolverOpen
     const [conflictFiles, conflictOp, rerere] = wantConflicts
       ? await Promise.all([
-          fail(window.treeline.getConflictFiles(current), (e) => set({ error: e })),
-          fail(window.treeline.getConflictOp(current), (e) => set({ error: e })),
-          fail(window.treeline.getRerere(current), (e) => set({ error: e }))
+          fail(window.treeline.getConflictFiles(repo), (e) => set({ error: e })),
+          fail(window.treeline.getConflictOp(repo), (e) => set({ error: e })),
+          fail(window.treeline.getRerere(repo), (e) => set({ error: e }))
         ])
       : [null, null, null]
+    // 3.1: resposta atrasada do repo antigo não invade a tela do novo.
+    if (get().current !== repo) return
     set({
       conflictFiles: conflictFiles ?? (wantConflicts ? get().conflictFiles : []),
       // `getConflictOp` só devolve 'stash' enquanto há unmerged no index: no
@@ -466,12 +490,14 @@ moveTab: (from, to) => {
 
   selectFile: async (f) => {
     set({ selectedFile: f, diff: '', hunks: [], selectedCommit: null, commitDetail: null, commitDiff: '' })
-    const { current, lang } = get()
-    if (!current || !f) return
+    const repo = get().current
+    if (!repo || !f) return
     const [diff, hunks] = await Promise.all([
-      fail(window.treeline.getDiff(current, f.path, f.staged, lang), (e) => set({ error: e })),
-      fail(window.treeline.getHunks(current, f.path, f.staged), (e) => set({ error: e }))
+      fail(window.treeline.getDiff(repo, f.path, f.staged, get().lang), (e) => set({ error: e })),
+      fail(window.treeline.getHunks(repo, f.path, f.staged), (e) => set({ error: e }))
     ])
+    // 3.1: diff demorado não pinta na tela se trocou de repo/arquivo no meio.
+    if (get().current !== repo || get().selectedFile?.path !== f.path) return
     set({ diff: diff ?? '', hunks: hunks ?? [] })
   },
 
@@ -545,64 +571,74 @@ moveTab: (from, to) => {
   },
 
   doPush: async () => {
-    const { current, lang } = get()
-    if (!current || get().sync.phase === 'running') return
-    set({ sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
-    const res = await fail(window.treeline.push(current, lang), (e) => {
+    const repo = get().current
+    if (!repo || get().sync.phase === 'running') return
+    set({ syncRepo: repo, sync: { op: 'push', phase: 'running', message: t(get().lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
+    const res = await fail(window.treeline.push(repo, get().lang), (e) => {
+      // 3.5: toast de sync é por repo — se o usuário trocou de aba, não pinta.
+      if (get().current !== repo) return
       const detail = cleanErr(e)
       const lease = /non-fast-forward|fetch first|rejected/i.test(detail)
       const publish = /sem upstream|no upstream|no tracking|has no upstream/i.test(detail)
       return set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: detail }), retryLease: lease && !publish, retryPublish: publish } })
     })
     if (res !== null) {
-      set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
+      if (get().current === repo) set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
   },
 
   doPull: async () => {
-    const { current, lang } = get()
-    if (!current || get().sync.phase === 'running') return
-    set({ sync: { op: 'pull', phase: 'running', message: t(lang, 'sync.running', { op: 'Pull' }), retryLease: false, retryPublish: false }, error: null })
-    const res = await fail(window.treeline.pull(current, lang), (e) =>
-      set({ sync: { op: 'pull', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Pull', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
-    )
+    const repo = get().current
+    if (!repo || get().sync.phase === 'running') return
+    set({ syncRepo: repo, sync: { op: 'pull', phase: 'running', message: t(get().lang, 'sync.running', { op: 'Pull' }), retryLease: false, retryPublish: false }, error: null })
+    const res = await fail(window.treeline.pull(repo, get().lang), (e) => {
+      if (get().current !== repo) return
+      return set({ sync: { op: 'pull', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Pull', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
+    })
     if (res !== null) {
-      set({ sync: { op: 'pull', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
+      if (get().current === repo) set({ sync: { op: 'pull', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
   },
 
   doFetch: async () => {
-    const { current, lang } = get()
-    if (!current || get().sync.phase === 'running') return
-    set({ sync: { op: 'fetch', phase: 'running', message: t(lang, 'sync.running', { op: 'Fetch' }), retryLease: false, retryPublish: false }, error: null })
-    const res = await fail(window.treeline.fetch(current, lang), (e) =>
-      set({ sync: { op: 'fetch', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Fetch', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
-    )
+    const repo = get().current
+    if (!repo || get().sync.phase === 'running') return
+    set({ syncRepo: repo, sync: { op: 'fetch', phase: 'running', message: t(get().lang, 'sync.running', { op: 'Fetch' }), retryLease: false, retryPublish: false }, error: null })
+    const res = await fail(window.treeline.fetch(repo, get().lang), (e) => {
+      if (get().current !== repo) return
+      return set({ sync: { op: 'fetch', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Fetch', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
+    })
     if (res !== null) {
-      set({ sync: { op: 'fetch', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
+      if (get().current === repo) set({ sync: { op: 'fetch', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
   },
 
-  clearSync: () => set({ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false } }),
+  clearSync: () => set({ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false }, syncRepo: null }),
 
   cancelSync: async () => {
-    const { current, sync } = get()
-    if (!current || sync.phase !== 'running' || !sync.op) return
+    const repo = get().current
+    const { sync } = get()
+    if (!repo || sync.phase !== 'running' || !sync.op) return
+    // 3.5: cancela só a sync do repo da vez (backup do que rodava antes).
+    if (get().syncRepo && get().syncRepo !== repo) return
     const key = sync.op === 'push' ? 'Push' : sync.op === 'pull' ? 'Pull' : sync.op === 'fetch' ? 'Fetch' : 'Clone'
     try {
-      await window.treeline.cancelSync(current, key)
+      await window.treeline.cancelSync(repo, key)
     } catch {
       /* o timeout mata sozinho */
     }
-    set({ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false } })
+    set({ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false }, syncRepo: null })
   },
 
   doPushForce: async () => {
-    const { current, lang } = get()
-    if (!current || get().sync.phase === 'running') return
+    // 3.4: repo capturado ANTES da confirmação — force-push nunca cai em
+    // outro repo se o usuário trocou de aba enquanto respondia o modal.
+    const repo = get().current
+    const lang = get().lang
+    if (!repo || get().sync.phase === 'running') return
     const ok = await get().confirmAction(
       t(lang, 'pushLease.title'),
       t(lang, 'pushLease.msg'),
@@ -610,20 +646,23 @@ moveTab: (from, to) => {
       t(lang, 'dlg.push')
     )
     if (!ok) return
-    set({ sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
-    const res = await fail(window.treeline.pushForce(current, true, lang), (e) =>
-      set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
-    )
+    set({ syncRepo: repo, sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
+    const res = await fail(window.treeline.pushForce(repo, true, lang), (e) => {
+      if (get().current !== repo) return
+      return set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
+    })
     if (res !== null) {
-      set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
+      if (get().current === repo) set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
   },
 
   doPushPublish: async () => {
-    const { current, lang, status } = get()
-    if (!current || get().sync.phase === 'running') return
-    const branch = status?.branch ?? ''
+    // 3.4: repo e branch capturados antes da confirmação.
+    const repo = get().current
+    const lang = get().lang
+    const branch = get().status?.branch ?? ''
+    if (!repo || get().sync.phase === 'running') return
     const ok = await get().confirmAction(
       t(lang, 'pushPublish.title'),
       t(lang, 'pushPublish.msg', { b: branch }),
@@ -631,29 +670,36 @@ moveTab: (from, to) => {
       t(lang, 'dlg.push')
     )
     if (!ok) return
-    set({ sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
-    const res = await fail(window.treeline.pushPublish(current, lang), (e) =>
-      set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
-    )
+    set({ syncRepo: repo, sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
+    const res = await fail(window.treeline.pushPublish(repo, lang), (e) => {
+      if (get().current !== repo) return
+      return set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
+    })
     if (res !== null) {
-      set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
+      if (get().current === repo) set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
   },
 
   doRevert: async (hash: string) => {
-    const { lang } = get()
+    // 3.4: reverte exatamente o repo que o usuário via ao confirmar.
+    const repo = get().current
+    const lang = get().lang
+    if (!repo) return
     const ok = await get().confirmAction(
       t(lang, 'revert.title'), t(lang, 'revert.msg', { h: hash.slice(0, 7) }), t(lang, 'revert.detail'), t(lang, 'dlg.pick')
     )
     if (!ok) return
-    if (await get().runOp((repo, l) => window.treeline.revertCommit(repo, hash, l))) {
+    if (await get().runOp((r, l) => window.treeline.revertCommit(r, hash, l), repo)) {
       set({ selectedCommit: null, commitDetail: null, commitDiff: '' })
     }
   },
 
   doReset: async (ref: string, mode: ResetMode) => {
-    const { lang } = get()
+    // 3.4: repo capturado antes da confirmação — reset não atinge outro repo.
+    const repo = get().current
+    const lang = get().lang
+    if (!repo) return false
     const ok = await get().confirmAction(
       t(lang, 'reset.title'),
       t(lang, 'reset.msg', { m: mode, r: ref }),
@@ -661,7 +707,7 @@ moveTab: (from, to) => {
       t(lang, 'dlg.undo')
     )
     if (!ok) return false
-    return get().runOp((repo, l) => window.treeline.resetTo(repo, ref, mode, l))
+    return get().runOp((r, l) => window.treeline.resetTo(r, ref, mode, l), repo)
   },
 
   resolveOurs: async (path: string) => {
@@ -809,6 +855,22 @@ moveTab: (from, to) => {
       return window.treeline.abortMerge(repo)
     })
     set({ resolverOpen: false, conflictFiles: [], conflictIndex: 0 })
+    await get().refresh()
+  },
+
+  skipCurrentOp: async () => {
+    // 3.10: `--skip` (rebase/cherry-pick/revert): pula o commit que travou.
+    const { current, conflictOp } = get()
+    if (!current) return
+    const op = conflictOp ?? 'merge'
+    // Merge/stash não têm `--skip`: abort (desfaz tudo) ou continuar.
+    if (op === 'merge' || op === 'stash') return
+    const ok = await get().runOp((repo, lang) => {
+      if (op === 'rebase') return window.treeline.skipRebase(repo, lang)
+      if (op === 'cherry-pick') return window.treeline.skipCherryPick(repo, lang)
+      return window.treeline.skipRevert(repo, lang)
+    })
+    if (ok) set({ resolverOpen: false, conflictFiles: [], conflictIndex: 0 })
     await get().refresh()
   },
 
@@ -1225,28 +1287,37 @@ moveTab: (from, to) => {
 
   confirmAction: (title, message, detail, ok) =>
     new Promise<boolean>((resolve) => {
-      confirmResolve = resolve
-      set({ confirmState: { title, message, detail, ok } })
+      confirmQueue.push({ title, message, detail, ok, resolve })
+      if (confirmQueue.length === 1) set({ confirmState: { title, message, detail, ok } })
     }),
 
   confirmState: null,
   resolveConfirm: (v) => {
-    confirmResolve?.(v)
-    confirmResolve = null
-    set({ confirmState: null })
+    const cur = confirmQueue[0]
+    if (cur) {
+      cur.resolve(v)
+      // shift() antes de montar a próxima: evita reentrada de resolveConfirm.
+      confirmQueue.shift()
+    }
+    const next = confirmQueue[0]
+    set({ confirmState: next ? { title: next.title, message: next.message, detail: next.detail, ok: next.ok } : null })
   },
 
-  runOp: async (op) => {
-    const { current, lang } = get()
-    if (!current) return false
+  runOp: async (op, repo?) => {
+    // `repo` opcional: chamadas que confirmaram antes (reach/reset/push)
+    // passam o repo capturado; o resto usa a aba atual.
+    const target = repo ?? get().current
+    const lang = get().lang
+    if (!target) return false
     set({ error: null })
     try {
-      await op(current, lang)
+      await op(target, lang)
     } catch (e) {
       set({ error: cleanErr(e) })
       return false
     }
-    await get().refresh()
+    // 3.1: refresh só se ainda estamos olhando o repo alvo da operação.
+    if (get().current === target) await get().refresh()
     return true
   },
 
@@ -1321,12 +1392,16 @@ export const dialogOps = {
     useStore.getState().runOp((repo, lang) => window.treeline.rebaseOnto(repo, ref, lang, true)),
   rebaseContinue: () =>
     useStore.getState().runOp((repo, lang) => window.treeline.rebaseContinue(repo, lang)),
+  skipRebase: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.skipRebase(repo, lang)),
   abortRebase: () =>
     useStore.getState().runOp((repo) => window.treeline.abortRebase(repo)),
   cherryPick: (hash: string) =>
     useStore.getState().runOp((repo, lang) => window.treeline.cherryPick(repo, hash, lang)),
   cherryPickContinue: () =>
     useStore.getState().runOp((repo, lang) => window.treeline.cherryPickContinue(repo, lang)),
+  skipCherryPick: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.skipCherryPick(repo, lang)),
   abortCherryPick: () =>
     useStore.getState().runOp((repo) => window.treeline.abortCherryPick(repo)),
   flowStart: (type: FlowType, name: string) =>
@@ -1357,6 +1432,8 @@ export const dialogOps = {
     useStore.getState().runOp((repo, lang) => window.treeline.rebaseInteractive(repo, base, plan, lang)),
   rebaseInteractiveStash: (base: string, plan: RebasePlanEntry[]) =>
     useStore.getState().runOp((repo, lang) => window.treeline.rebaseInteractive(repo, base, plan, lang, true)),
+  skipRevert: () =>
+    useStore.getState().runOp((repo, lang) => window.treeline.skipRevert(repo, lang)),
   abortRevert: () =>
     useStore.getState().runOp((repo) => window.treeline.abortRevert(repo)),
   openPR: () =>

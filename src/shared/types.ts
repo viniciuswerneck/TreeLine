@@ -388,11 +388,13 @@ export interface TreeLineAPI {
   getRebaseState(repo: string): Promise<OpState>
   rebaseOnto(repo: string, ref: string, lang?: string, autostash?: boolean): Promise<void>
   rebaseContinue(repo: string, lang?: string): Promise<void>
+  skipRebase(repo: string, lang?: string): Promise<void>
   abortRebase(repo: string): Promise<void>
   // Revert
   getRevertState(repo: string): Promise<OpState>
   abortRevert(repo: string): Promise<void>
   revertContinue(repo: string, lang?: string): Promise<void>
+  skipRevert(repo: string, lang?: string): Promise<void>
   // Worktree
   getWorktreeInfo(repo: string): Promise<WorktreeInfo>
   // LFS + Submodules
@@ -403,6 +405,7 @@ export interface TreeLineAPI {
   getCherryPickState(repo: string): Promise<OpState>
   cherryPick(repo: string, hash: string, lang?: string): Promise<void>
   cherryPickContinue(repo: string, lang?: string): Promise<void>
+  skipCherryPick(repo: string, lang?: string): Promise<void>
   abortCherryPick(repo: string): Promise<void>
   // Git-flow
   detectFlow(repo: string): Promise<{ installed: boolean }>

@@ -132,17 +132,20 @@ const api: TreeLineAPI = {
   getRevertState: (repo: string) => ipcRenderer.invoke('treeline:getRevertState', repo),
   abortRevert: (repo: string) => ipcRenderer.invoke('treeline:abortRevert', repo),
   revertContinue: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:revertContinue', repo, lang),
+  skipRevert: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:skipRevert', repo, lang),
   getWorktreeInfo: (repo: string) => ipcRenderer.invoke('treeline:getWorktreeInfo', repo),
   getLfsInfo: (repo: string) => ipcRenderer.invoke('treeline:getLfsInfo', repo),
   getSubmodules: (repo: string) => ipcRenderer.invoke('treeline:getSubmodules', repo),
   updateSubmodules: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:updateSubmodules', repo, lang),
   rebaseContinue: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:rebaseContinue', repo, lang),
+  skipRebase: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:skipRebase', repo, lang),
   abortRebase: (repo: string) => ipcRenderer.invoke('treeline:abortRebase', repo),
   getCherryPickState: (repo: string) => ipcRenderer.invoke('treeline:getCherryPickState', repo),
   cherryPick: (repo: string, hash: string, lang?: string) =>
     ipcRenderer.invoke('treeline:cherryPick', repo, hash, lang),
   cherryPickContinue: (repo: string, lang?: string) =>
     ipcRenderer.invoke('treeline:cherryPickContinue', repo, lang),
+  skipCherryPick: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:skipCherryPick', repo, lang),
   abortCherryPick: (repo: string) => ipcRenderer.invoke('treeline:abortCherryPick', repo),
   detectFlow: (repo: string) => ipcRenderer.invoke('treeline:detectFlow', repo),
   flowStart: (repo: string, type: string, name: string, lang?: string) =>

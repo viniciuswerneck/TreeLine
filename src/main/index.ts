@@ -376,6 +376,17 @@ function readOp<T>(fn: () => Promise<T>): Promise<T> {
   return fn()
 }
 
+/**
+ * Leitura que mexe no índice (ex.: `git status` faz refresh de stat) espera
+ * qualquer escrita já enfileirada daquele repo terminar antes de rodar.
+ * Entre si as leituras continuam em paralelo — só não concorrem com escrita
+ * no `index.lock` (3.7).
+ */
+function readIndexOp<T>(repo: string, fn: () => Promise<T>): Promise<T> {
+  const pending = queues.get(repo)
+  return pending ? pending.then(() => fn(), () => fn()) : fn()
+}
+
 // Sem TTY no Electron, prompt interativo de senha travaria o main.
 // Mas ATENÇÃO: simple-git `.env()` SUBSTITUI o env inteiro do filho
 // (spawn recebe só as chaves custom), apagando HOME/credential helper.
@@ -715,7 +726,10 @@ ipcMain.handle('treeline:mergeBranch', (_event, repo: string, ref: string, noFf:
  * por isso abortamos antes, com o nome do arquivo na mensagem.
  */
 async function unmergedPaths(repo: string): Promise<string[]> {
-  const raw = await simpleGit(repo).raw(['ls-files', '-u', '-z']).catch(() => '')
+  // Sem `.catch(() => '')`: se o `ls-files -u` falhar (3.9), o erro PROPAGA
+  // em vez de virar "nenhum conflito" — a UI mostra o erro real em vez de
+  // fingir que a operação conflitante acabou.
+  const raw = await simpleGit(repo).raw(['ls-files', '-u', '-z'])
   return parseLsFilesU(raw)
     .map((e) => e.path)
     .filter((p, i, a) => a.indexOf(p) === i)
@@ -937,6 +951,18 @@ ipcMain.handle('treeline:rebaseContinue', (_event, repo: string, lang?: unknown)
   })
 )
 
+ipcMain.handle('treeline:skipRebase', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    // 3.10: pula o commit que travou e segue para o próximo do plano.
+    try {
+      await simpleGit(repo).raw(['rebase', '--skip'])
+    } catch (e) {
+      throw conflictErr('rebaseConflicts', e, l)
+    }
+  })
+)
+
 ipcMain.handle('treeline:abortRebase', (_event, repo: string) =>
   enqueue(repo, () => simpleGit(repo).raw(['rebase', '--abort']).then(() => undefined))
 )
@@ -969,6 +995,17 @@ ipcMain.handle('treeline:cherryPickContinue', (_event, repo: string, lang?: unkn
     const unmerged = await unmergedPaths(repo)
     if (unmerged.length > 0) throw new Error(mx(l, 'pickUnresolved', { n: unmerged.length, f: unmerged[0] }))
     await runContinue(repo, ['cherry-pick', '--continue'], l, 'pickConflicts')
+  })
+)
+
+ipcMain.handle('treeline:skipCherryPick', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).raw(['cherry-pick', '--skip'])
+    } catch (e) {
+      throw conflictErr('pickConflicts', e, l)
+    }
   })
 )
 
@@ -1528,8 +1565,10 @@ function parseLogBlock(block: string): CommitInfo | null {
 }
 
 ipcMain.handle('treeline:getStatus', ( _event, repo: string) =>
-  // READ: fora da fila de escrita (refresh não trava em sync longa).
-  readOp(async (): Promise<RepoStatus> => {
+  // READ: lê fora da fila de escrita, MAS `git status` faz refresh de stat no
+  // índice — espera escritas enfileiradas do repo para não brigar com o
+  // `index.lock` de um commit/stage em andamento (3.7).
+  readIndexOp(repo, async (): Promise<RepoStatus> => {
     const s = await simpleGit(repo).status()
     const staged = s.files.filter((f) => f.index !== ' ' && f.index !== '?').map((f) => ({ path: f.path, code: `${f.index}${f.working_dir}` }))
     // Untracked (??) sai em lista própria: se ficar aqui, conta e renderiza em dobro.
@@ -2286,6 +2325,17 @@ ipcMain.handle('treeline:revertContinue', (_event, repo: string, lang?: unknown)
   })
 )
 
+ipcMain.handle('treeline:skipRevert', (_event, repo: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    const l = asLang(lang)
+    try {
+      await simpleGit(repo).raw(['revert', '--skip'])
+    } catch (e) {
+      throw conflictErr('revertConflicts', e, l)
+    }
+  })
+)
+
 ipcMain.handle('treeline:abortRevert', (_event, repo: string, lang?: unknown) =>
   enqueue(repo, async () => {
     try {
@@ -2918,6 +2968,9 @@ ipcMain.handle('treeline:rebaseInteractive', (_event, repo: string, base: string
     const body = plan.map((p) => `${p.action} ${p.hash} ${msg(p.message)}`).join('\n') + '\n'
     await fs.writeFile(planFile, body)
     const prev = process.env['GIT_SEQUENCE_EDITOR']
+    // O env é global ao processo, MAS o bloco inteiro roda dentro de
+    // enqueueGlobal (serializado com outros rebases interativos): o editor é
+    // setado e restaurado sem nunca sobrepor outro rebase-i (3.8).
     process.env['GIT_SEQUENCE_EDITOR'] = `cp ${planFile}`
     try {
       await simpleGit(repo).raw(['rebase', '-i', ...(autostash === true ? ['--autostash'] : []), base.trim() || 'HEAD'])

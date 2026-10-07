@@ -86,6 +86,15 @@ export default function StatusBar() {
               {tr('revert.inProg')}
             </button>
           )}
+          {revertBusy && (
+            <button
+              className="status-link"
+              title={tr('cr.skipOp')}
+              onClick={() => void dialogOps.skipRevert()}
+            >
+              {tr('cr.skipOp')}
+            </button>
+          )}
           {worktree?.linked && (
             <span className="status-tag" title={`${tr('status.worktree')} (${worktree.toplevel})`}>
               worktree

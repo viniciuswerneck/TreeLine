@@ -59,6 +59,7 @@ export default function ConflictResolver() {
   const setRerere = useStore((s) => s.toggleRerere)
   const abortOp = useStore((s) => s.abortCurrentOp)
   const continueOp = useStore((s) => s.continueCurrentOp)
+  const skipOp = useStore((s) => s.skipCurrentOp)
   const confirmAction = useStore((s) => s.confirmAction)
 
   const file = files[index] ?? null
@@ -666,6 +667,12 @@ export default function ConflictResolver() {
         >
           {tr('cr.abort')}
         </button>
+        {/* 3.10: rebase/cherry-pick/revert têm `--skip` — pula o commit travado. */}
+        {op && op !== 'merge' && op !== 'stash' && (
+          <button className="cr-btn" onClick={() => void skipOp()} disabled={busy} title={`git ${op} --skip`}>
+            {tr('cr.skipOp')}
+          </button>
+        )}
         {/* Só habilita com TODOS os conflitos decididos: o main rejeita
             qualquer Continue com unmerged no index, e assim o botão explica
             o porquê em vez de falhar com erro. */}

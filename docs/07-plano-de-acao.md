@@ -72,16 +72,18 @@
 
 | # | O que fazer | Por que importa | Onde | Esforço | Feito |
 |---|---|---|---|---|---|
-| 3.1 | Criar uma regra: "só aplico resultado se ainda estou no mesmo repositório" | Hoje resposta atrasada do repo A invade o repo B | `store.ts` (`refresh`, `loadMoreCommits`, `selectFile`…) | 🔴 | [ ] |
-| 3.2 | Corrigir "carregar mais commits" para não substituir a lista inteira por uma cópia velha | Pode apagar commits da tela | `store.ts:333` | 🟡 | [ ] |
-| 3.3 | Fazer a caixinha de confirmação não travar quando duas aparecem juntas | Hoje a primeira pergunta pode "sumir" e travar | `store.ts:1219` | 🟡 | [ ] |
-| 3.4 | Guardar o repositório "alvo" da ação no momento da confirmação | Force-push/reset não devem cair no repo errado | `store.ts:603` | 🟡 | [ ] |
-| 3.5 | Sincronização (push/pull/fetch) por repositório, não global | Operação no repo A não deve travar o repo B | `store.ts:355` | 🟡 | [ ] |
-| 3.6 | Ao trocar de repo, limpar também filtros, overlay de conflito, menu e confirmação | Hoje alguns estados "vazam" para o próximo repo | `store.ts:384` | 🟡 | [ ] |
-| 3.7 | Não deixar leituras concorrerem com escrita no arquivo de índice | Evita travar/corromper (`index.lock`) | `main/index.ts:391` | 🟡 | [ ] |
-| 3.8 | Corrigir o editor de todo do rebase para não ser global | Dois rebases ao mesmo tempo podem se atropelar | `main/index.ts:2805` | 🟢 | [ ] |
-| 3.9 | Tratar erro do Git como "tem conflito" em vez de ignorar | Hoje um erro pode ser lido como "sem conflito" | `main/index.ts:684` | 🟢 | [ ] |
-| 3.10 | Adicionar "Pular" (`--skip`) nos conflitos | Não ficar preso quando o Git não avança | `main/index.ts` | 🟢 | [ ] |
+| 3.1 | Criar uma regra: "só aplico resultado se ainda estou no mesmo repositório" | Hoje resposta atrasada do repo A invade o repo B | `store.ts` (`refresh`, `loadMoreCommits`, `selectFile`…) | 🔴 | [x] |
+| 3.2 | Corrigir "carregar mais commits" para não substituir a lista inteira por uma cópia velha | Pode apagar commits da tela | `store.ts:333` | 🟡 | [x] |
+| 3.3 | Fazer a caixinha de confirmação não travar quando duas aparecem juntas | Hoje a primeira pergunta pode "sumir" e travar | `store.ts:1219` | 🟡 | [x] |
+| 3.4 | Guardar o repositório "alvo" da ação no momento da confirmação | Force-push/reset não devem cair no repo errado | `store.ts:603` | 🟡 | [x] |
+| 3.5 | Sincronização (push/pull/fetch) por repositório, não global | Operação no repo A não deve travar o repo B | `store.ts:355` | 🟡 | [x] |
+| 3.6 | Ao trocar de repo, limpar também filtros, overlay de conflito, menu e confirmação | Hoje alguns estados "vazam" para o próximo repo | `store.ts:384` | 🟡 | [x] |
+| 3.7 | Não deixar leituras concorrerem com escrita no arquivo de índice | Evita travar/corromper (`index.lock`) | `main/index.ts:391` | 🟡 | [x] |
+| 3.8 | Corrigir o editor de todo do rebase para não ser global | Dois rebases ao mesmo tempo podem se atropelar | `main/index.ts:2805` | 🟢 | [x] |
+| 3.9 | Tratar erro do Git como "tem conflito" em vez de ignorar | Hoje um erro pode ser lido como "sem conflito" | `main/index.ts:684` | 🟢 | [x] |
+| 3.10 | Adicionar "Pular" (`--skip`) nos conflitos | Não ficar preso quando o Git não avança | `main/index.ts` | 🟢 | [x] |
+
+**Feito em 2026-10-06.** Detalhes: guarda "mesmo repositório" no `refresh`, `loadMoreCommits` e `selectFile` (resposta atrasada do repo A é descartada nunca pintando no repo B); `loadMoreCommits` agora dedupe/annex pela lista ATUAL, não uma cópia capturada (não perde commits se um refresh recarregou a página 0 no meio). `confirmAction` virou fila (duas confirmações simultâneas não "somem"; trocar de repo cancela as pendentes). Force-push/publish/reset/revert capturam o repo ANTES da confirmação e passam ao `runOp` (recebe repo opcional) — a ação nunca cai no repo errado se o usuário trocou de aba. Sync (push/pull/fetch) ganhou `syncRepo`: toast e cancelamento são por repo, e sucesso/erro só pintam na aba do repo. Trocar de repo limpa filtros (`filter`, `branchFilter`), overlay de conflito, `confirmState` e sync. Main: `readIndexOp` faz o `getStatus` esperar escritas enfileiradas do repo (evita disputa de `index.lock`; leituras continuam paralelas entre si); editor do rebase interativo já é serializado por `enqueueGlobal` (documentado); `unmergedPaths` não engole mais erro de git (vira "tem conflito" real em vez de "sem conflito"); Skip (`--skip`) novo para rebase/cherry-pick/revert via handlers IPC + botões no `RebaseDialog`, `PickDialog`, `ConflictResolver` e `StatusBar` (chave `cr.skipOp`, 3 línguas). Validação: `npm run typecheck` limpo (2 tsconfigs), Vitest 78/78, `npm run build` ok.
 
 **Resultado esperado:** navegar entre projetos rápido é seguro; nada de dados trocados.
 
@@ -212,7 +214,7 @@
 | Sprint | Foco | Partes | Resultado |
 |---|---|---|---|
 | 1 | Confiança e segurança | Parte 1 ✅ + Parte 2 ✅ | Nada perigoso acontece sem querer |
-| 2 | Estabilidade | Parte 3 | Trocar de repo e sincronizar sem sustos |
+| 2 | Estabilidade | Parte 3 ✅ | Trocar de repo e sincronizar sem sustos |
 | 3 | Feedback e clareza | Parte 4 + Parte 6 | Sem "travou?" e sem texto errado |
 | 4 | Acessibilidade e visual | Parte 5 + Parte 7 | Usável por teclado, cara de premium |
 | 5 | Paridade | Parte 8 | Recursos avançados |
@@ -240,6 +242,7 @@ Rodar na ordem:
 |---|---|---|
 | 2026-10-06 | Parte 1 (Sprint 1) | Confiança nos avisos completa: Enter só no modal, foco no Cancelar, reset/discard/abort/force-delete padronizados no `confirmAction`, rótulos corrigidos. Validação: tsc limpo, Vitest 78/78, build ok. Commit `55a43d6` pushado. |
 | 2026-10-06 | Parte 2 (Sprint 1) | Segurança interna: validação de refs/hashes/paths/URLs no main, rebase-i com whitelist, push com refspec explícito, token do clone fora do argv (GIT_ASKPASS), openPR só http/https. Validação: typecheck (2 configs), Vitest 78/78, build ok. |
+| 2026-10-06 | Parte 3 (Sprint 1) | Estabilidade: guarda "mesmo repo" em refresh/loadMore/selectFile, confirmAction em fila, repo capturado antes de confirmar (push/reset), sync por repo, limpeza total ao trocar de aba, `readIndexOp` (status não briga com index.lock), erro de git vira conflito real, Skip (--skip) em rebase/pick/revert. Validação: typecheck (2 configs), Vitest 78/78, build ok. |
 
 ---
 
