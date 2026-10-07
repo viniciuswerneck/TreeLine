@@ -702,7 +702,7 @@ moveTab: (from, to) => {
   },
 
   saveConflictResult: async (path: string, content: string, del: boolean) => {
-    const ok = await get().runOp((repo) => window.treeline.applyConflictResult(repo, path, content, del))
+    const ok = await get().runOp((repo, lang) => window.treeline.applyConflictResult(repo, path, content, del, lang))
     if (!ok) return
     set({ message: del ? get().tr('cr.deleteApplied', { f: path }) : get().tr('cr.applied', { f: path }) })
     await get().advanceAfterResolve(path)

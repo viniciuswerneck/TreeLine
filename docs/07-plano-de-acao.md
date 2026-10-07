@@ -51,14 +51,16 @@
 
 | # | O que fazer | Por que importa | Onde | Esforço | Feito |
 |---|---|---|---|---|---|
-| 2.1 | Validar todo nome de branch/tag/hash/ref antes de usar | Nomes com `-` viram opções perigosas do Git | `main/index.ts` (vários handlers) | 🟡 | [ ] |
-| 2.2 | Validar o conteúdo do rebase interativo (não confiar nos `action`/`hash` da tela) | Poderiam injetar comandos de sistema no rebase | `main/index.ts:2803` | 🟢 | [ ] |
-| 2.3 | Impedir leitura de arquivo por caminho absoluto no diff de arquivo novo | Poderia ler qualquer arquivo do computador | `main/index.ts:1534` | 🟢 | [ ] |
-| 2.4 | Bloquear caminhos com `../` (sair da pasta do projeto) ao resolver conflito/discard | Poderia escrever/apagar fora do projeto | `main/index.ts:2593,2615,2881` | 🟢 | [ ] |
-| 2.5 | Validar URL de clone (não aceitar começar com `-` nem esquemas perigosos) | Evita comandos escondidos no clone | `main/index.ts:1151` | 🟡 | [ ] |
-| 2.6 | Só abrir no navegador URLs `http/https` | Evita abrir esquemas estranhos | `main/index.ts:2855` | 🟢 | [ ] |
-| 2.7 | Push sempre com o nome do branch (nunca "empurrar tudo") | Evita reescrever branches sem querer | `main/index.ts:1657,2656` | 🟢 | [ ] |
-| 2.8 | Não deixar token de acesso aparecer no comando de clone | Token não deve aparecer em lista de processos | `main/index.ts:1151` | 🟡 | [ ] |
+| 2.1 | Validar todo nome de branch/tag/hash/ref antes de usar | Nomes com `-` viram opções perigosas do Git | `main/index.ts` (vários handlers) | 🟡 | [x] |
+| 2.2 | Validar o conteúdo do rebase interativo (não confiar nos `action`/`hash` da tela) | Poderiam injetar comandos de sistema no rebase | `main/index.ts:2803` | 🟢 | [x] |
+| 2.3 | Impedir leitura de arquivo por caminho absoluto no diff de arquivo novo | Poderia ler qualquer arquivo do computador | `main/index.ts:1534` | 🟢 | [x] |
+| 2.4 | Bloquear caminhos com `../` (sair da pasta do projeto) ao resolver conflito/discard | Poderia escrever/apagar fora do projeto | `main/index.ts:2593,2615,2881` | 🟢 | [x] |
+| 2.5 | Validar URL de clone (não aceitar começar com `-` nem esquemas perigosos) | Evita comandos escondidos no clone | `main/index.ts:1151` | 🟡 | [x] |
+| 2.6 | Só abrir no navegador URLs `http/https` | Evita abrir esquemas estranhos | `main/index.ts:2855` | 🟢 | [x] |
+| 2.7 | Push sempre com o nome do branch (nunca "empurrar tudo") | Evita reescrever branches sem querer | `main/index.ts:1657,2656` | 🟢 | [x] |
+| 2.8 | Não deixar token de acesso aparecer no comando de clone | Token não deve aparecer em lista de processos | `main/index.ts:1151` | 🟡 | [x] |
+
+**Feito em 2026-10-06.** Detalhes: helpers novos no main — `assertSafeRef` (rejeita valor começando com `-` e metacaracteres; reflog `HEAD@{2}` continua válido), `relPathSafe` (nenhum caminho absoluto nem `..`), `assertRebasePlan` (whitelist de actions `pick/reword/edit/squash/fixup/drop` + hash hex 7-40; nada de `x/exec`/`merge` cru) e `assertCloneUrl` (nada de `-` inicial, `ext::`, whitespace; esquemas só `http/https/ssh/git/file/ftp/ftps`). Aplicado em: merge, rebase onto, cherry-pick, revert, reset, tag (create/push/delete), checkout remote, undo reflog, blame, compare, rebase interativo (base + plano, mensagens higienizadas), diff de untracked, resolver de conflito (`resolveSideRaw`), apply de conflito (agora recebe `lang`) e discard. Push e force-push com refspec explícito `cur:upstreamBranch` (protege detached HEAD; `--force-with-lease` mantido). Clone: URL com senha é higienizada do argv e do `origin.url`; a senha vai por `GIT_ASKPASS` (script temporário 0600, removido no fim); `openPR` só abre http/https. Validação: `npm run typecheck` limpo (2 tsconfigs), Vitest 78/78, `npm run build` ok.
 
 **Resultado esperado:** o "motor" valida tudo; uma tela comprometida não vira acesso ao computador.
 
@@ -209,7 +211,7 @@
 
 | Sprint | Foco | Partes | Resultado |
 |---|---|---|---|
-| 1 | Confiança e segurança | Parte 1 + Parte 2 | Nada perigoso acontece sem querer |
+| 1 | Confiança e segurança | Parte 1 ✅ + Parte 2 ✅ | Nada perigoso acontece sem querer |
 | 2 | Estabilidade | Parte 3 | Trocar de repo e sincronizar sem sustos |
 | 3 | Feedback e clareza | Parte 4 + Parte 6 | Sem "travou?" e sem texto errado |
 | 4 | Acessibilidade e visual | Parte 5 + Parte 7 | Usável por teclado, cara de premium |
@@ -236,7 +238,8 @@ Rodar na ordem:
 
 | Data | Parte | O que foi feito |
 |---|---|---|
-| | | |
+| 2026-10-06 | Parte 1 (Sprint 1) | Confiança nos avisos completa: Enter só no modal, foco no Cancelar, reset/discard/abort/force-delete padronizados no `confirmAction`, rótulos corrigidos. Validação: tsc limpo, Vitest 78/78, build ok. Commit `55a43d6` pushado. |
+| 2026-10-06 | Parte 2 (Sprint 1) | Segurança interna: validação de refs/hashes/paths/URLs no main, rebase-i com whitelist, push com refspec explícito, token do clone fora do argv (GIT_ASKPASS), openPR só http/https. Validação: typecheck (2 configs), Vitest 78/78, build ok. |
 
 ---
 

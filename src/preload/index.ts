@@ -32,8 +32,8 @@ const api: TreeLineAPI = {
   getConflictOp: (repo: string) => ipcRenderer.invoke('treeline:getConflictOp', repo),
   resolveConflictSide: (repo: string, file: string, side: string, lang?: string) =>
     ipcRenderer.invoke('treeline:resolveConflictSide', repo, file, side, lang),
-  applyConflictResult: (repo: string, file: string, content: string, del: boolean) =>
-    ipcRenderer.invoke('treeline:applyConflictResult', repo, file, content, del),
+  applyConflictResult: (repo: string, file: string, content: string, del: boolean, lang?: string) =>
+    ipcRenderer.invoke('treeline:applyConflictResult', repo, file, content, del, lang),
   setRerere: (repo: string, on: boolean) => ipcRenderer.invoke('treeline:setRerere', repo, on),
   getRerere: (repo: string) => ipcRenderer.invoke('treeline:getRerere', repo),
   pushForce: (repo: string, forceLease: boolean, lang?: string) =>

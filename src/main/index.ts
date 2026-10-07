@@ -129,6 +129,11 @@ const STR: Record<string, Record<UILang, string>> = {
     pt: 'Nome inválido para o git: {x}',
     es: 'Nombre inválido para git: {x}'
   },
+  unsafeRef: {
+    en: 'Unsafe value for git: {x}',
+    pt: 'Valor inseguro para o git: {x}',
+    es: 'Valor inseguro para git: {x}'
+  },
   mergeConflicts: {
     en: 'Merge stopped on conflicts — resolve the files, then Continue, or Abort. {d}',
     pt: 'Merge parou em conflitos — resolva os arquivos, depois Continue, ou Abort. {d}',
@@ -508,6 +513,55 @@ async function assertRefName(repo: string, kind: 'branch' | 'tag', name: string,
   }
 }
 
+/**
+ * Valida ref/hash vindo da tela antes de entrar em argv do git. O risco real
+ * de injeção aqui é um valor começando com `-` (viram opções: `--force=`,
+ * `--upload-pack=` etc.) ou caracteres que quebram o parse de ref. Nomes de
+ * branch/tag legítimos passam; reflog (`HEAD@{2}`) também.
+ */
+function assertSafeRef(v: string, lang: UILang): void {
+  const s = v.trim()
+  if (!s) return
+  if (s.startsWith('-') || /[\s;|&`$<>"'\\\n\r\x00-\x1f]/.test(s)) {
+    throw new Error(mx(lang, 'unsafeRef', { x: s.slice(0, 40) }))
+  }
+}
+
+/** Caminho relativo dentro do repo: nem absoluto, nem `..` (nunca sai da pasta). */
+function relPathSafe(file: string): string | null {
+  const s = (file ?? '').replace(/^\.\//, '')
+  if (!s || isAbsolute(s) || s.split('/').some((p) => p === '..')) return null
+  return s
+}
+
+/** Só os verbos que a UI gera: nada de `x/exec` (executa shell) nem `merge` cru. */
+const REBASE_PLAN_ACTIONS = new Set(['pick', 'p', 'reword', 'r', 'edit', 'e', 'squash', 's', 'fixup', 'f', 'drop', 'd'])
+
+function assertRebasePlan(plan: import('../shared/types').RebasePlanEntry[], lang: UILang): void {
+  for (const p of plan ?? []) {
+    if (!p || !REBASE_PLAN_ACTIONS.has(p.action)) {
+      throw new Error(mx(lang, 'unsafeRef', { x: 'rebase action' }))
+    }
+    if (!p.hash || !/^[0-9a-fA-F]{7,40}$/.test(p.hash)) {
+      throw new Error(mx(lang, 'unsafeRef', { x: (p?.hash ?? '').slice(0, 40) }))
+    }
+  }
+}
+
+/** URL de clone: nada que vire opção do git (`-`…), nada de exec (`ext::`). */
+function assertCloneUrl(u: string, lang: UILang): void {
+  const s = (u ?? '').trim()
+  if (!s || s.startsWith('-') || /[\n\r]/.test(s) || /^ext:/.test(s)) {
+    throw new Error(mx(lang, 'unsafeRef', { x: s.slice(0, 40) }))
+  }
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) {
+    const scheme = s.slice(0, s.indexOf('://')).toLowerCase()
+    if (!['http', 'https', 'ssh', 'git', 'file', 'ftp', 'ftps'].includes(scheme)) {
+      throw new Error(mx(lang, 'unsafeRef', { x: `${scheme}://` }))
+    }
+  }
+}
+
 /** Erro do git vira orientação de conflito (merge/rebase/pick) quando for o caso. */
 function conflictErr(key: string, e: unknown, lang: UILang): Error {
   const msg = e instanceof Error ? e.message : String(e)
@@ -561,6 +615,7 @@ ipcMain.handle('treeline:checkoutBranch', (_event, repo: string, name: string, l
 ipcMain.handle('treeline:checkoutRemote', (_event, repo: string, remoteBranch: string, lang?: unknown) =>
   enqueue(repo, async () => {
     const rb = remoteBranch.trim()
+    assertSafeRef(rb, asLang(lang))
     const slash = rb.indexOf('/')
     if (slash < 0) throw new Error(mx(asLang(lang), 'nameInvalid', { x: rb }))
     const local = rb.slice(slash + 1)
@@ -645,6 +700,7 @@ ipcMain.handle('treeline:mergePreview', (_event, repo: string, ref: string) =>
 ipcMain.handle('treeline:mergeBranch', (_event, repo: string, ref: string, noFf: boolean, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
+    assertSafeRef(ref, l)
     try {
       await simpleGit(repo).merge([ref, ...(noFf ? ['--no-ff'] : [])])
     } catch (e) {
@@ -798,7 +854,10 @@ ipcMain.handle('treeline:createTag', (_event, repo: string, name: string, messag
     const args = ['tag']
     if (message.trim()) args.push('-a', n, '-m', message.trim())
     else args.push(n)
-    if (commit.trim()) args.push(commit.trim())
+    if (commit.trim()) {
+      assertSafeRef(commit.trim(), l)
+      args.push(commit.trim())
+    }
     await simpleGit(repo).raw(args)
   })
 )
@@ -806,6 +865,8 @@ ipcMain.handle('treeline:createTag', (_event, repo: string, name: string, messag
 ipcMain.handle('treeline:pushTag', (_event, repo: string, name: string, lang?: unknown) =>
   enqueue(repo, async (): Promise<import('../shared/types').SyncResult> => {
     const l = asLang(lang)
+    assertSafeRef(name, l)
+    await assertRefName(repo, 'tag', name, l)
     try {
       await runGitCancellable(repo, 'Push', ['push', 'origin', name], l)
     } catch (e) {
@@ -817,9 +878,11 @@ ipcMain.handle('treeline:pushTag', (_event, repo: string, name: string, lang?: u
 
 ipcMain.handle('treeline:deleteTag', (_event, repo: string, name: string, remoteToo: boolean, lang?: unknown) =>
   enqueue(repo, async () => {
+    assertSafeRef(name, asLang(lang))
     await simpleGit(repo).raw(['tag', '-d', name])
     if (remoteToo) {
       const l = asLang(lang)
+      await assertRefName(repo, 'tag', name, l)
       try {
         await simpleGit(repo).raw(['push', 'origin', `:refs/tags/${name}`])
       } catch (e) {
@@ -856,6 +919,7 @@ ipcMain.handle('treeline:getRebaseState', (_event, repo: string) =>
 ipcMain.handle('treeline:rebaseOnto', (_event, repo: string, ref: string, lang?: unknown, autostash?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
+    assertSafeRef(ref, l)
     try {
       await simpleGit(repo).rebase([ref, ...(autostash === true ? ['--autostash'] : [])])
     } catch (e) {
@@ -890,6 +954,7 @@ ipcMain.handle('treeline:getCherryPickState', (_event, repo: string) =>
 ipcMain.handle('treeline:cherryPick', (_event, repo: string, hash: string, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
+    assertSafeRef(hash, l)
     try {
       await simpleGit(repo).raw(['cherry-pick', hash.trim()])
     } catch (e) {
@@ -1045,6 +1110,7 @@ ipcMain.handle('treeline:getReflog', (_event, repo: string, limit?: number) =>
 
 ipcMain.handle('treeline:undoToReflog', (_event, repo: string, ref: string) =>
   enqueue(repo, async () => {
+    assertSafeRef(ref, 'en')
     // Backup automático antes do reset destrutivo (exigência Fase 3).
     await backupBundle(repo)
     await simpleGit(repo).raw(['reset', '--hard', ref])
@@ -1121,14 +1187,51 @@ ipcMain.handle('treeline:cloneRepo', async (event, url: string, lang?: unknown) 
   const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
   if (res.canceled || res.filePaths.length === 0) return null
   const parent = res.filePaths[0] as string
-  const base = url.trim().replace(/\/$/, '').split('/').pop() ?? 'repo'
+  const l = asLang(lang)
+  assertCloneUrl(url, l)
+  const rawUrl = url.trim()
+  // URL sem credenciais para argv (token não pode vazar na lista de processos
+  // nem no `remote.origin.url` do repo): a senha vai por GIT_ASKPASS (arquivo
+  // temporário 0600, removido ao fim) e o usuário segue como "oauth2".
+  let cloneUrl = rawUrl
+  let askPass: string | null = null
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(rawUrl)) {
+    try {
+      const u = new URL(rawUrl)
+      if (u.password) {
+        const pass = decodeURIComponent(u.password)
+        const user = u.username ? decodeURIComponent(u.username) : 'oauth2'
+        u.password = ''
+        u.username = user
+        cloneUrl = u.toString()
+        const { tmpdir } = await import('node:os')
+        const { randomBytes } = await import('node:crypto')
+        const script = join(tmpdir(), `tl-askpass-${randomBytes(6).toString('hex')}`)
+        await fs.writeFile(script, `#!/bin/sh\nprintf '%s\\n' '${pass.replace(/\\/g, '\\\\').replace(/'/g, `'\\''`)}'\n`, { mode: 0o700 })
+        askPass = script
+      }
+    } catch {
+      /* URL malformada: o git dá o erro de autenticação */
+    }
+  }
+  const base = cloneUrl.replace(/\/$/, '').split('/').pop() ?? 'repo'
   const name = base.replace(/\.git$/, '') || 'repo'
   const target = join(parent, name)
-  const l = asLang(lang)
+  const prevAsk = process.env['GIT_ASKPASS']
+  const runClone = async (): Promise<void> => {
+    try {
+      await runGitCancellable(parent, 'Clone', ['clone', cloneUrl, target], l)
+    } catch (e) {
+      throw friendlySyncError('Clone', e, l)
+    }
+  }
   try {
-    await runGitCancellable(parent, 'Clone', ['clone', url.trim(), target], l)
-  } catch (e) {
-    throw friendlySyncError('Clone', e, l)
+    if (askPass) process.env['GIT_ASKPASS'] = askPass
+    await runClone()
+  } finally {
+    if (prevAsk === undefined) delete process.env['GIT_ASKPASS']
+    else process.env['GIT_ASKPASS'] = prevAsk
+    if (askPass) await fs.rm(askPass, { force: true })
   }
   const list = [target, ...(await readBookmarks()).filter((p) => p !== target)]
   await writeBookmarks(list)
@@ -1508,10 +1611,11 @@ ipcMain.handle('treeline:getDiff', (_event, repo: string, file: string, staged: 
       try {
         const tracked = (await simpleGit(repo).raw(['ls-files', '--', file])).trim()
         if (!tracked) {
+          const rel = relPathSafe(file)
+          if (!rel) return ''
           const l = asLang(lang)
-          const abs = isAbsolute(file) ? file : join(repo, file)
-          const buf = await fs.readFile(abs)
-          const head = `--- /dev/null\n+++ b/${file}\n`
+          const buf = await fs.readFile(join(repo, rel))
+          const head = `--- /dev/null\n+++ b/${rel}\n`
           if (looksBinary(buf)) return head + mx(l, 'newBinary') + '\n'
           const MAX = 1024 * 1024
           const trunc = buf.length > MAX
@@ -1630,15 +1734,21 @@ ipcMain.handle('treeline:push', (_event, repo: string, lang?: unknown) =>
       }
       throw new Error(mx(l, 'noUpstream', { b: cur }))
     }
+    const upBranch = up.slice(up.indexOf('/') + 1)
+    if (!upBranch || upBranch.startsWith('-')) throw new Error(mx(l, 'noUpstream', { b: up }))
+    const cur = (await simpleGit(repo).revparse(['--abbrev-ref', 'HEAD'])).trim()
+    if (!cur || cur === 'HEAD') throw new Error(mx(l, 'nameInvalid', { x: cur }))
+    assertSafeRef(cur, l)
     const before = await refHash(repo, '@{u}')
+    // Push com refspec explícito `local:upstream`: nunca "empurra tudo" nem
+    // entrega hash no lugar de branch (protege detached HEAD).
     try {
-      await runGitCancellable(repo, 'Push', ['push'], l)
+      await runGitCancellable(repo, 'Push', ['push', 'origin', `${cur}:${upBranch}`], l)
     } catch (e) {
       throw friendlySyncError('Push', e, l)
     }
     const after = await refHash(repo, '@{u}')
     if (before && after && before !== after) {
-      const cur = (await simpleGit(repo).revparse(['--abbrev-ref', 'HEAD'])).trim()
       return { summary: mx(l, 'pushDone', { x: `${cur} → ${up}` }) }
     }
     return { summary: mx(l, 'pushUpToDate') }
@@ -2323,8 +2433,11 @@ ipcMain.handle('treeline:updateSubmodules', (_event, repo: string, lang?: unknow
 ipcMain.handle('treeline:revertCommit', (_event, repo: string, hash: string, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
+    assertSafeRef(hash, l)
+    const h = hash.trim()
+    if (!h) throw new Error(mx(l, 'unsafeRef', { x: '' }))
     try {
-      await simpleGit(repo).raw(['revert', '--no-edit', hash.trim()])
+      await simpleGit(repo).raw(['revert', '--no-edit', h])
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       if (/CONFLICT|conflict|needs merge|failed to merge/i.test(msg)) {
@@ -2338,10 +2451,12 @@ ipcMain.handle('treeline:revertCommit', (_event, repo: string, hash: string, lan
 ipcMain.handle('treeline:resetTo', (_event, repo: string, ref: string, mode: import('../shared/types').ResetMode, lang?: unknown) =>
   enqueue(repo, async (): Promise<import('../shared/types').SyncResult> => {
     const l = asLang(lang)
+    assertSafeRef(ref, l)
     const m = mode === 'soft' || mode === 'hard' ? mode : 'mixed'
+    const target = ref.trim() || 'HEAD'
     await backupBundle(repo)
-    await simpleGit(repo).raw(['reset', `--${m}`, ref.trim() || 'HEAD'])
-    return { summary: mx(l, 'resetDone', { m, r: ref.trim() || 'HEAD' }) }
+    await simpleGit(repo).raw(['reset', `--${m}`, target])
+    return { summary: mx(l, 'resetDone', { m, r: target }) }
   })
 )
 
@@ -2556,42 +2671,47 @@ function joinSides(a: string, b: string): string {
  * antes (mesma política de reset hard/rebase).
  */
 async function resolveSideRaw(repo: string, file: string, side: ConflictSide, l: UILang): Promise<void> {
+  const rel = relPathSafe(file)
+  if (!rel) throw new Error(mx(l, 'unsafeRef', { x: file }))
   await backupBundle(repo)
   const git = simpleGit(repo)
   if (side === 'both-deleted') {
-    await git.raw(['rm', '-f', '--', file])
+    await git.raw(['rm', '-f', '--', rel])
     return
   }
   if (side === 'both') {
-    const entries = parseLsFilesU(await git.raw(['ls-files', '-u', '-z', '--', file]))
+    const entries = parseLsFilesU(await git.raw(['ls-files', '-u', '-z', '--', rel]))
     const byStage = new Map(entries.map((e) => [e.stage, e]))
     const s2 = byStage.get(2)
     const s3 = byStage.get(3)
-    if (!s2 || !s3) throw new Error(mx(l, 'conflictNoBothSides', { f: file }))
-    await fs.writeFile(join(repo, file), joinSides(await git.raw(['cat-file', 'blob', s2.sha]), await git.raw(['cat-file', 'blob', s3.sha])))
-    await git.raw(['add', '--', file])
+    if (!s2 || !s3) throw new Error(mx(l, 'conflictNoBothSides', { f: rel }))
+    await fs.writeFile(join(repo, rel), joinSides(await git.raw(['cat-file', 'blob', s2.sha]), await git.raw(['cat-file', 'blob', s3.sha])))
+    await git.raw(['add', '--', rel])
     return
   }
-  await git.raw(['checkout', `--${side}`, '--', file])
-  await git.raw(['add', '--', file])
+  await git.raw(['checkout', `--${side}`, '--', rel])
+  await git.raw(['add', '--', rel])
 }
 
 ipcMain.handle('treeline:resolveConflictSide', (_event, repo: string, file: string, side: ConflictSide, lang?: unknown) =>
   enqueue(repo, () => resolveSideRaw(repo, file, side, asLang(lang)))
 )
 
-ipcMain.handle('treeline:applyConflictResult', (_event, repo: string, file: string, content: string, del: boolean) =>
+ipcMain.handle('treeline:applyConflictResult', (_event, repo: string, file: string, content: string, del: boolean, lang?: unknown) =>
   enqueue(repo, async () => {
+    const l = asLang(lang)
+    const rel = relPathSafe(file)
+    if (!rel) throw new Error(mx(l, 'unsafeRef', { x: file }))
     const git = simpleGit(repo)
     // Sem bundle aqui de propósito: o editor salva a cada região e um
     // `bundle create --all` por região custaria O(repo) inteiro. O undo é o
     // add, e o bundle do `Continue`/abort cobre a operação como um todo.
     if (del) {
-      await git.raw(['rm', '-f', '--', file])
+      await git.raw(['rm', '-f', '--', rel])
       return
     }
-    await fs.writeFile(join(repo, file), content)
-    await git.raw(['add', '--', file])
+    await fs.writeFile(join(repo, rel), content)
+    await git.raw(['add', '--', rel])
   })
 )
 
@@ -2631,14 +2751,23 @@ ipcMain.handle('treeline:pushForce', (_event, repo: string, forceLease: boolean,
   enqueue(repo, async (): Promise<import('../shared/types').SyncResult> => {
     const l = asLang(lang)
     const up = await upstreamName(repo)
-    const args = forceLease ? ['push', '--force-with-lease'] : ['push']
+    if (!up) throw new Error(mx(l, 'noUpstream', { b: 'HEAD' }))
+    const upBranch = up.slice(up.indexOf('/') + 1)
+    if (!upBranch || upBranch.startsWith('-')) throw new Error(mx(l, 'noUpstream', { b: up }))
+    const cur = (await simpleGit(repo).revparse(['--abbrev-ref', 'HEAD'])).trim()
+    if (!cur || cur === 'HEAD') throw new Error(mx(l, 'nameInvalid', { x: cur }))
+    assertSafeRef(cur, l)
+    // Refpec explícito + `--force-with-lease` (nunca `--force` sem proteção):
+    // só reescreve o branch atual no upstream atual.
+    const args = forceLease
+      ? ['push', '--force-with-lease', 'origin', `${cur}:${upBranch}`]
+      : ['push', 'origin', `${cur}:${upBranch}`]
     try {
       await runGitCancellable(repo, 'Push', args, l)
     } catch (e) {
       throw friendlySyncError('Push', e, l)
     }
-    const cur = (await simpleGit(repo).revparse(['--abbrev-ref', 'HEAD'])).trim()
-    return { summary: mx(l, 'pushLeaseDone', { x: forceLease ? `${cur} → ${up || 'remote'} (lease)` : cur }) }
+    return { summary: mx(l, 'pushLeaseDone', { x: forceLease ? `${cur} → ${up} (lease)` : cur }) }
   })
 )
 
@@ -2699,9 +2828,14 @@ ipcMain.handle('treeline:editRemote', (_event, repo: string, name: string, url: 
 ipcMain.handle('treeline:getBlame', (_event, repo: string, file: string, rev?: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async (): Promise<import('../shared/types').BlameLine[]> => {
+    const rel = relPathSafe(file)
+    if (!rel) return []
     const args = ['blame', '--line-porcelain']
-    if (rev?.trim()) args.push(rev.trim())
-    args.push('--', file)
+    if (rev?.trim()) {
+      assertSafeRef(rev, 'en')
+      args.push(rev.trim())
+    }
+    args.push('--', rel)
     const raw = await simpleGit(repo).raw(args)
     const out: import('../shared/types').BlameLine[] = []
     let hash = ''
@@ -2774,11 +2908,14 @@ ipcMain.handle('treeline:getRebasePlan', (_event, repo: string, base: string) =>
 ipcMain.handle('treeline:rebaseInteractive', (_event, repo: string, base: string, plan: import('../shared/types').RebasePlanEntry[], lang?: unknown, autostash?: unknown) =>
   enqueueGlobal(async () => enqueue(repo, async () => {
     const l = asLang(lang)
+    assertSafeRef(base, l)
+    assertRebasePlan(plan, l)
     await backupBundle(repo)
     const { tmpdir } = await import('node:os')
     const { randomBytes } = await import('node:crypto')
     const planFile = join(tmpdir(), `treeline-rebase-${randomBytes(6).toString('hex')}.txt`)
-    const body = plan.map((p) => `${p.action} ${p.hash} ${p.message.replace(/\n/g, ' ')}`).join('\n') + '\n'
+    const msg = (m: string): string => m.replace(/[\n\r]/g, ' ').replace(/[#;|&`$\\]/g, '')
+    const body = plan.map((p) => `${p.action} ${p.hash} ${msg(p.message)}`).join('\n') + '\n'
     await fs.writeFile(planFile, body)
     const prev = process.env['GIT_SEQUENCE_EDITOR']
     process.env['GIT_SEQUENCE_EDITOR'] = `cp ${planFile}`
@@ -2797,6 +2934,8 @@ ipcMain.handle('treeline:rebaseInteractive', (_event, repo: string, base: string
 ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async (): Promise<import('../shared/types').CompareSummary> => {
+    assertSafeRef(a, 'en')
+    assertSafeRef(b, 'en')
     const [names, ns] = await Promise.all([
       simpleGit(repo).raw(['diff', '--name-only', a.trim(), b.trim()]),
       simpleGit(repo).raw(['diff', '--numstat', a.trim(), b.trim()])
@@ -2814,7 +2953,12 @@ ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: s
 
 ipcMain.handle('treeline:compareDiff', (_event, repo: string, a: string, b: string, file: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
-  readOp(async () => simpleGit(repo).raw(['diff', '--unified=3', a.trim(), b.trim(), '--', file]))
+  readOp(async () => {
+    assertSafeRef(a, 'en')
+    assertSafeRef(b, 'en')
+    const rel = relPathSafe(file)
+    return simpleGit(repo).raw(['diff', '--unified=3', a.trim(), b.trim(), '--', rel ?? ''])
+  })
 )
 
 ipcMain.handle('treeline:openPR', (_event, repo: string) =>
@@ -2831,19 +2975,30 @@ ipcMain.handle('treeline:openPR', (_event, repo: string) =>
     if (!web && bb?.[1]) web = `https://bitbucket.org/${bb[1]}/pull-requests`
     if (!web) {
       const http = /https?:\/\/\S+/.exec(url)?.[0]
-      web = http ?? url
+      web = http ?? ''
+    }
+    // Só abre http/https: esquema estranho (ou o próprio scp do git) não vira
+    // invocação de protocol handler do SO.
+    try {
+      if (!web || !/^https?:\/\//i.test(web)) return
+      const u = new URL(web)
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return
+    } catch {
+      return
     }
     await shell.openExternal(web)
   })
 )
 
 ipcMain.handle('treeline:discard', async (_event, repo: string, file: string, tracked: boolean) => {
+  const rel = relPathSafe(file)
+  if (!rel) return
   await enqueue(repo, async () => {
     if (tracked) {
       await backupBundle(repo)
-      await simpleGit(repo).raw(['checkout', '--', file])
+      await simpleGit(repo).raw(['checkout', '--', rel])
     } else {
-      await shell.trashItem(join(repo, file))
+      await shell.trashItem(join(repo, rel))
     }
   })
 })
