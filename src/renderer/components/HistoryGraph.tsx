@@ -221,6 +221,8 @@ export default function HistoryGraph() {
   const rafRef = useRef(0)
   const [win, setWin] = useState<[number, number]>([0, 40])
   const searchRef = useRef<HTMLInputElement>(null)
+  // Linha a focar depois que a virtualização a renderizar (setas do teclado).
+  const pendingFocus = useRef<{ hash: string; at: number } | null>(null)
 
   // Após checkout: rola até o novo HEAD e pisca a linha 1.5s.
   useEffect(() => {
@@ -245,6 +247,20 @@ export default function HistoryGraph() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Foca a linha pendente quando a virtualização a renderizar (e desiste
+  // sozinho se demorar muito — navegação não pode travar o usuário).
+  useEffect(() => {
+    const p = pendingFocus.current
+    if (!p) return
+    const el = contRef.current?.querySelector<HTMLElement>(`[data-hash="${p.hash}"]`)
+    if (el) {
+      pendingFocus.current = null
+      el.focus()
+    } else if (Date.now() - p.at > 1500) {
+      pendingFocus.current = null
+    }
+  })
 
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -333,6 +349,45 @@ export default function HistoryGraph() {
   const gridCols = `${graphCol} 1fr 140px 130px 80px`
   // Só a fatia visível é renderizada; o resto vira altura de spacer.
   const visibleRows = useMemo(() => rows.slice(win[0], win[1]), [rows, win])
+
+  // Navegação do teclado: setas movem a seleção e rolam o container para a
+  // linha-alvo ficar dentro da janela (a virtualização renderiza em seguida).
+  const moveSel = (idx: number): void => {
+    const i = Math.max(0, Math.min(rows.length - 1, idx))
+    const target = rows[i]
+    if (!target) return
+    pendingFocus.current = { hash: target.hash, at: Date.now() }
+    if (selectedCommit !== target.hash) void selectCommit(target.hash)
+    const cont = contRef.current
+    if (cont) {
+      const rowTop = offsetRef.current + i * ROW_H
+      const top = cont.scrollTop
+      const bottom = top + cont.clientHeight
+      if (rowTop < top) cont.scrollTop = Math.max(0, rowTop - 4)
+      else if (rowTop + ROW_H > bottom) cont.scrollTop = rowTop + ROW_H - cont.clientHeight + 4
+    }
+  }
+
+  const rowKeyDown = (e: React.KeyboardEvent, idx: number, hash: string): void => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      moveSel(idx + (e.key === 'ArrowDown' ? 1 : -1))
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      moveSel(0)
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      moveSel(rows.length - 1)
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      if (selectedCommit !== hash) void selectCommit(hash)
+    }
+  }
+
+  // Roving tabindex: a linha selecionada recebe Tab; as outras, setas.
+  const rovingHash = visibleRows.some((r) => r.hash === selectedCommit)
+    ? selectedCommit
+    : (visibleRows[0]?.hash as string | undefined)
 
   if (rows.length === 0 && dirtyCount === 0) {
     return (
@@ -429,6 +484,8 @@ export default function HistoryGraph() {
         return (
         <div
           key={c.hash}
+          data-hash={c.hash}
+          tabIndex={c.hash === rovingHash ? 0 : -1}
           className={`history-row${c.hash === compareA || c.hash === compareB ? ' comparing' : ''}${headFlash > 0 && visibleRefs(c.refs).includes('HEAD') ? ' head-flash' : ''}`}
           style={{ gridTemplateColumns: gridCols }}
           aria-selected={selectedCommit === c.hash}
@@ -441,6 +498,7 @@ export default function HistoryGraph() {
               })
             } else void selectCommit(selectedCommit === c.hash ? null : c.hash)
           }}
+          onKeyDown={(e) => rowKeyDown(e, i, c.hash)}
           onContextMenu={(e) => commitMenu(e, c.hash, c.message, c.author)}
         >
           <span className="graph-cell">
@@ -455,6 +513,11 @@ export default function HistoryGraph() {
             {visibleRefs(c.refs).map((r) => (
               <RefBadge key={r} name={r} />
             ))}
+            {(c.hash === compareA || c.hash === compareB) && (
+              <span className="cmp-mark" aria-hidden="true" title={tr('cmp.pickHint')}>
+                ⇄
+              </span>
+            )}
             {c.message}
           </span>
           <span className="muted" title={c.date.slice(0, 16).replace('T', ' ')}>

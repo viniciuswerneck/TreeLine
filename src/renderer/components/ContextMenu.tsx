@@ -28,6 +28,16 @@ export default function ContextMenu() {
   }, [closeMenu])
 
   useEffect(() => {
+    if (!menu || !ref.current) return
+    const opener = document.activeElement as HTMLElement | null
+    const first = ref.current.querySelector<HTMLElement>('.ctx-row:not([disabled])')
+    first?.focus()
+    return () => {
+      if (opener && opener.isConnected && opener !== document.body) opener.focus()
+    }
+  }, [menu])
+
+  useEffect(() => {
     if (menu && ref.current) {
       const r = ref.current.getBoundingClientRect()
       setPos({
@@ -36,6 +46,23 @@ export default function ContextMenu() {
       })
     }
   }, [menu])
+
+  const menuKeyDown = (e: React.KeyboardEvent): void => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
+    e.preventDefault()
+    const rows = Array.from(ref.current?.querySelectorAll<HTMLElement>('.ctx-row:not([disabled])') ?? [])
+    if (rows.length === 0) return
+    const i = rows.indexOf(document.activeElement as HTMLElement)
+    const next =
+      e.key === 'Home'
+        ? 0
+        : e.key === 'End'
+          ? rows.length - 1
+          : e.key === 'ArrowDown'
+            ? (i + 1) % rows.length
+            : (i - 1 + rows.length) % rows.length
+    rows[next]?.focus()
+  }
 
   if (!menu) return null
 
@@ -47,6 +74,7 @@ export default function ContextMenu() {
         className="ctx-menu"
         role="menu"
         style={{ left: `${Math.max(8, pos.x)}px`, top: `${Math.max(8, pos.y)}px` }}
+        onKeyDown={menuKeyDown}
         onContextMenu={(e) => e.preventDefault()}
       >
         {menu.items.map((item, i) => (

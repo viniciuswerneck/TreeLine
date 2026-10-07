@@ -1292,3 +1292,83 @@ body {
   transition: background var(--motion-fast);
 }
 .cr-icon:hover { background: var(--bg-hover); color: var(--text-1); }
+
+/* ============================================================
+   Acessibilidade / teclado (Fase 5)
+   ============================================================ */
+/* Foco visível em controles gerenciados/mouse-first */
+button:focus-visible,
+[role='button']:focus-visible,
+[role='tab']:focus-visible,
+[role='menuitem']:focus-visible,
+[role='radio']:focus-visible,
+[role='checkbox']:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* Linhas clicáveis: outline fica dentro da linha, sem deslocar o layout */
+.history-row:focus-visible,
+.file-row:focus-visible,
+.sidebar-row:focus-visible,
+.ctx-row:focus-visible,
+.palette-item:focus-visible,
+.cr-file:focus-visible,
+.diff-line:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+/* Commit selecionado conflita com o outline: destaca por fora da borda */
+.history-row[aria-selected='true']:focus-visible,
+.file-row[aria-selected='true']:focus-visible {
+  outline-offset: -4px;
+}
+/* Título de seção da sidebar (colapsável) */
+.sidebar-section-title.collapsible {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.section-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 10px;
+  cursor: pointer;
+}
+.sidebar-section-title .section-toggle {
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+.sidebar-section-title:hover .section-toggle,
+.sidebar-section-title:focus-visible .section-toggle {
+  opacity: 1;
+}
+/* Estado de atenção na statusbar: ícone (não só cor) */
+.status-alert {
+  flex-shrink: 0;
+  color: #e6a23c;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.35));
+}
+/* Marcador ⇄ nas linhas em comparação (não só o fundo) */
+.cmp-mark {
+  display: inline-block;
+  padding: 0 5px;
+  margin-right: 4px;
+  border: 1px solid var(--border-hl);
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--accent);
+  background: var(--bg-selected);
+}

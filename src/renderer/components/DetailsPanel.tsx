@@ -191,9 +191,37 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
     ])
   }
 
+  // Linhas de arquivo navegáveis por teclado: Enter/Space ativa (seleciona),
+  // setas movem dentro da mesma coluna (roving tabindex — só uma linha por
+  // coluna fica na ordem de Tab).
+  const rowKeyDown = (e: React.KeyboardEvent, activate: () => void): void => {
+    const key = e.key
+    if (key === 'Enter' || key === ' ') {
+      e.preventDefault()
+      activate()
+      return
+    }
+    if (key !== 'ArrowDown' && key !== 'ArrowUp') return
+    e.preventDefault()
+    const col = (e.currentTarget as HTMLElement).closest('.file-col')
+    if (!col) return
+    const rowsEl = Array.from(col.querySelectorAll<HTMLElement>('.file-row'))
+    const i = rowsEl.indexOf(e.currentTarget as HTMLElement)
+    rowsEl[i + (key === 'ArrowDown' ? 1 : -1)]?.focus()
+  }
+
   const isConflicted = selectedFile ? (status?.conflicted ?? []).includes(selectedFile.path) : false
   // Par maximizado = 2 linhas: listas Unstaged|Staged em cima, diff embaixo.
   const pairOpen = expanded === 'files'
+
+  // Roving tabindex por coluna (uma linha clicável por coluna na ordem de Tab).
+  const unstagedPaths = [...unstaged.map((f) => f.path), ...untracked]
+  const unstagedSel = !!selectedFile && !selectedFile.staged && unstagedPaths.includes(selectedFile.path)
+  const unstagedRoving = unstagedSel ? (selectedFile?.path as string | undefined) : unstagedPaths[0]
+  const stagedSel = !!selectedFile && selectedFile.staged
+  const stagedRoving = stagedSel ? (selectedFile?.path as string | undefined) : staged[0]?.path
+  const conflictedSel = !!selectedFile && conflicted.includes(selectedFile.path)
+  const conflictedRoving = conflictedSel ? (selectedFile?.path as string | undefined) : conflicted[0]
 
   // Ao abrir o par sem seleção, pega o primeiro arquivo: a linha de baixo
   // existe para revisar o código antes de commitar, não para ficar vazia
@@ -258,15 +286,23 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             </div>
             {files.map((p) => {
               const st = commitDetail?.stats.find((s) => s.path === p)
+              const commitRoving = commitFile ?? files[0]
               return (
                 <div
                   key={p}
                   className="file-row"
+                  tabIndex={p === commitRoving ? 0 : -1}
                   aria-selected={commitFile === p}
                   onClick={() => {
                     setCommitFile(p)
                     void selectCommitFile(p)
                   }}
+                  onKeyDown={(e) =>
+                    rowKeyDown(e, () => {
+                      setCommitFile(p)
+                      void selectCommitFile(p)
+                    })
+                  }
                   onContextMenu={(e) => commitFileMenu(e, p)}
                 >
                   <span className="grow">{p}</span>
@@ -325,9 +361,13 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               <div
                 key={`!!${p}`}
                 className="file-row conflict-row"
+                tabIndex={p === conflictedRoving ? 0 : -1}
                 aria-selected={selectedFile?.path === p}
                 title={tr('conflict.hint')}
                 onClick={() => void selectFile({ path: p, staged: false })}
+                onKeyDown={(e) =>
+                  rowKeyDown(e, () => void selectFile({ path: p, staged: false }))
+                }
                 onContextMenu={(e) => fileMenu(e, p, false, true)}
               >
                 <span className="code conflict-code">!</span>
@@ -390,8 +430,10 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             <div
               key={f.path}
               className="file-row"
+              tabIndex={f.path === unstagedRoving ? 0 : -1}
               aria-selected={selectedFile?.path === f.path && !selectedFile.staged}
               onClick={() => void selectFile({ path: f.path, staged: false })}
+              onKeyDown={(e) => rowKeyDown(e, () => void selectFile({ path: f.path, staged: false }))}
               onContextMenu={(e) => fileMenu(e, f.path, false, true)}
             >
               <span className="code">{f.code.trim() || '?'}</span>
@@ -413,8 +455,10 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             <div
               key={`??${p}`}
               className="file-row"
+              tabIndex={p === unstagedRoving ? 0 : -1}
               aria-selected={selectedFile?.path === p && !selectedFile.staged}
               onClick={() => void selectFile({ path: p, staged: false })}
+              onKeyDown={(e) => rowKeyDown(e, () => void selectFile({ path: p, staged: false }))}
               onContextMenu={(e) => fileMenu(e, p, false, false)}
             >
               <span className="code">?</span>
@@ -455,8 +499,10 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             <div
               key={f.path}
               className="file-row"
+              tabIndex={f.path === stagedRoving ? 0 : -1}
               aria-selected={selectedFile?.path === f.path && selectedFile.staged}
               onClick={() => void selectFile({ path: f.path, staged: true })}
+              onKeyDown={(e) => rowKeyDown(e, () => void selectFile({ path: f.path, staged: true }))}
               onContextMenu={(e) => fileMenu(e, f.path, true, true)}
             >
               <span className="code">{f.code.trim() || '+'}</span>

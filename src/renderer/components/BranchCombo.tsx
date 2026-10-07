@@ -1,6 +1,7 @@
 import { ChevronDown, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useStore } from '../store'
+import { focusables } from '../lib/a11y'
 
 const SHOW_REMOTES_KEY = 'treeline-show-remote-branches'
 
@@ -38,6 +39,8 @@ export default function BranchCombo() {
       if (e.key === 'Escape') {
         e.stopPropagation()
         setOpen(false)
+        // Volta o foco para o botão (o painel desmonta e o foco se perderia).
+        rootRef.current?.querySelector<HTMLButtonElement>('.branch-combo-btn')?.focus()
       }
     }
     document.addEventListener('mousedown', onDown)
@@ -100,6 +103,15 @@ export default function BranchCombo() {
           setOpen((o) => !o)
           setQuery('')
         }}
+        onKeyDown={(e) => {
+          // Seta abre o painel (foco cai na busca via autoFocus) e Enter/Space
+          // já abrem pelo comportamento nativo do botão.
+          if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            e.preventDefault()
+            setQuery('')
+            setOpen(true)
+          }
+        }}
       >
         <span className="bc-label">
           {tr('hist.branches')}: {label}
@@ -107,7 +119,21 @@ export default function BranchCombo() {
         <ChevronDown size={12} />
       </button>
       {open && (
-        <div className="branch-combo-panel">
+        <div
+          className="branch-combo-panel"
+          onKeyDown={(e) => {
+            // Setas navegam pelos controles do painel (busca → checkboxes → foot).
+            if (!open || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return
+            const panel = e.currentTarget as HTMLElement
+            const items = focusables(panel)
+            if (items.length === 0) return
+            e.preventDefault()
+            const i = items.indexOf(document.activeElement as HTMLElement)
+            const next =
+              e.key === 'ArrowDown' ? (i + 1) % items.length : i <= 0 ? items.length - 1 : i - 1
+            items[next]?.focus()
+          }}
+        >
           <span className="bc-search">
             <Search size={13} />
             <input

@@ -1,6 +1,7 @@
 import { FileText } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { useFocusTrap } from '../lib/a11y'
 
 /** Ctrl+P: busca rápida de arquivos (rastreados + working tree) e abre histórico. */
 export default function GoToFile() {
@@ -12,6 +13,8 @@ export default function GoToFile() {
   const tr = useStore((s) => s.tr)
   const [filter, setFilter] = useState('')
   const [index, setIndex] = useState(0)
+  const palRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(palRef, open)
 
   useEffect(() => {
     if (open) {
@@ -36,7 +39,14 @@ export default function GoToFile() {
 
   return (
     <div className="palette-backdrop" onClick={() => setOpen(false)}>
-      <div className="palette" role="dialog" aria-label="goto-file" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={palRef}
+        className="palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label="goto-file"
+        onClick={(e) => e.stopPropagation()}
+      >
         <input
           autoFocus
           placeholder={tr('pal.gotoFile')}

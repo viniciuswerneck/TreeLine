@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { dialogOps, useStore } from '../store'
 
 export default function StatusBar() {
@@ -22,7 +23,18 @@ export default function StatusBar() {
 
   return (
     <div className="statusbar">
-      <span className={`dot${attention ? ' warn' : ''}`} />
+      {attention ? (
+        <span className="status-alert-wrap" title={tr('status.attention')}>
+          <AlertTriangle
+            className="status-alert"
+            role="img"
+            aria-label={tr('status.attention')}
+            size={14}
+          />
+        </span>
+      ) : (
+        <span className="dot" />
+      )}
       <span title={current ?? ''}>{current ? current.split('/').pop() : tr('status.noRepo')}</span>
       {status && (
         <>

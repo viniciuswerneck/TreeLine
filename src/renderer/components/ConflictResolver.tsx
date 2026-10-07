@@ -16,6 +16,7 @@ import {
   type ConflictRegion
 } from '../lib/conflict3'
 import CodeMirrorPane from './CodeMirrorPane'
+import { useFocusTrap } from '../lib/a11y'
 
 /** Rótulo da operação em pt/en/es para o subtítulo do header. */
 const OP_LABEL: Record<string, string> = {
@@ -61,6 +62,8 @@ export default function ConflictResolver() {
   const continueOp = useStore((s) => s.continueCurrentOp)
   const skipOp = useStore((s) => s.skipCurrentOp)
   const confirmAction = useStore((s) => s.confirmAction)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(overlayRef, open)
 
   const file = files[index] ?? null
   const [stages, setStages] = useState<ConflictStages | null>(null)
@@ -299,6 +302,8 @@ export default function ConflictResolver() {
     if (!open) return
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
+        // Confirm/menu por cima são quem fecha no Esc.
+        if (useStore.getState().confirmState || useStore.getState().menu) return
         e.preventDefault()
         close()
         return
@@ -429,7 +434,7 @@ export default function ConflictResolver() {
   )
 
   return (
-    <div className="cr-overlay" role="dialog" aria-modal="true" aria-label={tr('cr.title')}>
+    <div ref={overlayRef} className="cr-overlay" role="dialog" aria-modal="true" aria-label={tr('cr.title')}>
       <header className="cr-header">
         <GitMerge size={18} />
         <h2>{tr('cr.title')}</h2>

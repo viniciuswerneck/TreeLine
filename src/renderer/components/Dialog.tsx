@@ -1,19 +1,27 @@
 import { X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { useFocusTrap } from '../lib/a11y'
 
 /**
  * Shell dos dialogs de operação: backdrop, Esc/X fecha, erro do store.
  * Sucesso fecha via `run` (só fecha quando a op retorna true).
+ * Tab circula dentro (focus trap) e Esc fecha só se este for o overlay de cima.
  */
 export default function Dialog({ title, wide, children }: { title: string; wide?: boolean; children: React.ReactNode }) {
   const closeDlg = useStore((s) => s.closeDlg)
   const error = useStore((s) => s.error)
   const tr = useStore((s) => s.tr)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') closeDlg()
+      if (e.key !== 'Escape') return
+      // Um confirm ou menu de contexto aberto por cima é quem fecha no Esc.
+      const st = useStore.getState()
+      if (st.confirmState || st.menu) return
+      closeDlg()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -22,8 +30,10 @@ export default function Dialog({ title, wide, children }: { title: string; wide?
   return (
     <div className="modal-backdrop" onClick={closeDlg}>
       <div
+        ref={modalRef}
         className={wide ? 'modal wide' : 'modal'}
         role="dialog"
+        aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >

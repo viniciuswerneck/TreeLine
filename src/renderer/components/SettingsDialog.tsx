@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { useFocusTrap } from '../lib/a11y'
 import { LANGS, type DictKey, type Lang } from '../i18n'
 import { THEMES } from '../themes'
 import { SHORTCUT_DEFAULTS, eventShortcut, findShortcutConflicts, formatShortcut, isCustomShortcut, type ShortcutAction } from '../shortcuts'
@@ -132,6 +133,8 @@ export default function SettingsDialog() {
 
   const [name, setName] = useState(identity.name)
   const [email, setEmail] = useState(identity.email)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef)
 
   useEffect(() => {
     setName(identity.name)
@@ -140,7 +143,9 @@ export default function SettingsDialog() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') closeSettings()
+      if (e.key !== 'Escape') return
+      if (useStore.getState().confirmState) return
+      closeSettings()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -148,7 +153,14 @@ export default function SettingsDialog() {
 
   return (
     <div className="modal-backdrop" onClick={closeSettings}>
-      <div className="modal two-col" role="dialog" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={modalRef}
+        className="modal two-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-head">
           <h2>{tr('settings.title')}</h2>
           <button className="modal-x" title={tr('settings.close')} onClick={closeSettings} aria-label={tr('settings.close')}>

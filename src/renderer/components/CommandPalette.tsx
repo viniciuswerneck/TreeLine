@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CustomAction } from '../../shared/types'
 import { dialogOps, useStore } from '../store'
+import { useFocusTrap } from '../lib/a11y'
 
 interface PalCmd {
   /** id estável quando o label pode repetir (custom actions). */
@@ -31,6 +32,8 @@ export default function CommandPalette() {
   const [filter, setFilter] = useState('')
   const [index, setIndex] = useState(0)
   const [custom, setCustom] = useState<CustomAction[]>([])
+  const palRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(palRef, paletteOpen)
 
   useEffect(() => {
     if (paletteOpen) {
@@ -101,7 +104,14 @@ export default function CommandPalette() {
 
   return (
     <div className="palette-backdrop" onClick={() => setPalette(false)}>
-      <div className="palette" role="dialog" aria-label="palette" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={palRef}
+        className="palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label="palette"
+        onClick={(e) => e.stopPropagation()}
+      >
         <input
           autoFocus
           placeholder={tr('pal.ph')}

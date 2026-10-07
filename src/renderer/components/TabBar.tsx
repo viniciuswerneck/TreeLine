@@ -16,6 +16,29 @@ export default function TabBar() {
   // Ref síncrono: o drop pode chegar antes do commit do state.
   const dragRef = useRef<string | null>(null)
 
+  // Tabs navegáveis por teclado (padrão WAI-ARIA): roving tabindex + setas.
+  const tabKeyDown = (e: React.KeyboardEvent, t: string): void => {
+    const i = openTabs.indexOf(t)
+    let j = -1
+    if (e.key === 'ArrowRight') j = (i + 1) % openTabs.length
+    else if (e.key === 'ArrowLeft') j = (i - 1 + openTabs.length) % openTabs.length
+    else if (e.key === 'Home') j = 0
+    else if (e.key === 'End') j = openTabs.length - 1
+    else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      if (t !== current) void selectRepo(t)
+      return
+    } else return
+    e.preventDefault()
+    const next = openTabs[j]
+    if (next === undefined) return
+    // Ativação automática (como VS Code) + foca a aba depois do render.
+    void selectRepo(next)
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`.tab[data-repo="${CSS.escape(next)}"]`)?.focus()
+    })
+  }
+
   if (openTabs.length === 0) return null
   return (
     <div className="tabbar" role="tablist" aria-label="Repositories">
@@ -26,12 +49,15 @@ export default function TabBar() {
             key={t}
             role="tab"
             aria-selected={active}
+            tabIndex={active ? 0 : -1}
+            data-repo={t}
             draggable
             className={`tab${active ? ' active' : ''}${drag === t ? ' dragging' : ''}${over === t && drag !== t ? ' drop-target' : ''}`}
             title={t}
             onClick={() => {
               if (!active) void selectRepo(t)
             }}
+            onKeyDown={(e) => tabKeyDown(e, t)}
             onDragStart={(e) => {
               dragRef.current = t
               setDrag(t)

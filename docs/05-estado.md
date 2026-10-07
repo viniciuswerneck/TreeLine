@@ -2,7 +2,7 @@
 
 > Atualizar ao fim de cada sessão. Este é o arquivo que a próxima IA deve ler junto com `00-referencia-assistente.md`.
 
-## Última atualização: 2026-10-06 (Parte 4 concluída; Parte 10 — quebra de monolitos — adicionada ao plano)
+## Última atualização: 2026-10-07 (Parte 5 concluída — acessibilidade/teclado)
 
 ## Onde estamos
 

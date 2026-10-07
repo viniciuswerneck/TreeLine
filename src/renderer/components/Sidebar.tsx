@@ -8,10 +8,28 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <>
       <div
         className="sidebar-section-title collapsible"
+        tabIndex={0}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setOpen((o) => !o)
+          }
+        }}
         role="button"
         aria-expanded={open}
       >
+        <button
+          className="section-toggle"
+          aria-hidden="true"
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation()
+            setOpen((o) => !o)
+          }}
+        >
+          {open ? '▾' : '▸'}
+        </button>
         {title}
       </div>
       {open && children}
