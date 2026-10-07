@@ -116,7 +116,7 @@ export default function StatusBar() {
         </span>
       )}
       {error && (
-        <span className="error status-error" title={error}>
+        <span className="error status-error" aria-live="polite" title={error}>
           {error}
         </span>
       )}

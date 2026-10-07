@@ -22,7 +22,7 @@ export default function SyncToast() {
   }, [sync, clearSync])
 
   if (!sync.op || !sync.phase) return null
-  const label = sync.op === 'push' ? tr('toolbar.push') : sync.op === 'pull' ? tr('toolbar.pull') : tr('toolbar.fetch')
+  const label = sync.op === 'push' ? tr('toolbar.push') : sync.op === 'pull' ? tr('toolbar.pull') : sync.op === 'clone' ? tr('toolbar.clone') : tr('toolbar.fetch')
 
   return (
     <div className={`sync-toast ${sync.phase}`} role="status">

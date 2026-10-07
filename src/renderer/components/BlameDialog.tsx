@@ -5,6 +5,7 @@ import Dialog from './Dialog'
 export default function BlameDialog() {
   const blame = useStore((s) => s.blame)
   const blameFile = useStore((s) => s.blameFile)
+  const blameLoading = useStore((s) => s.blameLoading)
   const closeBlame = useStore((s) => s.closeBlame)
   const selectCommit = useStore((s) => s.selectCommit)
   const closeDlg = useStore((s) => s.closeDlg)
@@ -13,7 +14,9 @@ export default function BlameDialog() {
   return (
     <Dialog title={tr('blame.title')} wide>
       {blameFile && <p className="dlg-hint mono">{blameFile}</p>}
-      {blame.length === 0 ? (
+      {blameLoading ? (
+        <p className="dlg-hint">{tr('dlg.loading')}</p>
+      ) : blame.length === 0 ? (
         <p className="dlg-hint">{tr('blame.empty')}</p>
       ) : (
         <div className="dlg-list">

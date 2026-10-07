@@ -53,6 +53,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const discardFile = useStore((s) => s.discardFile)
   const refresh = useStore((s) => s.refresh)
   const loading = useStore((s) => s.loading)
+  const busy = useStore((s) => s.busy)
   const matchShortcut = useStore((s) => s.matchShortcut)
   const loadBlame = useStore((s) => s.loadBlame)
   const loadFileHistory = useStore((s) => s.loadFileHistory)
@@ -374,7 +375,12 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           <div className="file-col-head">
             <h4>{tr('det.unstaged', { n: unstaged.length + untracked.length })}</h4>
             {(unstaged.length > 0 || untracked.length > 0) && (
-              <button className="mini-btn" title={tr('det.stageAllTitle')} onClick={() => void stageAll()}>
+              <button
+                className="mini-btn"
+                title={tr('det.stageAllTitle')}
+                disabled={busy}
+                onClick={() => void stageAll()}
+              >
                                 {tr('det.stageAll')}
               </button>
             )}
@@ -393,6 +399,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               <button
                 className="mini-btn"
                 title={tr('det.stageFile')}
+                disabled={busy}
                 onClick={(e) => {
                   e.stopPropagation()
                   void selectFile({ path: f.path, staged: false }).then(() => stageSelected())
@@ -415,6 +422,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               <button
                 className="mini-btn"
                 title={tr('det.stageFile')}
+                disabled={busy}
                 onClick={(e) => {
                   e.stopPropagation()
                   void selectFile({ path: p, staged: false }).then(() => stageSelected())
@@ -432,7 +440,12 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           <div className="file-col-head">
             <h4>{tr('det.staged', { n: staged.length })}</h4>
             {staged.length > 0 && (
-              <button className="mini-btn" title={tr('det.unstageAllTitle')} onClick={() => void unstageAll()}>
+              <button
+                className="mini-btn"
+                title={tr('det.unstageAllTitle')}
+                disabled={busy}
+                onClick={() => void unstageAll()}
+              >
                                 {tr('det.unstageAll')}
               </button>
             )}
@@ -451,6 +464,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               <button
                 className="mini-btn"
                 title={tr('det.unstageFile')}
+                disabled={busy}
                 onClick={(e) => {
                   e.stopPropagation()
                   void selectFile({ path: f.path, staged: true }).then(() => unstageSelected())
@@ -547,10 +561,10 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           <button
             className="tool-btn primary"
             onClick={() => void doCommit()}
-            disabled={!canCommit}
+            disabled={!canCommit || busy}
             title={!canCommit ? tr('det.commitHint') : `${tr('toolbar.commitStaged')} (${tr('det.ctrlEnter')})`}
           >
-            {tr('det.commit')}{staged.length > 0 && !amend ? ` (${staged.length})` : ''}
+            {busy ? tr('dlg.loading') : tr('det.commit')}{staged.length > 0 && !amend ? ` (${staged.length})` : ''}
           </button>
           {error && <span className="error">{error}</span>}
         </div>

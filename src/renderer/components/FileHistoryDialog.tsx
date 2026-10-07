@@ -6,6 +6,7 @@ import Dialog from './Dialog'
 export default function FileHistoryDialog() {
   const fileHistory = useStore((s) => s.fileHistory)
   const fileHistoryPath = useStore((s) => s.fileHistoryPath)
+  const fhistLoading = useStore((s) => s.fhistLoading)
   const closeFileHistory = useStore((s) => s.closeFileHistory)
   const selectCommit = useStore((s) => s.selectCommit)
   const loadCommitDiffFile = useStore((s) => s.loadCommitDiffFile)
@@ -43,7 +44,9 @@ export default function FileHistoryDialog() {
   return (
     <Dialog title={tr('fhist.title')} wide>
       {fileHistoryPath && <p className="dlg-hint mono">{fileHistoryPath}</p>}
-      {sorted.length === 0 ? (
+      {fhistLoading ? (
+        <p className="dlg-hint">{tr('dlg.loading')}</p>
+      ) : sorted.length === 0 ? (
         <p className="dlg-hint">{tr('fhist.empty')}</p>
       ) : (
         <div className="dlg-list fhist-large" style={{ maxHeight: '80vh', overflow: 'auto' }}>
@@ -71,10 +74,10 @@ export default function FileHistoryDialog() {
                   setShowDiff((cur) => (cur === h.hash ? null : h.hash))
                 }}
               >
-                {showDiff === h.hash ? 'Ocultar alteração' : 'Ver alteração'}
+                {showDiff === h.hash ? tr('fhist.hideDiff') : tr('fhist.showDiff')}
               </button>
               {showDiff === h.hash && (
-                <pre className="fhist-diff">{diffText || 'Carregando...'}</pre>
+                <pre className="fhist-diff">{diffText || tr('dlg.loading')}</pre>
               )}
             </div>
           ))}

@@ -287,7 +287,7 @@ export interface MergePreview {
 export type FlowType = 'feature' | 'release' | 'hotfix'
 
 /** Operação de sincronização com remoto (para o toast de progresso). */
-export type SyncOp = 'push' | 'pull' | 'fetch'
+export type SyncOp = 'push' | 'pull' | 'fetch' | 'clone'
 
 /** Contrato exposto no renderer como `window.treeline`. */
 export interface TreeLineAPI {

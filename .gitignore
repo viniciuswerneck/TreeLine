@@ -2,3 +2,7 @@ node_modules/
 out/
 dist/
 *.log
+# Lixo temporário que o electron-builder espalha na raiz ao montar o .deb
+control.tar.gz
+data.tar.gz
+debian-binary

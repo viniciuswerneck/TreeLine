@@ -432,6 +432,9 @@ function runGitCancellable(repo: string, opKey: string, args: string[], lang: UI
   syncControllers.get(`${repo}:${opKey}`)?.abort()
   const ctrl = new AbortController()
   syncControllers.set(`${repo}:${opKey}`, ctrl)
+  // Clone ainda não tem repo aberto na UI: registra também sob chave global
+  // para o cancel chegar sem o renderer saber o diretório destino (4.4).
+  if (opKey === 'Clone') syncControllers.set('__clone__:Clone', ctrl)
   return new Promise<GitRun>((resolve, reject) => {
     const child = spawn('git', args, { cwd: repo, signal: ctrl.signal, timeout: SYNC_TIMEOUT_MS, env: process.env })
     let stdout = ''
@@ -446,6 +449,7 @@ function runGitCancellable(repo: string, opKey: string, args: string[], lang: UI
     })
     const done = (err: Error | null): void => {
       syncControllers.delete(`${repo}:${opKey}`)
+      if (opKey === 'Clone') syncControllers.delete('__clone__:Clone')
       if (err) reject(err)
       else resolve({ stdout, stderr })
     }
@@ -467,6 +471,7 @@ function runGitCancellable(repo: string, opKey: string, args: string[], lang: UI
 
 ipcMain.handle('treeline:cancelSync', (_event, repo: string, op: string) => {
   syncControllers.get(`${repo}:${op}`)?.abort()
+  if (op === 'Clone') syncControllers.get('__clone__:Clone')?.abort()
 })
 
 // Erro técnico do git vira orientação acionável: o caso mais comum é remote

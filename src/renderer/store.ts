@@ -82,6 +82,20 @@ export interface SyncState {
   retryPublish: boolean
 }
 
+export const SYNC_OP_LABEL: Record<SyncOp, string> = { push: 'Push', pull: 'Pull', fetch: 'Fetch', clone: 'Clone' }
+
+// Sincronização cancelada pelo usuário (4.8): o toast NÃO é zerado na hora do
+// cancel — fica "Cancelando…" até a operação de fato encerrar. Se o git não
+// morrer (abort falho), o usuário vê que ainda está rodando, em vez de um
+// "cancelado" mentiroso.
+let pendingCancel: SyncOp | null = null
+
+function cancelledSyncToast(op: SyncOp, lang: Lang): SyncState | null {
+  if (pendingCancel !== op) return null
+  pendingCancel = null
+  return { op, phase: 'success', message: t(lang, 'sync.cancelled', { op: SYNC_OP_LABEL[op] }), retryLease: false, retryPublish: false }
+}
+
 interface TreeLineState {
   repos: string[]
   current: string | null
@@ -218,6 +232,7 @@ interface TreeLineState {
   confirmState: ConfirmState | null
   resolveConfirm: (v: boolean) => void
   runOp: (op: (repo: string, lang: Lang) => Promise<unknown>, repo?: string) => Promise<boolean>
+  busy: boolean
   cloneRepo: (url: string) => Promise<boolean>
   initRepo: () => Promise<boolean>
   terminalOpen: boolean
@@ -227,10 +242,12 @@ interface TreeLineState {
   // Blame / file-history / compare / paleta
   blame: BlameLine[]
   blameFile: string | null
+  blameLoading: boolean
   loadBlame: (path: string, rev?: string) => Promise<void>
   closeBlame: () => void
   fileHistory: FileHistoryEntry[]
   fileHistoryPath: string | null
+  fhistLoading: boolean
   loadFileHistory: (path: string) => Promise<void>
   closeFileHistory: () => void
   loadCommitDiffFile: (hash: string, path: string) => Promise<string>
@@ -275,16 +292,23 @@ async function fail<T>(p: Promise<T>, set: (e: string | null) => void): Promise<
 }
 
 /** "Error invoking remote method 'x': Error: DETALHE" → "DETALHE" (1 linha). */
-function cleanErr(e: unknown): string {
+function cleanErr(e: unknown, lang?: Lang): string {
   const m = e instanceof Error ? e.message : String(e)
   const idx = m.lastIndexOf('Error: ')
-  const detail = idx >= 0 ? m.slice(idx + 'Error: '.length) : m
-  return detail
+  const detail = (idx >= 0 ? m.slice(idx + 'Error: '.length) : m)
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
     .join(' — ')
     .slice(0, 500)
+  // 4.6: git hook (pre-commit/pre-push/commit-msg) falhou com exit != 0 — o
+  // diagnóstico nativo só diz "exited with code 1"; mostrar que é o hook e a
+  // saída dele, em vez de um erro cru.
+  if (/hook exited with code|pre-commit|pre-push|commit-msg|\.pre-commit-config|rejected by the hook/i.test(m)) {
+    const hint = t(lang ?? useStore.getState().lang, 'err.hook')
+    return detail ? `${hint} — ${detail}` : hint
+  }
+  return detail
 }
 
 export const useStore = create<TreeLineState>()((set, get) => ({
@@ -370,6 +394,7 @@ moveTab: (from, to) => {
   },
 sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false },
   syncRepo: null,
+  busy: false,
   theme: loadTheme(),
   lang: loadLang(),
 
@@ -400,7 +425,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     } catch {
       /* ignora */
     }
-    set({ current: path, openTabs: tabs, status: null, commits: [], branches: [], branchSel: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, lfs: null, submodules: [], selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, fileHistory: [], fileHistoryPath: null, compareA: null, compareB: null, compare: null, dialog: null, confirmState: null, filter: '', branchFilter: 'all', resolverOpen: false, conflictFiles: [], conflictIndex: 0, conflictLoading: false, conflictOp: null, sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false }, syncRepo: null })
+    set({ current: path, openTabs: tabs, status: null, commits: [], branches: [], branchSel: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, lfs: null, submodules: [], selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, blameLoading: false, fileHistory: [], fileHistoryPath: null, fhistLoading: false, compareA: null, compareB: null, compare: null, dialog: null, confirmState: null, filter: '', branchFilter: 'all', resolverOpen: false, conflictFiles: [], conflictIndex: 0, conflictLoading: false, conflictOp: null, sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false }, syncRepo: null, busy: false })
     await window.treeline.addRecent(path)
     await get().refresh()
   },
@@ -520,53 +545,76 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
   stageAll: async () => {
     const { current, status } = get()
     if (!current || !status) return
-    set({ error: null })
-    const files = [...status.unstaged.map((f) => f.path), ...status.untracked]
-    for (const file of files) {
-      const ok = await fail(window.treeline.stage(current, file), (e) => set({ error: e }))
-      if (ok === null) return
+    set({ error: null, busy: true })
+    try {
+      const files = [...status.unstaged.map((f) => f.path), ...status.untracked]
+      for (const file of files) {
+        const ok = await fail(window.treeline.stage(current, file), (e) => set({ error: e }))
+        if (ok === null) return
+      }
+      await get().refresh()
+    } finally {
+      set({ busy: false })
     }
-    await get().refresh()
   },
 
   unstageAll: async () => {
     const { current, status } = get()
     if (!current || !status) return
-    set({ error: null })
-    for (const f of status.staged) {
-      const ok = await fail(window.treeline.unstage(current, f.path), (e) => set({ error: e }))
-      if (ok === null) return
+    set({ error: null, busy: true })
+    try {
+      for (const f of status.staged) {
+        const ok = await fail(window.treeline.unstage(current, f.path), (e) => set({ error: e }))
+        if (ok === null) return
+      }
+      await get().refresh()
+    } finally {
+      set({ busy: false })
     }
-    await get().refresh()
   },
+
   stageSelected: async () => {
     const { current, selectedFile } = get()
     if (!current || !selectedFile) return
-    const ok = await fail(window.treeline.stage(current, selectedFile.path), (e) => set({ error: e }))
-    if (ok !== null) {
-      await get().refresh()
-      await get().selectFile({ path: selectedFile.path, staged: true })
+    set({ error: null, busy: true })
+    try {
+      const ok = await fail(window.treeline.stage(current, selectedFile.path), (e) => set({ error: e }))
+      if (ok !== null) {
+        await get().refresh()
+        await get().selectFile({ path: selectedFile.path, staged: true })
+      }
+    } finally {
+      set({ busy: false })
     }
   },
 
   unstageSelected: async () => {
     const { current, selectedFile } = get()
     if (!current || !selectedFile) return
-    const ok = await fail(window.treeline.unstage(current, selectedFile.path), (e) => set({ error: e }))
-    if (ok !== null) {
-      await get().refresh()
-      await get().selectFile({ path: selectedFile.path, staged: false })
+    set({ error: null, busy: true })
+    try {
+      const ok = await fail(window.treeline.unstage(current, selectedFile.path), (e) => set({ error: e }))
+      if (ok !== null) {
+        await get().refresh()
+        await get().selectFile({ path: selectedFile.path, staged: false })
+      }
+    } finally {
+      set({ busy: false })
     }
   },
 
   doCommit: async () => {
     const { current, message, amend, lang } = get()
     if (!current) return
-    set({ error: null })
-    const ok = await fail(window.treeline.commit(current, message, amend, lang), (e) => set({ error: e }))
-    if (ok !== null) {
-      set({ message: '', selectedFile: null, diff: '' })
-      await get().refresh()
+    set({ error: null, busy: true })
+    try {
+      const ok = await fail(window.treeline.commit(current, message, amend, lang), (e) => set({ error: e }))
+      if (ok !== null) {
+        set({ message: '', selectedFile: null, diff: '' })
+        await get().refresh()
+      }
+    } finally {
+      set({ busy: false })
     }
   },
 
@@ -577,12 +625,15 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     const res = await fail(window.treeline.push(repo, get().lang), (e) => {
       // 3.5: toast de sync é por repo — se o usuário trocou de aba, não pinta.
       if (get().current !== repo) return
+      const cx = cancelledSyncToast('push', get().lang)
+      if (cx) return set({ sync: cx })
       const detail = cleanErr(e)
       const lease = /non-fast-forward|fetch first|rejected/i.test(detail)
       const publish = /sem upstream|no upstream|no tracking|has no upstream/i.test(detail)
       return set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: detail }), retryLease: lease && !publish, retryPublish: publish } })
     })
     if (res !== null) {
+      pendingCancel = null
       if (get().current === repo) set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
@@ -594,9 +645,12 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     set({ syncRepo: repo, sync: { op: 'pull', phase: 'running', message: t(get().lang, 'sync.running', { op: 'Pull' }), retryLease: false, retryPublish: false }, error: null })
     const res = await fail(window.treeline.pull(repo, get().lang), (e) => {
       if (get().current !== repo) return
+      const cx = cancelledSyncToast('pull', get().lang)
+      if (cx) return set({ sync: cx })
       return set({ sync: { op: 'pull', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Pull', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
     })
     if (res !== null) {
+      pendingCancel = null
       if (get().current === repo) set({ sync: { op: 'pull', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
@@ -608,9 +662,12 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     set({ syncRepo: repo, sync: { op: 'fetch', phase: 'running', message: t(get().lang, 'sync.running', { op: 'Fetch' }), retryLease: false, retryPublish: false }, error: null })
     const res = await fail(window.treeline.fetch(repo, get().lang), (e) => {
       if (get().current !== repo) return
+      const cx = cancelledSyncToast('fetch', get().lang)
+      if (cx) return set({ sync: cx })
       return set({ sync: { op: 'fetch', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Fetch', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
     })
     if (res !== null) {
+      pendingCancel = null
       if (get().current === repo) set({ sync: { op: 'fetch', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
@@ -621,16 +678,23 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
   cancelSync: async () => {
     const repo = get().current
     const { sync } = get()
-    if (!repo || sync.phase !== 'running' || !sync.op) return
-    // 3.5: cancela só a sync do repo da vez (backup do que rodava antes).
-    if (get().syncRepo && get().syncRepo !== repo) return
-    const key = sync.op === 'push' ? 'Push' : sync.op === 'pull' ? 'Pull' : sync.op === 'fetch' ? 'Fetch' : 'Clone'
+    if (!sync.op || sync.phase !== 'running') return
+    // Clone pode rodar sem repo aberto (welcome): não exige `current`.
+    if (sync.op !== 'clone') {
+      if (!repo) return
+      // 3.5: cancela só a sync do repo da vez (backup do que rodava antes).
+      if (get().syncRepo && get().syncRepo !== repo) return
+    }
+    const key = SYNC_OP_LABEL[sync.op]
+    pendingCancel = sync.op
+    set({ sync: { ...sync, message: t(get().lang, 'sync.cancelling') } })
     try {
-      await window.treeline.cancelSync(repo, key)
+      await window.treeline.cancelSync(repo ?? '', key)
     } catch {
       /* o timeout mata sozinho */
     }
-    set({ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false }, syncRepo: null })
+    // 4.8: NÃO zera o toast aqui — o resultado chega pelo resolve/reject da
+    // operação (cancelledSyncToast). Se o abort falhar, o usuário vê que segue.
   },
 
   doPushForce: async () => {
@@ -649,9 +713,12 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     set({ syncRepo: repo, sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
     const res = await fail(window.treeline.pushForce(repo, true, lang), (e) => {
       if (get().current !== repo) return
+      const cx = cancelledSyncToast('push', get().lang)
+      if (cx) return set({ sync: cx })
       return set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
     })
     if (res !== null) {
+      pendingCancel = null
       if (get().current === repo) set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
@@ -673,9 +740,12 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     set({ syncRepo: repo, sync: { op: 'push', phase: 'running', message: t(lang, 'sync.running', { op: 'Push' }), retryLease: false, retryPublish: false }, error: null })
     const res = await fail(window.treeline.pushPublish(repo, lang), (e) => {
       if (get().current !== repo) return
+      const cx = cancelledSyncToast('push', get().lang)
+      if (cx) return set({ sync: cx })
       return set({ sync: { op: 'push', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Push', e: cleanErr(e) }), retryLease: false, retryPublish: false } })
     })
     if (res !== null) {
+      pendingCancel = null
       if (get().current === repo) set({ sync: { op: 'push', phase: 'success', message: res.summary, retryLease: false, retryPublish: false } })
       await get().refresh()
     }
@@ -877,12 +947,16 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
   stageHunk: async (hunkIndex: number) => {
     const { current, selectedFile, lang } = get()
     if (!current || !selectedFile) return
-    set({ error: null })
-    const ok = await fail(
-      window.treeline.stageHunk(current, selectedFile.path, selectedFile.staged, hunkIndex, lang),
-      (e) => set({ error: cleanErr(e) })
-    )
-    if (ok !== null) await get().refresh()
+    set({ error: null, busy: true })
+    try {
+      const ok = await fail(
+        window.treeline.stageHunk(current, selectedFile.path, selectedFile.staged, hunkIndex, lang),
+        (e) => set({ error: cleanErr(e) })
+      )
+      if (ok !== null) await get().refresh()
+    } finally {
+      set({ busy: false })
+    }
   },
 
   discardHunk: async (hunkIndex: number) => {
@@ -892,23 +966,31 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
       t(lang, 'hunk.discardT'), t(lang, 'hunk.discardM', { f: selectedFile.path }), t(lang, 'hunk.discardD'), t(lang, 'dlg.drop')
     )
     if (!ok) return
-    set({ error: null })
-    const done = await fail(
-      window.treeline.discardHunk(current, selectedFile.path, selectedFile.staged, hunkIndex, lang),
-      (e) => set({ error: cleanErr(e) })
-    )
-    if (done !== null) await get().refresh()
+    set({ error: null, busy: true })
+    try {
+      const done = await fail(
+        window.treeline.discardHunk(current, selectedFile.path, selectedFile.staged, hunkIndex, lang),
+        (e) => set({ error: cleanErr(e) })
+      )
+      if (done !== null) await get().refresh()
+    } finally {
+      set({ busy: false })
+    }
   },
 
   stageLines: async (hunkIndex: number, lines: number[]) => {
     const { current, selectedFile, lang } = get()
     if (!current || !selectedFile) return
-    set({ error: null })
-    const ok = await fail(
-      window.treeline.stageLines(current, selectedFile.path, selectedFile.staged, hunkIndex, lines, lang),
-      (e) => set({ error: cleanErr(e) })
-    )
-    if (ok !== null) await get().refresh()
+    set({ error: null, busy: true })
+    try {
+      const ok = await fail(
+        window.treeline.stageLines(current, selectedFile.path, selectedFile.staged, hunkIndex, lines, lang),
+        (e) => set({ error: cleanErr(e) })
+      )
+      if (ok !== null) await get().refresh()
+    } finally {
+      set({ busy: false })
+    }
   },
 
   setTheme: (themeName) => {
@@ -1070,24 +1152,26 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
   setRefPreset: (p) => set({ refPreset: p }),
   blame: [],
   blameFile: null,
+  blameLoading: false,
   loadBlame: async (path, rev) => {
     const { current } = get()
     if (!current) return
-    set({ blame: [], blameFile: path, error: null })
+    set({ blame: [], blameFile: path, blameLoading: true, error: null })
     const rows = await fail(window.treeline.getBlame(current, path, rev), (e) => set({ error: cleanErr(e) }))
-    set({ blame: rows ?? [] })
+    set({ blame: rows ?? [], blameLoading: false })
   },
-  closeBlame: () => set({ blame: [], blameFile: null, dialog: get().dialog === 'blame' ? null : get().dialog }),
+  closeBlame: () => set({ blame: [], blameFile: null, blameLoading: false, dialog: get().dialog === 'blame' ? null : get().dialog }),
   fileHistory: [],
   fileHistoryPath: null,
+  fhistLoading: false,
   loadFileHistory: async (path) => {
     const { current } = get()
     if (!current) return
-    set({ fileHistory: [], fileHistoryPath: path, error: null })
+    set({ fileHistory: [], fileHistoryPath: path, fhistLoading: true, error: null })
     const rows = await fail(window.treeline.getFileHistory(current, path, 100), (e) => set({ error: cleanErr(e) }))
-    set({ fileHistory: rows ?? [] })
+    set({ fileHistory: rows ?? [], fhistLoading: false })
   },
-  closeFileHistory: () => set({ fileHistory: [], fileHistoryPath: null, dialog: get().dialog === 'fileHistory' ? null : get().dialog }),
+  closeFileHistory: () => set({ fileHistory: [], fileHistoryPath: null, fhistLoading: false, dialog: get().dialog === 'fileHistory' ? null : get().dialog }),
   loadCommitDiffFile: async (hash, path) => {
     const { current } = get()
     if (!current || !hash || !path) return ''
@@ -1309,12 +1393,14 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     const target = repo ?? get().current
     const lang = get().lang
     if (!target) return false
-    set({ error: null })
+    set({ error: null, busy: true })
     try {
       await op(target, lang)
     } catch (e) {
       set({ error: cleanErr(e) })
       return false
+    } finally {
+      set({ busy: false })
     }
     // 3.1: refresh só se ainda estamos olhando o repo alvo da operação.
     if (get().current === target) await get().refresh()
@@ -1324,14 +1410,30 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
   cloneRepo: async (url) => {
     const { lang } = get()
     set({ error: null })
+    // 4.4: clone aparece no toast de sync (progresso + botão cancelar) mesmo
+    // sem repo aberto — o cancel no main aborta o filho por chave global.
+    set({ sync: { op: 'clone', phase: 'running', message: t(lang, 'sync.running', { op: SYNC_OP_LABEL.clone }), retryLease: false, retryPublish: false }, syncRepo: null })
     let target: string | null = null
     try {
       target = await window.treeline.cloneRepo(url, lang)
     } catch (e) {
-      set({ error: cleanErr(e) })
+      const cx = cancelledSyncToast('clone', get().lang)
+      if (cx) {
+        set({ sync: cx })
+        return false
+      }
+      const detail = cleanErr(e)
+      set({ error: detail, sync: { op: 'clone', phase: 'error', message: t(get().lang, 'sync.failed', { op: 'Clone', e: detail }), retryLease: false, retryPublish: false } })
       return false
     }
-    if (!target) return false
+    pendingCancel = null
+    if (!target) {
+      // Usuário fechou o seletor de pasta: limpa o toast, não é erro.
+      set({ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false }, syncRepo: null })
+      return false
+    }
+    const name = target.split(/[\\/]/).pop() ?? target
+    set({ sync: { op: 'clone', phase: 'success', message: t(get().lang, 'sync.cloned', { name }), retryLease: false, retryPublish: false } })
     await get().selectRepo(target)
     set({ repos: [target, ...get().repos.filter((r) => r !== target)] })
     return true

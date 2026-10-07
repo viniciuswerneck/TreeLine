@@ -95,14 +95,16 @@
 
 | # | O que fazer | Por que importa | Onde | Esforço | Feito |
 |---|---|---|---|---|---|
-| 4.1 | Separar "carregando…" de "vazio" no Blame e no Histórico de arquivo | Hoje parece vazio enquanto busca | `store.ts:1004,1017`; dialogs | 🟢 | [ ] |
-| 4.2 | Corrigir mensagem do rebase interativo quando dá erro (hoje diz "sem commits") | Mensagem mentirosa confunde | `RebaseInteractiveDialog.tsx:24` | 🟢 | [ ] |
-| 4.3 | Busca de arquivo (GoToFile) com estado próprio e texto certo | Hoje usa "nenhum comando" e idioma fixo | `GoToFile.tsx:42,62` | 🟢 | [ ] |
-| 4.4 | Mostrar progresso e permitir cancelar o clone | Repo grande parece congelado | `store.ts:1246` | 🟡 | [ ] |
-| 4.5 | Indicador de carregamento em stage/unstage/commit todas as listas | Evita duplo clique e "travou?" | `store.ts` vários | 🟡 | [ ] |
-| 4.6 | Erros de hooks (pre-commit) explicados, não genéricos | Ajuda a entender o bloqueio | `store.ts:1232` | 🟡 | [ ] |
-| 4.7 | Erro com `aria-live` para leitor de tela | Acessibilidade | `StatusBar.tsx:109` | 🟢 | [ ] |
-| 4.8 | Não zerar toast de sincronização quando o cancelar falha | Hoje diz "cancelado" mas continua | `store.ts:591` | 🟢 | [ ] |
+| 4.1 | Separar "carregando…" de "vazio" no Blame e no Histórico de arquivo | Hoje parece vazio enquanto busca | `store.ts:1004,1017`; dialogs | 🟢 | [x] |
+| 4.2 | Corrigir mensagem do rebase interativo quando dá erro (hoje diz "sem commits") | Mensagem mentirosa confunde | `RebaseInteractiveDialog.tsx:24` | 🟢 | [x] |
+| 4.3 | Busca de arquivo (GoToFile) com estado próprio e texto certo | Hoje usa "nenhum comando" e idioma fixo | `GoToFile.tsx:42,62` | 🟢 | [x] |
+| 4.4 | Mostrar progresso e permitir cancelar o clone | Repo grande parece congelado | `store.ts:1246` | 🟡 | [x] |
+| 4.5 | Indicador de carregamento em stage/unstage/commit todas as listas | Evita duplo clique e "travou?" | `store.ts` vários | 🟡 | [x] |
+| 4.6 | Erros de hooks (pre-commit) explicados, não genéricos | Ajuda a entender o bloqueio | `store.ts:1232` | 🟡 | [x] |
+| 4.7 | Erro com `aria-live` para leitor de tela | Acessibilidade | `StatusBar.tsx:109` | 🟢 | [x] |
+| 4.8 | Não zerar toast de sincronização quando o cancelar falha | Hoje diz "cancelado" mas continua | `store.ts:591` | 🟢 | [x] |
+
+**Feito em 2026-10-06.** Detalhes: Blame e FileHistory ganharam flag de loading (`blameLoading`/`fhistLoading`) — o dialog mostra "Carregando…" e "vazio" só depois da busca terminar; strings hardcoded do FileHistory viraram i18n (`fhist.showDiff/hideDiff`). Rebase interativo separa erro de "sem commits" (`rebaseI.loadFail`/`rebaseI.load`): em falha mostra a mensagem (`planError`) sem mentir. GoToFile usa o placeholder traduzido (`pal.gotoFile`) e vazio próprio (`goto.empty`). Clone virou op de sync (`SyncOp` ganhou `'clone'`): aparece no toast com progresso, sucesso ("{name} clonado", `sync.cloned`) e botão de cancelar — o main registra o filho sob chave global `__clone__:Clone` e o `treeline:cancelSync` aborta sem o renderer saber o diretório destino. Listas de stage/unstage/commit ganharam `busy` (runOp + stage/unstage commit/discard): botões desabilitados enquanto roda (evita duplo clique). `cleanErr` reconhece falha de git hook (pre-commit/pre-push/commit-msg) e explica (`err.hook`) mostrando a saída, em vez do "exited with code 1" cru. Erro do StatusBar virou `aria-live="polite"`. Cancelar sync agora NÃO zera o toast na hora: fica "Cancelando…" (`sync.cancelling`) e o resultado real chega pelo resolve/reject da operação — se o abort falhar, o usuário continua vendo que está rodando, em vez de um "cancelado" mentiroso (`sync.cancelled`). Validação: `npm run typecheck` limpo (2 tsconfigs), Vitest 78/78, `npm run build` ok.
 
 **Resultado esperado:** nunca mais "acho que travou".
 
@@ -215,7 +217,7 @@
 |---|---|---|---|
 | 1 | Confiança e segurança | Parte 1 ✅ + Parte 2 ✅ | Nada perigoso acontece sem querer |
 | 2 | Estabilidade | Parte 3 ✅ | Trocar de repo e sincronizar sem sustos |
-| 3 | Feedback e clareza | Parte 4 + Parte 6 | Sem "travou?" e sem texto errado |
+| 3 | Feedback e clareza | Parte 4 ✅ + Parte 6 | Sem "travou?" e sem texto errado |
 | 4 | Acessibilidade e visual | Parte 5 + Parte 7 | Usável por teclado, cara de premium |
 | 5 | Paridade | Parte 8 | Recursos avançados |
 | 6 | Diferencial | Parte 9 | Marca própria |
@@ -242,7 +244,8 @@ Rodar na ordem:
 |---|---|---|
 | 2026-10-06 | Parte 1 (Sprint 1) | Confiança nos avisos completa: Enter só no modal, foco no Cancelar, reset/discard/abort/force-delete padronizados no `confirmAction`, rótulos corrigidos. Validação: tsc limpo, Vitest 78/78, build ok. Commit `55a43d6` pushado. |
 | 2026-10-06 | Parte 2 (Sprint 1) | Segurança interna: validação de refs/hashes/paths/URLs no main, rebase-i com whitelist, push com refspec explícito, token do clone fora do argv (GIT_ASKPASS), openPR só http/https. Validação: typecheck (2 configs), Vitest 78/78, build ok. |
-| 2026-10-06 | Parte 3 (Sprint 1) | Estabilidade: guarda "mesmo repo" em refresh/loadMore/selectFile, confirmAction em fila, repo capturado antes de confirmar (push/reset), sync por repo, limpeza total ao trocar de aba, `readIndexOp` (status não briga com index.lock), erro de git vira conflito real, Skip (--skip) em rebase/pick/revert. Validação: typecheck (2 configs), Vitest 78/78, build ok. |
+| 2026-10-06 | Parte 3 (Sprint 1) | Estabilidade: guarda "mesmo repo" em refresh/loadMore/selectFile, confirmAction em fila, repo capturado antes de confirmar (push/reset), sync por repo, limpeza total ao trocar de aba, `readIndexOp` (status não briga com index.lock), erro de git vira conflito real, Skip (--skip) em rebase/pick/revert. Validação: typecheck (2 configs), Vitest 78/78, build ok. Commit `da10dc1` pushado. |
+| 2026-10-06 | Parte 4 (Sprint 2) | Feedback: loading ("Carregando…") separado de vazio em Blame/FileHistory, rebase-i com erro próprio (não mente "sem commits"), GoToFile próprio, clone no toast de sync com cancel (chave global `__clone__:Clone`), `busy` em stage/unstage/commit (sem duplo clique), erro de hook explicado (`err.hook`), `aria-live` no erro, cancelar sync sem zero o toast (fica "Cancelando…" até a operação acabar). Validação: typecheck (2 configs), Vitest 78/78, build ok. |
 
 ---
 

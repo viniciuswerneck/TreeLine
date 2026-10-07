@@ -14,15 +14,18 @@ export default function RebaseInteractiveDialog() {
   const [base, setBase] = useState('main')
   const [plan, setPlan] = useState<RebasePlanEntry[] | null>(null)
   const [loadingPlan, setLoadingPlan] = useState(false)
+  const [planError, setPlanError] = useState('')
   const [stashFirst, setStashFirst] = useState(false)
 
   const load = async (): Promise<void> => {
     if (!current || !base.trim() || loadingPlan) return
     setLoadingPlan(true)
+    setPlanError('')
     try {
       setPlan(await window.treeline.getRebasePlan(current, base.trim()))
     } catch {
-      setPlan([])
+      setPlan(null)
+      setPlanError(tr('rebaseI.loadFail'))
     } finally {
       setLoadingPlan(false)
     }
@@ -74,10 +77,11 @@ export default function RebaseInteractiveDialog() {
           <input value={base} onChange={(e) => setBase(e.target.value)} placeholder="main" />
         </label>
         <button className="mini-btn" disabled={loadingPlan || !current || !base.trim()} onClick={() => void load()}>
-          {loadingPlan ? tr('dlg.working') : 'Load'}
+          {loadingPlan ? tr('dlg.working') : tr('rebaseI.load')}
         </button>
       </div>
 
+      {planError && <p className="dlg-error">{planError}</p>}
       {plan !== null && plan.length === 0 && <p className="muted">{tr('rebaseI.empty')}</p>}
       {plan !== null && plan.length > 0 && (
         <div className="dlg-list">

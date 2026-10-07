@@ -39,7 +39,7 @@ export default function GoToFile() {
       <div className="palette" role="dialog" aria-label="goto-file" onClick={(e) => e.stopPropagation()}>
         <input
           autoFocus
-          placeholder="Ir para arquivo... (Ctrl+P)"
+          placeholder={tr('pal.gotoFile')}
           value={filter}
           onChange={(e) => {
             setFilter(e.target.value)
@@ -60,7 +60,7 @@ export default function GoToFile() {
           }}
         />
         {filtered.length === 0 ? (
-          <p className="muted">{tr('pal.empty')}</p>
+          <p className="muted">{tr('goto.empty')}</p>
         ) : (
           <div className="palette-list">
             {filtered.map((p: string, i: number) => (
