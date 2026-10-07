@@ -29,9 +29,10 @@
 
 ## Próximo passo imediato
 
-1. Submissão no Flathub: falta conta/app-id e provavelmente migrar `--filesystem=host` para FilePortal (ver `build/flatpak/dev.treeline.app.yml`).
-2. `libsecret`/GNOME Keyring para `credential.helper` e aviso de revogação do token `store` (ver Riscos).
-3. Restante Fase 4: `--rpm`/AUR, remapeamento de atalhos por sistema operacional, LFS ponta a ponta (depende de `git-lfs` na máquina).
+1. **Parte 5 do plano** (`docs/07-plano-de-acao.md`): acessibilidade e navegação por teclado — focus trap nos modais, devolver foco ao abrir, setas em menus/abas/branches, linhas do histórico/arquivos navegáveis.
+2. Submissão no Flathub: falta conta/app-id e provavelmente migrar `--filesystem=host` para FilePortal (ver `build/flatpak/dev.treeline.app.yml`).
+3. `libsecret`/GNOME Keyring para `credential.helper` e aviso de revogação do token `store` (ver Riscos).
+4. Restante Fase 4: `--rpm`/AUR, remapeamento de atalhos por sistema operacional, LFS ponta a ponta (depende de `git-lfs` na máquina).
 
 ## Riscos/pendências
 
