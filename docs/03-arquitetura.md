@@ -35,6 +35,8 @@ treeline/
   electron-builder.yml
 ```
 
+> **Estrutura-alvo (Parte 10 do `docs/07-plano-de-acao.md`, a executar):** o `main/index.ts` (~3.1k linhas) vira bootstrap + domínios em `src/main/git/{runner,validate,status,history,branch,remote,commit,diff,stash,tag,merge,rebase,pick,revert,conflict,flow,reflog,lfs,submodule,worktree}.ts` + `messages.ts` e `app/{terminal,watchers,bookmarks,customActions,identity,settings,updates}.ts`; o `store.ts` (~1.55k) vira slices zustand em `src/renderer/store/{types,helpers}.ts` + `slices/{repos,worktree,sync,conflicts,ops,ui}.ts`. Guardrail no CI: zero ciclos (`madge`) e arquivos < 800 linhas. A API pública (`TreeLineAPI`, `useStore`, `TreeLineState`) permanece intacta.
+
 ## 3. Main vs Renderer
 
 - Main (Node): único lugar que executa `git`. Uma fila por repo com lock para evitar `index.lock` em push+fetch paralelos. Timeout + cancel via AbortController. Nunca injeta senha em arg — usa `askpass` + keyring do sistema.

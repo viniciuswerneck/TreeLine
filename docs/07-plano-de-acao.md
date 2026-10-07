@@ -211,6 +211,50 @@
 
 ---
 
+## Parte 10 — Quebra de monolitos (refactor estrutural)
+
+> **Apesar da numeração, entra na execução entre as Partes 6 e 8** (ver "Ordem recomendada"): a a11y (5) e o i18n (6) mexem pouco no `store`/`main`, e o refactor deve preceder as features das Partes 8/9.
+
+**Objetivo:** `main/index.ts` (~3.1k linhas) e `store.ts` (~1.55k) caírem para menos de 800 linhas, por domínio, sem ciclos de import — é o mapa de módulos que o `AGENTS.md` já prevê (`src/main/git/`, `src/main/ipc.ts`).
+
+**Método — regra de ouro "move, não muda":** cada passo é refactor mecânico (cortar bloco, colar no domínio, ajustar só imports/exports). Zero lógica nova. Cada passo = 1 commit pequeno e revisável + bateria de validação completa antes e depois. A API pública **não muda** (`TreeLineAPI`, canais `treeline:*`, `useStore`, interface `TreeLineState`) — o renderer nem percebe.
+
+| # | O que fazer | Por que importa | Onde | Esforço | Feito |
+|---|---|---|---|---|---|
+| 10.1 | Extrair `STR`/`mx`/`asLang` + erros amigáveis para `main/messages.ts` (módulo puro, ganha Vitest) | i18n do main hoje misturado com handlers | `main/index.ts:26-315` | 🟢 | [ ] |
+| 10.2 | Extrair validação (`assertSafeRef`, `assertRefName`, `relPathSafe`, `assertRebasePlan`, `assertCloneUrl`) para `main/git/validate.ts` | segurança isolada e sem dependência | `main/index.ts:523-600` | 🟢 | [ ] |
+| 10.3 | Extrair fila/lock/cancel (`enqueue`, `readOp`, `readIndexOp`, `runGitCancellable`, `syncControllers`) para `main/git/runner.ts` | núcleo do "motor Git" isolado e testável | `main/index.ts:361-485` | 🟢 | [ ] |
+| 10.4 | Dividir ~90 `ipcMain.handle` do Git por domínio em `src/main/git/*.ts` (mapa abaixo) — cada arquivo registra seus próprios handlers | hoje tudo num arquivo; cada domínio evolui sozinho | `main/index.ts` (todo) | 🔴 | [ ] |
+| 10.5 | `main/index.ts` vira bootstrap (~40 linhas): janela/splash + `import './git/*'` (registro por efeito, como já funciona); infra não-git para `app/{terminal,watchers,bookmarks,customActions,identity,settings,updates}.ts` | separar infra de janela × operação git | `main/index.ts:1324-2160` | 🟡 | [ ] |
+| 10.6 | Quebrar `store.ts` em slices zustand (`store/{types,helpers}.ts` + `slices/{repos,worktree,sync,conflicts,ops,ui}.ts`): `type Slice = (set, get) => Partial<TreeLineState>` e `create<TreeLineState>()((set,get) => ({...slices}))` | store gigante de ~100 props; slices preservam `set/get` e chamadas cruzadas, comportamento idêntico | `store.ts` (todo) | 🔴 | [ ] |
+| 10.7 | Guardrail no CI contra re-crescimento: `npm run check:structure` = `madge --circular src` + `scripts/check-sizes.mjs` (arquivo novo em `src/` > 800 linhas falha); regra de casa: handler/ação novo nasce no módulo de domínio | sem o guardrail o monólito volta em 2 features | CI + `package.json` | 🟢 | [ ] |
+| 10.8 | Atualizar `docs/03-arquitetura.md` com o mapa de módulos REAL; registrar a conclusão em `docs/05`/`docs/02` | docs são a fonte da verdade | docs | 🟢 | [ ] |
+
+**Mapa-alvo do main (Fase B):**
+
+| Domínio | Handlers | Linha atual |
+|---|---|---|
+| `git/status.ts` | getStatus, refresh, discard, tracked, watch events | 1516, 3051, 3075 |
+| `git/history.ts` | getLog, getCommitDetail/Diff, blame, fileHistory, compare | 1604, 2072, 2135, 2883, 2915, 2992 |
+| `git/branch.ts` | CRUD branch, detailed, remote-branches, setUpstream, checkout remote/tag | 605-681, 2833-2879 |
+| `git/remote.ts` | add/remove/editRemote, push/pull/fetch, publish, force | 1218-1224, 1768-1863, 2791-2828 |
+| `git/commit.ts` | stage/unstage/commit, revertCommit, resetTo, resolve ours/theirs, discard | 1729-1766, 2488-2523 |
+| `git/diff.ts` | getDiff, getHunks, stageHunk, discardHunk, stageLines, commitDiff | 1644-1728, 2256-2298 |
+| `git/stash.ts` · `git/tag.ts` | list/apply/pop/drop/abort · list/create/delete/pushTags | 794-913 |
+| `git/merge.ts` | mergeState/preview/merge, continue/abort | 685-793 |
+| `git/rebase.ts` | rebaseOnto/continue/i, getRebasePlan | 917-974, 2946-2991 |
+| `git/pick.ts` · `git/revert.ts` | cherry-pick state/continue/skip/abort · revertState/continue/skip/abort | 978-1020, 2315-2357 |
+| `git/conflict.ts` | files/stages/resolve/apply/rerere/continue | 2525-2790 |
+| `git/flow.ts` · `git/reflog.ts` | detect/start/finish · reflog + undo | 1022-…, 1148-1160 |
+| `git/lfs.ts` · `git/submodule.ts` · `git/worktree.ts` | info+pull/push/track · update · worktree | 2358-2487 |
+| `app/{terminal,watchers,bookmarks,customActions,identity,settings,updates}.ts` | infra de janela/helpers não-git | 1324-1430, 1519-2160 |
+
+**Validação da Parte 10 (a cada passo):** `npm run typecheck` → `npm test` (78/78) → `npm run build` → harnesses CDP (`test:ui` 37/37 + `test:ui:new` 40/40 + conflito/merge/stash/rebase/pick/revert + painéis) → `npm run check:structure` (`madge --circular` + tamanhos).
+
+**Resultado esperado:** arquivos < ~800 linhas, domínios isolados, zero ciclos de import, e as Partes 5-9 entram em base limpa (cada domínio git no seu arquivo).
+
+---
+
 ## Ordem recomendada (cronograma)
 
 | Sprint | Foco | Partes | Resultado |
@@ -219,8 +263,9 @@
 | 2 | Estabilidade | Parte 3 ✅ | Trocar de repo e sincronizar sem sustos |
 | 3 | Feedback e clareza | Parte 4 ✅ + Parte 6 | Sem "travou?" e sem texto errado |
 | 4 | Acessibilidade e visual | Parte 5 + Parte 7 | Usável por teclado, cara de premium |
-| 5 | Paridade | Parte 8 | Recursos avançados |
-| 6 | Diferencial | Parte 9 | Marca própria |
+| 5 | Manutenção estrutural | Parte 10 | Monolitos quebrados (arquivos < 800 linhas, domínios isolados, zero ciclos) |
+| 6 | Paridade | Parte 8 | Recursos avançados |
+| 7 | Diferencial | Parte 9 | Marca própria |
 
 ---
 
