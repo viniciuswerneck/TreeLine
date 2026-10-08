@@ -2,6 +2,9 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { simpleGit } from 'simple-git'
+import { mx, asLang, type UILang } from './messages'
+import { GitQueue, enqueue, enqueueGlobal, indexQueue, readIndexOp, readOp, runGitCancellable, syncControllers, type GitOp } from './git/runner'
+import { assertCloneUrl, assertRefName, assertSafeRef, relPathSafe } from './git/validate'
 import type {
   BranchInfo,
   CommitDetail,
@@ -23,300 +26,6 @@ const APP_TITLE: Record<SplashLang, string> = {
   es: 'TreeLine — Donde el laberinto de Git se vuelve un camino recto - WerneckLab'
 }
 
-// ---------------------------------------------------------------------------
-// Textos por idioma (en/pt/es) para resumos e erros visíveis no toast.
-// O renderer passa seu `lang` em push/pull/fetch/commit/discard/identity.
-// ---------------------------------------------------------------------------
-export type UILang = 'en' | 'pt' | 'es'
-
-function asLang(v: unknown): UILang {
-  return v === 'en' || v === 'pt' || v === 'es' ? v : 'en'
-}
-
-const STR: Record<string, Record<UILang, string>> = {
-  pushUpToDate: {
-    en: 'Push done — nothing to update.',
-    pt: 'Push concluído — nada para atualizar.',
-    es: 'Push completado — nada que actualizar.'
-  },
-  pushDone: {
-    en: 'Push done: {x}',
-    pt: 'Push concluído: {x}',
-    es: 'Push completado: {x}'
-  },
-  pushCurrent: {
-    en: '{x} already up to date',
-    pt: '{x} já atualizado',
-    es: '{x} ya actualizado'
-  },
-  pullUpToDate: {
-    en: 'Pull done — already up to date.',
-    pt: 'Pull concluído — já atualizado.',
-    es: 'Pull completado — ya está actualizado.'
-  },
-  pullDivergent: {
-    en: 'Cannot fast-forward ({op}). Branches diverged. Use Merge (or Rebase) instead. {d}',
-    pt: 'Não é possível fazer fast-forward ({op}). As branches divergiram. Use Merge (ou Rebase). {d}',
-    es: 'No se puede hacer fast-forward ({op}). Las ramas divergieron. Usa Merge (o Rebase). {d}'
-  },
-  pullDone: {
-    en: 'Pull done: {n} file(s), +{i} −{d}',
-    pt: 'Pull concluído: {n} arquivo(s), +{i} −{d}',
-    es: 'Pull completado: {n} archivo(s), +{i} −{d}'
-  },
-  fetchDone: {
-    en: 'Fetch done.',
-    pt: 'Fetch concluído.',
-    es: 'Fetch completado.'
-  },
-  fetchUpdated: {
-    en: ' — {n} remote branch(es) updated',
-    pt: ' — {n} branch(es) remoto(s) atualizado(s)',
-    es: ' — {n} rama(s) remota(s) actualizada(s)'
-  },
-  timedOut: {
-    en: '{op} timed out after {s}s',
-    pt: '{op} excedeu o tempo após {s}s',
-    es: '{op} agotó el tiempo tras {s}s'
-  },
-  syncCancelled: {
-    en: '{op} cancelled.',
-    pt: '{op} cancelado.',
-    es: '{op} cancelado.'
-  },
-  diffOursSide: {
-    en: 'ours side — {f}',
-    pt: 'lado nosso (ours) — {f}',
-    es: 'lado nuestro (ours) — {f}'
-  },
-  diffTheirsSide: {
-    en: 'theirs side — {f}',
-    pt: 'lado deles (theirs) — {f}',
-    es: 'lado suyo (theirs) — {f}'
-  },
-  authFail: {
-    en: '{op}: the HTTPS remote asks for login and no credential is saved. Run `gh auth login` in a terminal, or switch the remote to SSH. Detail: {d}',
-    pt: '{op}: o remote HTTPS pede login e não há credencial salva. Rode `gh auth login` no terminal, ou troque o remote para SSH. Detalhe: {d}',
-    es: '{op}: el remoto HTTPS pide login y no hay credencial guardada. Ejecuta `gh auth login` en una terminal, o cambia el remoto a SSH. Detalle: {d}'
-  },
-  commitEmpty: {
-    en: 'Commit message is empty',
-    pt: 'Mensagem de commit vazia',
-    es: 'Mensaje de commit vacío'
-  },
-  nothingStaged: {
-    en: 'Nothing staged to commit',
-    pt: 'Nada em stage para commitar',
-    es: 'Nada en stage para el commit'
-  },
-  commitNotFound: {
-    en: 'Commit not found',
-    pt: 'Commit não encontrado',
-    es: 'Commit no encontrado'
-  },
-  nameEmpty: {
-    en: 'Author name is empty',
-    pt: 'Nome do autor está vazio',
-    es: 'El nombre del autor está vacío'
-  },
-  emailInvalid: {
-    en: 'Invalid email — check the format',
-    pt: 'Email inválido — confira o formato',
-    es: 'Email inválido — revisa el formato'
-  },
-  nameInvalid: {
-    en: 'Invalid name for git: {x}',
-    pt: 'Nome inválido para o git: {x}',
-    es: 'Nombre inválido para git: {x}'
-  },
-  unsafeRef: {
-    en: 'Unsafe value for git: {x}',
-    pt: 'Valor inseguro para o git: {x}',
-    es: 'Valor inseguro para git: {x}'
-  },
-  mergeConflicts: {
-    en: 'Merge stopped on conflicts — resolve the files, then Continue, or Abort. {d}',
-    pt: 'Merge parou em conflitos — resolva os arquivos, depois Continue, ou Abort. {d}',
-    es: 'Merge detenido por conflictos — resuelve los archivos, luego Continue, o Abort. {d}'
-  },
-  rebaseConflicts: {
-    en: 'Rebase stopped on conflicts — resolve the files, then Continue, or Abort. {d}',
-    pt: 'Rebase parou em conflitos — resolva os arquivos, depois Continue, ou Abort. {d}',
-    es: 'Rebase detenido por conflictos — resuelve los archivos, luego Continue, o Abort. {d}'
-  },
-  pickConflicts: {
-    en: 'Cherry-pick stopped on conflicts — resolve the files, then Continue, or Abort. {d}',
-    pt: 'Cherry-pick parou em conflitos — resolva os arquivos, depois Continue, ou Abort. {d}',
-    es: 'Cherry-pick detenido por conflictos — resuelve los archivos, luego Continue, o Abort. {d}'
-  },
-  stashConflicts: {
-    en: 'Stash stopped on conflicts — resolve the files and commit or checkout them, then drop the stash manually if applied. {d}',
-    pt: 'Stash parou em conflitos — resolva os arquivos e commite ou descarte, depois faça drop do stash manualmente se aplicado. {d}',
-    es: 'Stash detenido por conflictos — resuelve los archivos y commitea o descarta, luego haz drop del stash manualmente si fue aplicado. {d}'
-  },
-  noTerminal: {
-    en: 'No terminal emulator found (looked for ptyxis, gnome-terminal, kgx, konsole, xfce4-terminal, x-terminal-emulator, xterm).',
-    pt: 'Nenhum emulador de terminal encontrado (procurei ptyxis, gnome-terminal, kgx, konsole, xfce4-terminal, x-terminal-emulator, xterm).',
-    es: 'Ningún emulador de terminal encontrado (busqué ptyxis, gnome-terminal, kgx, konsole, xfce4-terminal, x-terminal-emulator, xterm).'
-  },
-  flowNoBase: {
-    en: 'No base branch (develop/main) found for {t} {n}.',
-    pt: 'Branch base (develop/main) não encontrado para {t} {n}.',
-    es: 'Rama base (develop/main) no encontrada para {t} {n}.'
-  },
-  flowTaken: {
-    en: 'Cannot create {x}: it collides with existing branch {y} (git forbids a branch and a folder with the same prefix). Pick another name.',
-    pt: 'Não dá para criar {x}: colide com o branch existente {y} (o git proíbe branch e pasta com o mesmo prefixo). Escolha outro nome.',
-    es: 'No se puede crear {x}: colisiona con el branch existente {y} (git prohíbe branch y carpeta con el mismo prefijo). Elige otro nombre.'
-  },
-  flowMissing: {
-    en: 'Cannot finish: branch {x} does not exist (did you rename or delete it?).',
-    pt: 'Não dá para finalizar: o branch {x} não existe (renomeou ou deletou?).',
-    es: 'No se puede finalizar: el branch {x} no existe (¿lo renombraste o borraste?).'
-  },
-  backupRestored: {
-    en: 'Restored {n} branch(es) from backup under {x}/ (delete them when done).',
-    pt: '{n} branch(es) restaurados do backup em {x}/ (delete quando terminar).',
-    es: '{n} branch(es) restaurados del backup en {x}/ (bórralos al terminar).'
-  },
-  noHunk: {
-    en: 'Hunk {n} not found — the diff changed. Refresh and try again.',
-    pt: 'Hunk {n} não encontrado — o diff mudou. Atualize e tente de novo.',
-    es: 'Hunk {n} no encontrado — el diff cambió. Actualiza e inténtalo de nuevo.'
-  },
-  noLines: {
-    en: 'Select at least one changed line (+/−).',
-    pt: 'Selecione ao menos uma linha alterada (+/−).',
-    es: 'Selecciona al menos una línea cambiada (+/−).'
-  },
-  newBinary: {
-    en: 'Binary file (new) — content not shown.',
-    pt: 'Arquivo binário (novo) — conteúdo não exibido.',
-    es: 'Archivo binario (nuevo) — contenido no mostrado.'
-  },
-  newTruncated: {
-    en: 'Large file — preview limited to the first 1 MB.',
-    pt: 'Arquivo grande — prévia limitada aos primeiros 1 MB.',
-    es: 'Archivo grande — vista previa limitada a los primeros 1 MB.'
-  },
-  revertConflicts: {
-    en: 'Revert stopped on conflicts — resolve the files, then commit, or run `git revert --abort`. {d}',
-    pt: 'Revert parou em conflitos — resolva os arquivos, depois commite, ou rode `git revert --abort`. {d}',
-    es: 'Revert detenido por conflictos — resuelve los archivos, luego commitea, o ejecuta `git revert --abort`. {d}'
-  },
-  continueNextConflict: {
-    pt: 'Avancei, mas parou em outro conflito ({n} arquivo: {f}). Resolva para prosseguir.',
-    en: 'Advanced, but stopped on another conflict ({n} file: {f}). Resolve to continue.',
-    es: 'Avancé, pero se detuvo en otro conflicto ({n} archivo: {f}). Resuelve para continuar.'
-  },
-  continueEmpty: {
-    pt: 'O git recusou {cmd}: nada a commitar (resolução igual ao original). Use Abort para desfazer ou conclua pelo terminal:\n{out}',
-    en: 'Git rejected {cmd}: nothing to commit (resolution identical to original). Use Abort to undo, or finish in the terminal:\n{out}',
-    es: 'Git rechazó {cmd}: no hay nada que confirmar (resolución igual al original). Usa Abort para deshacer, o termina en la terminal:\n{out}'
-  },
-  revertNothing: {
-    en: 'No revert in progress — nothing to abort.',
-    pt: 'Nenhum revert em andamento — nada para abortar.',
-    es: 'Ningún revert en curso — nada que abortar.'
-  },
-  submoduleFail: {
-    en: 'Submodule update failed. {d}',
-    pt: 'Update de submódulos falhou. {d}',
-    es: 'Update de submódulos falló. {d}'
-  },
-  lfsPullDone: {
-    en: 'LFS pull completed',
-    pt: 'LFS pull concluído',
-    es: 'LFS pull completado'
-  },
-  lfsPushDone: {
-    en: 'LFS push completed',
-    pt: 'LFS push concluído',
-    es: 'LFS push completado'
-  },
-  lfsTracked: {
-    en: 'Pattern added to LFS tracking',
-    pt: 'Padrão adicionado ao tracking LFS',
-    es: 'Patrón añadido al seguimiento LFS'
-  },
-  lfsUntracked: {
-    en: 'Pattern removed from LFS tracking',
-    pt: 'Padrão removido do tracking LFS',
-    es: 'Patrón eliminado del seguimiento LFS'
-  },
-  checkoutDirty: {
-    en: 'Checkout blocked: uncommitted changes would be overwritten. Commit, stash or discard them first, then checkout again. {d}',
-    pt: 'Checkout bloqueado: há alterações não commitadas que seriam sobrescritas. Commite, dê stash ou descarte antes, e faça checkout de novo. {d}',
-    es: 'Checkout bloqueado: hay cambios sin commitear que se sobrescribirían. Commitea, haz stash o descarta antes, e intenta de nuevo. {d}'
-  },
-  mergeUnresolved: {
-    en: 'Cannot continue: {n} file(s) still have conflicts ({f}). Resolve them first.',
-    pt: 'Não dá para continuar: {n} arquivo(s) ainda em conflito ({f}). Resolva antes.',
-    es: 'No se puede continuar: {n} archivo(s) siguen en conflicto ({f}). Resuélvelos primero.'
-  },
-  rebaseUnresolved: {
-    en: 'Cannot continue the rebase: {n} file(s) still have conflicts ({f}). Resolve them first.',
-    pt: 'Não dá para continuar o rebase: {n} arquivo(s) ainda em conflito ({f}). Resolva antes.',
-    es: 'No se puede continuar el rebase: {n} archivo(s) siguen en conflicto ({f}). Resuélvelos primero.'
-  },
-  pickUnresolved: {
-    en: 'Cannot continue the cherry-pick: {n} file(s) still have conflicts ({f}). Resolve them first.',
-    pt: 'Não dá para continuar o cherry-pick: {n} arquivo(s) ainda em conflito ({f}). Resolva antes.',
-    es: 'No se puede continuar el cherry-pick: {n} archivo(s) siguen en conflicto ({f}). Resuélvelos primero.'
-  },
-  revertUnresolved: {
-    en: 'Cannot continue the revert: {n} file(s) still have conflicts ({f}). Resolve them first.',
-    pt: 'Não dá para continuar o revert: {n} arquivo(s) ainda em conflito ({f}). Resolva antes.',
-    es: 'No se puede continuar el revert: {n} archivo(s) siguen en conflicto ({f}). Resuélvelos primero.'
-  },
-  conflictOursLabel: {
-    en: 'ours — {r}',
-    pt: 'nosso — {r}',
-    es: 'nuestro — {r}'
-  },
-  conflictTheirsLabel: {
-    en: 'theirs — {r}',
-    pt: 'deles — {r}',
-    es: 'suyo — {r}'
-  },
-  conflictNoBothSides: {
-    en: 'Cannot keep both sides of {f}: one side was deleted (no stage 2 or 3).',
-    pt: 'Não dá para manter os dois lados de {f}: um dos lados foi apagado (sem stage 2 ou 3).',
-    es: 'No se pueden mantener ambos lados de {f}: un lado se borró (sin stage 2 ni 3).'
-  },
-  resetDone: {
-    en: 'Reset {m} to {r} done (backup bundle kept).',
-    pt: 'Reset {m} para {r} concluído (backup bundle guardado).',
-    es: 'Reset {m} a {r} completado (backup bundle guardado).'
-  },
-  pushLeaseDone: {
-    en: 'Force-push with lease done: {x}',
-    pt: 'Force-push com lease concluído: {x}',
-    es: 'Force-push con lease completado: {x}'
-  },
-  noUpstream: {
-    en: 'No upstream configured for {b}. Set it first (Sidebar → branch → Set upstream).',
-    pt: 'Sem upstream configurado para {b}. Configure antes (Sidebar → branch → Set upstream).',
-    es: 'Sin upstream configurado para {b}. Configúralo antes (Sidebar → rama → Set upstream).'
-  },
-  prOpened: {
-    en: 'No pull-request URL detected for remote {r} ({u}). Opened the repo URL instead.',
-    pt: 'Nenhuma URL de pull-request detectada para o remoto {r} ({u}). Abri a URL do repo.',
-    es: 'Ninguna URL de pull-request detectada para el remoto {r} ({u}). Abrí la URL del repo.'
-  }
-}
-
-function mx(lang: UILang, key: string, vars?: Record<string, string | number>): string {
-  let s: string = STR[key]?.[lang] ?? STR[key]?.['en'] ?? key
-  if (vars) {
-    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v))
-  }
-  return s
-}
-
-// ---------------------------------------------------------------------------
-// Bookmarks persistidos em JSON no userData.
-// ---------------------------------------------------------------------------
 function bookmarksFile(): string {
   return join(app.getPath('userData'), 'bookmarks.json')
 }
@@ -364,17 +73,10 @@ async function writeBookmarks(list: string[]): Promise<string[]> {
 // ---------------------------------------------------------------------------
 const queues = new Map<string, Promise<unknown>>()
 
-function enqueue<T>(repo: string, fn: () => Promise<T>): Promise<T> {
-  const prev = queues.get(repo) ?? Promise.resolve()
-  const next = prev.then(fn, fn) as Promise<T>
-  queues.set(repo, next.catch(() => undefined))
-  return next
-}
+
 
 /** Leitura fora da fila de escrita: executa já (refresh não trava em sync longa). */
-function readOp<T>(fn: () => Promise<T>): Promise<T> {
-  return fn()
-}
+
 
 /**
  * Leitura que mexe no índice (ex.: `git status` faz refresh de stat) espera
@@ -382,10 +84,7 @@ function readOp<T>(fn: () => Promise<T>): Promise<T> {
  * Entre si as leituras continuam em paralelo — só não concorrem com escrita
  * no `index.lock` (3.7).
  */
-function readIndexOp<T>(repo: string, fn: () => Promise<T>): Promise<T> {
-  const pending = queues.get(repo)
-  return pending ? pending.then(() => fn(), () => fn()) : fn()
-}
+
 
 // Sem TTY no Electron, prompt interativo de senha travaria o main.
 // Mas ATENÇÃO: simple-git `.env()` SUBSTITUI o env inteiro do filho
@@ -420,58 +119,21 @@ const SYNC_TIMEOUT_MS = 120_000
 // ---------------------------------------------------------------------------
 import { spawn } from 'node:child_process'
 
-const syncControllers = new Map<string, AbortController>()
 
 interface GitRun {
   stdout: string
   stderr: string
 }
 
-function runGitCancellable(repo: string, opKey: string, args: string[], lang: UILang): Promise<GitRun> {
-  // Uma sync por vez por repo: cancela a anterior antes de começar.
-  syncControllers.get(`${repo}:${opKey}`)?.abort()
-  const ctrl = new AbortController()
-  syncControllers.set(`${repo}:${opKey}`, ctrl)
-  // Clone ainda não tem repo aberto na UI: registra também sob chave global
-  // para o cancel chegar sem o renderer saber o diretório destino (4.4).
-  if (opKey === 'Clone') syncControllers.set('__clone__:Clone', ctrl)
-  return new Promise<GitRun>((resolve, reject) => {
-    const child = spawn('git', args, { cwd: repo, signal: ctrl.signal, timeout: SYNC_TIMEOUT_MS, env: process.env })
-    let stdout = ''
-    let stderr = ''
-    child.stdout?.on('data', (d) => {
-      stdout += String(d)
-      if (stdout.length > 1_000_000) stdout = stdout.slice(-1_000_000)
-    })
-    child.stderr?.on('data', (d) => {
-      stderr += String(d)
-      if (stderr.length > 1_000_000) stderr = stderr.slice(-1_000_000)
-    })
-    const done = (err: Error | null): void => {
-      syncControllers.delete(`${repo}:${opKey}`)
-      if (opKey === 'Clone') syncControllers.delete('__clone__:Clone')
-      if (err) reject(err)
-      else resolve({ stdout, stderr })
-    }
-    child.on('error', (e) => done(e instanceof Error ? e : new Error(String(e))))
-    child.on('close', (code, signal) => {
-      if (ctrl.signal.aborted) {
-        done(new Error(mx(lang, 'syncCancelled', { op: opKey })))
-      } else if (code !== 0) {
-        // Git espalha o diagnóstico em várias linhas ("To <url>" + "[rejected]"
-        // + hints): levar as primeiras para o parse amigável não perder o motivo.
-        const lines = (stderr || stdout).split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 6)
-        done(new Error(lines.join(' — ') || `git ${args[0]} failed (${code})`))
-      } else {
-        done(null)
-      }
-    })
-  })
-}
+
 
 ipcMain.handle('treeline:cancelSync', (_event, repo: string, op: string) => {
-  syncControllers.get(`${repo}:${op}`)?.abort()
-  if (op === 'Clone') syncControllers.get('__clone__:Clone')?.abort()
+  const c = syncControllers.get(`${repo}:${op}`)
+  if (c?.proc) c.proc.kill('SIGTERM')
+  if (op === 'Clone') {
+    const cc = syncControllers.get('__clone__:Clone')
+    if (cc?.proc) cc.proc.kill('SIGTERM')
+  }
 })
 
 // Erro técnico do git vira orientação acionável: o caso mais comum é remote
@@ -520,14 +182,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 /** Valida nome de branch/tag no git; erro legível no idioma da UI. */
-async function assertRefName(repo: string, kind: 'branch' | 'tag', name: string, lang: UILang): Promise<void> {
-  const target = kind === 'branch' ? name : `refs/tags/${name}`
-  try {
-    await simpleGit(repo).raw(['check-ref-format', '--branch', target])
-  } catch {
-    throw new Error(mx(lang, 'nameInvalid', { x: name }))
-  }
-}
+
 
 /**
  * Valida ref/hash vindo da tela antes de entrar em argv do git. O risco real
@@ -535,20 +190,7 @@ async function assertRefName(repo: string, kind: 'branch' | 'tag', name: string,
  * `--upload-pack=` etc.) ou caracteres que quebram o parse de ref. Nomes de
  * branch/tag legítimos passam; reflog (`HEAD@{2}`) também.
  */
-function assertSafeRef(v: string, lang: UILang): void {
-  const s = v.trim()
-  if (!s) return
-  if (s.startsWith('-') || /[\s;|&`$<>"'\\\n\r\x00-\x1f]/.test(s)) {
-    throw new Error(mx(lang, 'unsafeRef', { x: s.slice(0, 40) }))
-  }
-}
 
-/** Caminho relativo dentro do repo: nem absoluto, nem `..` (nunca sai da pasta). */
-function relPathSafe(file: string): string | null {
-  const s = (file ?? '').replace(/^\.\//, '')
-  if (!s || isAbsolute(s) || s.split('/').some((p) => p === '..')) return null
-  return s
-}
 
 /** Só os verbos que a UI gera: nada de `x/exec` (executa shell) nem `merge` cru. */
 const REBASE_PLAN_ACTIONS = new Set(['pick', 'p', 'reword', 'r', 'edit', 'e', 'squash', 's', 'fixup', 'f', 'drop', 'd'])
@@ -560,20 +202,6 @@ function assertRebasePlan(plan: import('../shared/types').RebasePlanEntry[], lan
     }
     if (!p.hash || !/^[0-9a-fA-F]{7,40}$/.test(p.hash)) {
       throw new Error(mx(lang, 'unsafeRef', { x: (p?.hash ?? '').slice(0, 40) }))
-    }
-  }
-}
-
-/** URL de clone: nada que vire opção do git (`-`…), nada de exec (`ext::`). */
-function assertCloneUrl(u: string, lang: UILang): void {
-  const s = (u ?? '').trim()
-  if (!s || s.startsWith('-') || /[\n\r]/.test(s) || /^ext:/.test(s)) {
-    throw new Error(mx(lang, 'unsafeRef', { x: s.slice(0, 40) }))
-  }
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) {
-    const scheme = s.slice(0, s.indexOf('://')).toLowerCase()
-    if (!['http', 'https', 'ssh', 'git', 'file', 'ftp', 'ftps'].includes(scheme)) {
-      throw new Error(mx(lang, 'unsafeRef', { x: `${scheme}://` }))
     }
   }
 }
@@ -606,7 +234,7 @@ ipcMain.handle('treeline:createBranch', (_event, repo: string, name: string, fro
   enqueue(repo, async () => {
     const l = asLang(lang)
     const n = name.trim()
-    await assertRefName(repo, 'branch', n, l)
+    assertRefName(n, l)
     const start = from.trim() || 'HEAD'
     if (checkout) await simpleGit(repo).checkoutBranch(n, start)
     else await simpleGit(repo).branch([n, start])
@@ -635,7 +263,7 @@ ipcMain.handle('treeline:checkoutRemote', (_event, repo: string, remoteBranch: s
     const slash = rb.indexOf('/')
     if (slash < 0) throw new Error(mx(asLang(lang), 'nameInvalid', { x: rb }))
     const local = rb.slice(slash + 1)
-    await assertRefName(repo, 'branch', local, asLang(lang))
+    assertRefName(local, asLang(lang))
     try {
       // Cria branch local com tracking; se já existir, só faz checkout dela.
       await simpleGit(repo).raw(['checkout', '--track', rb])
@@ -649,7 +277,7 @@ ipcMain.handle('treeline:checkoutTag', (_event, repo: string, tag: string, lang?
   enqueue(repo, async () => {
     const l = asLang(lang)
     const t = tag.trim()
-    await assertRefName(repo, 'tag', t, l)
+    assertRefName(t, l)
     // `tags/<n>` sem ambiguidade com branch de mesmo nome; destaca o HEAD.
     try {
       await simpleGit(repo).raw(['checkout', `tags/${t}`])
@@ -667,7 +295,7 @@ ipcMain.handle('treeline:renameBranch', (_event, repo: string, oldName: string, 
   enqueue(repo, async () => {
     const l = asLang(lang)
     const n = newName.trim()
-    await assertRefName(repo, 'branch', n, l)
+    assertRefName(n, l)
     await simpleGit(repo).branch(['-m', oldName, n])
   })
 )
@@ -869,7 +497,7 @@ ipcMain.handle('treeline:createTag', (_event, repo: string, name: string, messag
   enqueue(repo, async () => {
     const l = asLang(lang)
     const n = name.trim()
-    await assertRefName(repo, 'tag', n, l)
+    assertRefName(n, l)
     const args = ['tag']
     if (message.trim()) args.push('-a', n, '-m', message.trim())
     else args.push(n)
@@ -885,7 +513,7 @@ ipcMain.handle('treeline:pushTag', (_event, repo: string, name: string, lang?: u
   enqueue(repo, async (): Promise<import('../shared/types').SyncResult> => {
     const l = asLang(lang)
     assertSafeRef(name, l)
-    await assertRefName(repo, 'tag', name, l)
+    assertRefName(name, l)
     try {
       await runGitCancellable(repo, 'Push', ['push', 'origin', name], l)
     } catch (e) {
@@ -901,7 +529,7 @@ ipcMain.handle('treeline:deleteTag', (_event, repo: string, name: string, remote
     await simpleGit(repo).raw(['tag', '-d', name])
     if (remoteToo) {
       const l = asLang(lang)
-      await assertRefName(repo, 'tag', name, l)
+      assertRefName(name, l)
       try {
         await simpleGit(repo).raw(['push', 'origin', `:refs/tags/${name}`])
       } catch (e) {
@@ -1047,7 +675,7 @@ ipcMain.handle('treeline:flowStart', (_event, repo: string, type: import('../sha
     const l = asLang(lang)
     const n = name.trim().replace(/^\w+\//, '')
     const full = `${type}/${n}`
-    await assertRefName(repo, 'branch', full, l)
+    assertRefName(full, l)
     // Colisão de namespace: `feature` existente trava `feature/qa` (e vice-versa).
     const existing = (await simpleGit(repo).branchLocal()).all
     const clash = existing.find((b) => b === full || b.startsWith(full + '/') || full.startsWith(b + '/'))
@@ -1655,7 +1283,7 @@ ipcMain.handle('treeline:getDiff', (_event, repo: string, file: string, staged: 
       try {
         const tracked = (await simpleGit(repo).raw(['ls-files', '--', file])).trim()
         if (!tracked) {
-          const rel = relPathSafe(file)
+          const rel = relPathSafe(repo, file, 'en' as UILang)
           if (!rel) return ''
           const l = asLang(lang)
           const buf = await fs.readFile(join(repo, rel))
@@ -2726,7 +2354,7 @@ function joinSides(a: string, b: string): string {
  * antes (mesma política de reset hard/rebase).
  */
 async function resolveSideRaw(repo: string, file: string, side: ConflictSide, l: UILang): Promise<void> {
-  const rel = relPathSafe(file)
+  const rel = relPathSafe(repo, file, 'en' as UILang)
   if (!rel) throw new Error(mx(l, 'unsafeRef', { x: file }))
   await backupBundle(repo)
   const git = simpleGit(repo)
@@ -2755,7 +2383,7 @@ ipcMain.handle('treeline:resolveConflictSide', (_event, repo: string, file: stri
 ipcMain.handle('treeline:applyConflictResult', (_event, repo: string, file: string, content: string, del: boolean, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
-    const rel = relPathSafe(file)
+    const rel = relPathSafe(repo, file, 'en' as UILang)
     if (!rel) throw new Error(mx(l, 'unsafeRef', { x: file }))
     const git = simpleGit(repo)
     // Sem bundle aqui de propósito: o editor salva a cada região e um
@@ -2883,7 +2511,7 @@ ipcMain.handle('treeline:editRemote', (_event, repo: string, name: string, url: 
 ipcMain.handle('treeline:getBlame', (_event, repo: string, file: string, rev?: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async (): Promise<import('../shared/types').BlameLine[]> => {
-    const rel = relPathSafe(file)
+    const rel = relPathSafe(repo, file, 'en' as UILang)
     if (!rel) return []
     const args = ['blame', '--line-porcelain']
     if (rev?.trim()) {
@@ -2937,11 +2565,7 @@ ipcMain.handle('treeline:getFileHistory', (_event, repo: string, file: string, l
 // Mutex global: process.env é do processo inteiro, não por repo.
 let rebaseInteractiveTail: Promise<unknown> = Promise.resolve()
 
-function enqueueGlobal<T>(fn: () => Promise<T>): Promise<T> {
-  const next = rebaseInteractiveTail.then(fn, fn) as Promise<T>
-  rebaseInteractiveTail = next.catch(() => undefined)
-  return next
-}
+
 
 ipcMain.handle('treeline:getRebasePlan', (_event, repo: string, base: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
@@ -2992,8 +2616,8 @@ ipcMain.handle('treeline:rebaseInteractive', (_event, repo: string, base: string
 ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async (): Promise<import('../shared/types').CompareSummary> => {
-    assertSafeRef(a, 'en')
-    assertSafeRef(b, 'en')
+    assertSafeRef(a, 'en' as UILang)
+    assertSafeRef(b, 'en' as UILang)
     const [names, ns] = await Promise.all([
       simpleGit(repo).raw(['diff', '--name-only', a.trim(), b.trim()]),
       simpleGit(repo).raw(['diff', '--numstat', a.trim(), b.trim()])
@@ -3012,9 +2636,9 @@ ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: s
 ipcMain.handle('treeline:compareDiff', (_event, repo: string, a: string, b: string, file: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async () => {
-    assertSafeRef(a, 'en')
-    assertSafeRef(b, 'en')
-    const rel = relPathSafe(file)
+    assertSafeRef(a, 'en' as UILang)
+    assertSafeRef(b, 'en' as UILang)
+    const rel = relPathSafe(repo, file, 'en' as UILang)
     return simpleGit(repo).raw(['diff', '--unified=3', a.trim(), b.trim(), '--', rel ?? ''])
   })
 )
@@ -3049,7 +2673,7 @@ ipcMain.handle('treeline:openPR', (_event, repo: string) =>
 )
 
 ipcMain.handle('treeline:discard', async (_event, repo: string, file: string, tracked: boolean) => {
-  const rel = relPathSafe(file)
+  const rel = relPathSafe(repo, file, 'en' as UILang)
   if (!rel) return
   await enqueue(repo, async () => {
     if (tracked) {
