@@ -135,7 +135,7 @@ export default function StatusBar() {
       <span style={{ marginLeft: 'auto' }} title={tr('status.credit')}>
         {tr('status.developedBy')}
       </span>
-      <span>TreeLine 0.6.7</span>
+      <span>TreeLine 0.6.8</span>
     </div>
   )
 }
