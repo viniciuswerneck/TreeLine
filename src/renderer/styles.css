@@ -388,9 +388,9 @@ body {
    sozinhos. */
 .file-col.expanded.pair-unstaged { left: 12px; right: 50%; top: 12px; bottom: 55%; width: auto; border-radius: var(--radius-lg) 0 0 0; }
 .file-col.expanded.pair-staged { left: 50%; right: 12px; top: 12px; bottom: 55%; width: auto; border-radius: 0 var(--radius-lg) 0 0; }
-/* Detalhe do commit espelha o par: Arquivos em cima (largura cheia), diff embaixo. */
-.file-col.expanded.pair-cfiles { left: 12px; right: 12px; top: 12px; bottom: 55%; width: auto; border-radius: var(--radius-lg) 0 0 0; }
-.diff-pane.expanded.pair-diff { left: 12px; right: 12px; top: 45%; bottom: 12px; border-top: 1px solid var(--border-line); border-radius: 0 0 var(--radius-lg) var(--radius-lg); box-shadow: none; }
+/* Detalhe do commit: Arquivos e diff lado a lado (estilo VS Code). */
+.file-col.expanded.pair-cfiles { left: 12px; right: 50%; top: 12px; bottom: 12px; width: auto; border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
+.diff-pane.expanded.pair-diff { left: 50%; right: 12px; top: 12px; bottom: 12px; border-left: 1px solid var(--border-line); border-top: 0; border-radius: 0 var(--radius-lg) var(--radius-lg) 0; box-shadow: none; }
 .pane-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.4); }
 
 /* ---- Terminal integrado (drawer inferior, expansível) ---- */
