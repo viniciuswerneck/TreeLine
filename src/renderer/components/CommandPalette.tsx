@@ -76,6 +76,7 @@ export default function CommandPalette() {
       { label: 'Remotes…', hint: 'dialog', run: () => openDlg('remotes') },
       { label: 'Reset…', hint: 'dialog', run: () => openDlg('reset') },
       { label: 'Rebase interactive…', hint: 'dialog', run: () => openDlg('rebaseInteractive') },
+      { label: tr('pal.codeSearch'), hint: 'dialog', run: () => openDlg('codeSearch') },
       { label: 'Open PR', hint: 'remote', run: dialogOps.openPR },
       { label: 'Terminal', hint: 'view', run: toggleTerminal },
       { label: 'About', hint: 'view', run: () => openDlg('about') },

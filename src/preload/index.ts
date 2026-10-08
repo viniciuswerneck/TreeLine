@@ -62,6 +62,14 @@ const api: TreeLineAPI = {
   stage: (repo: string, file: string) => ipcRenderer.invoke('treeline:stage', repo, file),
   unstage: (repo: string, file: string) => ipcRenderer.invoke('treeline:unstage', repo, file),
   getTrackedFiles: (repo: string) => ipcRenderer.invoke('treeline:getTrackedFiles', repo),
+  searchCode: (repo: string, query: string, opts: import('../shared/types').CodeSearchOptions, token: number) =>
+    ipcRenderer.invoke('treeline:searchCode', repo, query, opts, token),
+  cancelSearch: (token: number) => ipcRenderer.invoke('treeline:cancelSearch', token),
+  onSearchProgress: (cb: (p: import('../shared/types').CodeSearchProgress) => void): (() => void) => {
+    const fn = (_e: unknown, p: import('../shared/types').CodeSearchProgress): void => cb(p)
+    ipcRenderer.on('treeline:searchProgress', fn)
+    return () => ipcRenderer.removeListener('treeline:searchProgress', fn)
+  },
   commit: (repo: string, message: string, amend?: boolean, lang?: string) =>
     ipcRenderer.invoke('treeline:commit', repo, message, amend, lang),
   push: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:push', repo, lang),

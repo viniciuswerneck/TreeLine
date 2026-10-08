@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { SHORTCUT_DEFAULTS, eventShortcut, loadShortcuts, saveShortcuts, type ShortcutAction } from './shortcuts'
-import type { BlameLine, BranchDetail, BranchInfo, CompareSummary, CommitDetail, CommitInfo, ConflictFile, ConflictOp, ConflictSide, FileHistoryEntry, FlowType, GitIdentity, HunkInfo, LfsInfo, OpState, RebasePlanEntry, ReflogEntry, RemoteBranchInfo, RemoteInfo, RepoStatus, ResetMode, StashInfo, SubmoduleInfo, SyncOp, TagInfo, WorktreeInfo } from '../shared/types'
+import type { BlameLine, BranchDetail, BranchInfo, CodeSearchChange, CodeSearchGroup, CodeSearchOptions, CodeSearchProgress, CodeSearchStats, CompareSummary, CommitDetail, CommitInfo, ConflictFile, ConflictOp, ConflictSide, FileHistoryEntry, FlowType, GitIdentity, HunkInfo, LfsInfo, OpState, RebasePlanEntry, ReflogEntry, RemoteBranchInfo, RemoteInfo, RepoStatus, ResetMode, StashInfo, SubmoduleInfo, SyncOp, TagInfo, WorktreeInfo } from '../shared/types'
 import { applyTheme, loadTheme } from './themes'
 import { applyLang, loadLang, t, type DictKey, type Lang } from './i18n'
 import type { MenuItem } from './components/ContextMenu'
@@ -9,7 +9,7 @@ export type DialogKind =
   | 'branch' | 'merge' | 'stash' | 'tag' | 'rebase'
   | 'pick' | 'flow' | 'reflog' | 'remotes'
   | 'reset' | 'rebaseInteractive' | 'blame' | 'fileHistory' | 'compare'
-  | 'about' | 'custom' | 'lfs'
+  | 'about' | 'custom' | 'lfs' | 'codeSearch'
 
 export interface ContextMenuState {
   x: number
@@ -265,6 +265,22 @@ interface TreeLineState {
   gotoFileList: string[]
   setGoToFileOpen: (open: boolean) => void
   refreshFileIndex: () => Promise<void>
+  // Busca de código em todas as branches (Ctrl+Shift+F)
+  csQuery: string
+  setCsQuery: (q: string) => void
+  csOpts: CodeSearchOptions
+  setCsOpt: (k: keyof CodeSearchOptions, v: boolean) => void
+  csGroups: CodeSearchGroup[]
+  csChanges: Record<string, CodeSearchChange | null>
+  csLoading: boolean
+  csStats: CodeSearchStats | null
+  csToken: number
+  runCodeSearch: () => Promise<void>
+  applyCsProgress: (p: CodeSearchProgress) => void
+  cancelCodeSearch: () => Promise<void>
+  openCodeResult: (path: string, ref: string, current: boolean) => Promise<void>
+  closeCodeSearch: () => void
+  resetCodeSearch: () => void
   autoFetchMin: number
   setAutoFetchMin: (min: number) => void
   autoFetchBg: boolean
@@ -1232,6 +1248,59 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
       }
     }
   },
+  csQuery: '',
+  setCsQuery: (q) => set({ csQuery: q }),
+  csOpts: { caseSensitive: false, regex: false, remotes: false },
+  setCsOpt: (k, v) => set({ csOpts: { ...get().csOpts, [k]: v } }),
+  csGroups: [],
+  csChanges: {},
+  csLoading: false,
+  csStats: null,
+  csToken: 0,
+  runCodeSearch: async () => {
+    const { current, csQuery, csOpts, csToken } = get()
+    const token = csToken + 1
+    set({ csToken: token, csGroups: [], csChanges: {}, csLoading: true, csStats: null })
+    if (csToken > 0) void window.treeline.cancelSearch(csToken).catch(() => undefined)
+    if (!current || !csQuery.trim()) {
+      set({ csLoading: false })
+      return
+    }
+    try {
+      const stats = await window.treeline.searchCode(current, csQuery, csOpts, token)
+      if (get().csToken === token) set({ csLoading: false, csStats: stats })
+    } catch (e) {
+      if (get().csToken === token) {
+        set({
+          csLoading: false,
+          csStats: { totalHits: 0, branches: 0, truncated: false, durationMs: 0, cancelled: false, error: cleanErr(e) }
+        })
+      }
+    }
+  },
+  applyCsProgress: (p) => {
+    if (p.token !== get().csToken) return
+    if (p.kind === 'group' && p.group) set({ csGroups: [...get().csGroups, p.group] })
+    else if (p.kind === 'change' && p.path) set({ csChanges: { ...get().csChanges, [p.path]: p.change ?? null } })
+    else if (p.kind === 'done' && p.stats) set({ csLoading: false, csStats: p.stats })
+  },
+  cancelCodeSearch: async () => {
+    const { csToken } = get()
+    set({ csLoading: false })
+    if (csToken > 0) await window.treeline.cancelSearch(csToken).catch(() => undefined)
+  },
+  openCodeResult: async (path, ref, current) => {
+    const st = get()
+    st.openDlg('blame')
+    // Branch atual: blame do working tree; outras refs: conteúdo naquela branch.
+    await st.loadBlame(path, current || !ref ? undefined : ref)
+  },
+  closeCodeSearch: () => {
+    const { csToken } = get()
+    if (csToken > 0) void window.treeline.cancelSearch(csToken).catch(() => undefined)
+    set({ dialog: get().dialog === 'codeSearch' ? null : get().dialog })
+  },
+  resetCodeSearch: () => set({ csGroups: [], csChanges: {}, csLoading: false, csStats: null, csQuery: '' }),
   autoFetchMin: (() => {
     try {
       const v = Number(localStorage.getItem('treeline-autofetch'))

@@ -7,6 +7,7 @@ import { mx, asLang, type UILang } from './messages'
 import { GitQueue, enqueue, enqueueGlobal, indexQueue, readIndexOp, readOp, runGitCancellable, syncControllers, type GitOp } from './git/runner'
 export { readOp } from './git/runner'
 import { assertCloneUrl, assertRefName, assertSafeRef, relPathSafe } from './git/validate'
+import './git/search'
 import type {
   BranchInfo,
   CommitDetail,

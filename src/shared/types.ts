@@ -289,6 +289,65 @@ export type FlowType = 'feature' | 'release' | 'hotfix'
 /** Operação de sincronização com remoto (para o toast de progresso). */
 export type SyncOp = 'push' | 'pull' | 'fetch' | 'clone'
 
+/** Uma linha com match na busca de código; [start,end) é a faixa do highlight. */
+export interface CodeSearchLine {
+  path: string
+  line: number
+  text: string
+  start: number
+  end: number
+}
+
+/** Último commit que alterou o texto num arquivo (pickaxe `git log -G`). */
+export interface CodeSearchChange {
+  hash: string
+  author: string
+  date: string
+  subject: string
+  /** Ref que contém o commit (`git name-rev`), ex.: "main" ou "origin/x". */
+  ref: string | null
+}
+
+export interface CodeSearchFile {
+  path: string
+  total: number
+  lines: CodeSearchLine[]
+}
+
+/** Resultados agrupados por branch (branch atual = working tree). */
+export interface CodeSearchGroup {
+  ref: string
+  current: boolean
+  remote: boolean
+  hits: number
+  files: CodeSearchFile[]
+}
+
+export interface CodeSearchOptions {
+  caseSensitive: boolean
+  regex: boolean
+  remotes: boolean
+}
+
+export interface CodeSearchStats {
+  totalHits: number
+  branches: number
+  truncated: boolean
+  durationMs: number
+  cancelled: boolean
+  error: string | null
+}
+
+/** Evento incremental enviado do main ao renderer durante a busca. */
+export interface CodeSearchProgress {
+  token: number
+  kind: 'group' | 'change' | 'done'
+  group?: CodeSearchGroup
+  path?: string
+  change?: CodeSearchChange | null
+  stats?: CodeSearchStats
+}
+
 /** Contrato exposto no renderer como `window.treeline`. */
 export interface TreeLineAPI {
   listRepos(): Promise<string[]>
@@ -307,6 +366,11 @@ export interface TreeLineAPI {
   unstage(repo: string, file: string): Promise<void>
   /** Lista todos os arquivos rastreados no HEAD (para índice de busca rápida). */
   getTrackedFiles(repo: string): Promise<string[]>
+  /** Busca texto em todas as branches; progresso incremental via onSearchProgress. */
+  searchCode(repo: string, query: string, opts: CodeSearchOptions, token: number): Promise<CodeSearchStats>
+  /** Cancela uma busca em andamento (mata os processos git filhos). */
+  cancelSearch(token: number): Promise<void>
+  onSearchProgress(cb: (p: CodeSearchProgress) => void): () => void
   revertCommit(repo: string, hash: string, lang?: string): Promise<void>
   resetTo(repo: string, ref: string, mode: ResetMode, lang?: string): Promise<void>
   resolveOurs(repo: string, file: string, lang?: string): Promise<void>

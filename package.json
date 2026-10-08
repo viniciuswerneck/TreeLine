@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test:ui": "node scripts/uitest.cjs",
     "test:ui:new": "node scripts/uitest-new.cjs",
+    "test:ui:search": "node scripts/codesearch-uitest.cjs",
     "test:stress": "node scripts/make-stress-repo.js 10000 && node scripts/stress.cjs",
     "fixture:repos": "node scripts/make-fixture-repos.js",
     "shots": "node scripts/shots.cjs",

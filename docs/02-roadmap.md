@@ -29,6 +29,7 @@ Aceite: usuário faz clone -> branch -> stage hunk -> commit -> push sem termina
 
 Mapeamento Git executado:
 `status` (simple-git), `log`, `diff`, `add`, `commit`, `push` (+`--force-with-lease`), `pull --ff-only`, `fetch`, `checkout/switch`, `branch` (+`-vv/-r`), `revert`, `reset`, `blame`, `rebase -i`, `bundle`
+Busca de código: `grep --null -n -F/-E` por ref, `for-each-ref`, `branch --show-current`, `log -G` (pickaxe), `name-rev`
 
 ## Fase 2 — Operações SourceTree padrão (0.9.0)
 
@@ -64,7 +65,7 @@ Aceite: teste roteirizado SourceTree -> TreeLine com mesmo repo resulta no mesmo
 - [~] Flatpak: manifesto + AppStream + screenshots prontos; falta submissão no Flathub (e trocar `--filesystem=host` por FilePortal). `.rpm`/AUR seguessem na Fase 4
 - [~] Integração GNOME/KDE: tema claro/escuro e `ssh-agent` existentes; keyring via `libsecret` ainda pendente (hoje herda o `credential.helper` do sistema)
 - [~] Auto-update via GitHub Releases (link no About) + crash report opt-in e telemetria off por padrão; instalador de update ainda pendente
-- [x] Atalhos (`Ctrl+K` paleta, `Ctrl+B` sidebar, `Ctrl+F` busca, `Ctrl+Enter` commit, `F5` refresh) **remapeáveis** no Settings, com filtro, detecção de conflito e reset por linha
+- [x] Atalhos (`Ctrl+K` paleta, `Ctrl+B` sidebar, `Ctrl+F` busca de commits, `Ctrl+Shift+F` busca de código, `Ctrl+Enter` commit, `F5` refresh) **remapeáveis** no Settings, com filtro, detecção de conflito e reset por linha
 - [x] Integração remota fase 1: abrir PR no browser (GitHub/GitLab/Bitbucket por domínio do remote)
 
 Fora de 1.x: Jira nativo, Hg, AI commit.
@@ -89,6 +90,7 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | Temas claro/escuro | extra | ☑ (10 temas + System) |
 | Settings identidade autor | extra | ☑ (2 colunas: general, identidade, sync e atalhos, altura limitada e responsiva) |
 | Paleta de comandos | extra | ☑ (`Ctrl+K`: sync, dialogs, PR, terminal, sidebar, custom actions; key por id, nomes repetidos não colidem) |
+| Busca de código (texto em arquivos) | 0.7 | ☑ (`Ctrl+Shift+F`: busca texto em **todas as branches** — `git grep` por ref agrupado por branch (atual = working tree + `--untracked`), com último commit que alterou o texto (pickaxe `-G` + `name-rev`, mostrando a branch); toggles case/regex/remotes, resultados incrementais, cancelável, clique abre o blame; caps: 40 branches locais + 20 remotes, 1000 hits, 25 paths de histórico) |
 | Atalhos remapeáveis | 4 | ☑ (editor no Settings com filtro, conflito e reset por linha) |
 | Multi-repo em abas | 3 | ☑ (ordem manual + drag-and-drop persistido) |
 | Fetch automático | 2 | ☑ (intervalo por repo + toggle de segundo plano) |

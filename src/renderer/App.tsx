@@ -4,6 +4,7 @@ import AboutDialog from './components/AboutDialog'
 import BlameDialog from './components/BlameDialog'
 import BranchDialog from './components/BranchDialog'
 import CommandPalette from './components/CommandPalette'
+import CodeSearchDialog from './components/CodeSearchDialog'
 import CompareDialog from './components/CompareDialog'
 import ConflictResolver from './components/ConflictResolver'
 import ConfirmDialog from './components/ConfirmDialog'
@@ -87,6 +88,12 @@ export default function App() {
         e.preventDefault()
         const st = useStore.getState()
         st.setGoToFileOpen(true)
+        return
+      }
+      if (st0.matchShortcut('codeSearch', e)) {
+        e.preventDefault()
+        const st = useStore.getState()
+        if (st.current) st.openDlg('codeSearch')
         return
       }
       if (st0.matchShortcut('palette', e)) {
@@ -199,6 +206,7 @@ export default function App() {
       {dialog === 'about' && <AboutDialog />}
       {dialog === 'custom' && <CustomActionsDialog />}
       {dialog === 'lfs' && <LfsDialog />}
+      {dialog === 'codeSearch' && <CodeSearchDialog />}
       <CommandPalette />
       <GoToFile />
       <ConfirmDialog />
