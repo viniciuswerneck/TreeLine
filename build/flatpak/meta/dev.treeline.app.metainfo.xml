@@ -53,7 +53,7 @@
   </screenshots>
 
   <releases>
-    <release version="0.6.4" date="2026-10-06">
+    <release version="0.6.6" date="2026-10-06">
       <description>
         <p>Three-way conflict resolver: full-screen WinMerge-style overlay with A | Result | B
         columns, CodeMirror editors, a four-state region selector (A, B, both, none) and
