@@ -130,7 +130,13 @@ export default function CommandPalette() {
             } else if (e.key === 'Enter') {
               exec(filtered[index])
             } else if (e.key === 'Escape') {
-              setPalette(false)
+              if (filter) {
+                e.preventDefault()
+                setFilter('')
+                setIndex(0)
+              } else {
+                setPalette(false)
+              }
             }
           }}
         />

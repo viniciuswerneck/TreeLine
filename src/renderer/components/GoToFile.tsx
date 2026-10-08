@@ -65,7 +65,13 @@ export default function GoToFile() {
             } else if (e.key === 'Enter') {
               exec(filtered[index])
             } else if (e.key === 'Escape') {
-              setOpen(false)
+              if (filter) {
+                e.preventDefault()
+                setFilter('')
+                setIndex(0)
+              } else {
+                setOpen(false)
+              }
             }
           }}
         />
