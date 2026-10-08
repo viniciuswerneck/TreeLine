@@ -3,7 +3,12 @@ import { promises as fs } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { simpleGit } from 'simple-git'
 import { mx, asLang, type UILang } from './messages'
+
+function readOp<T>(fn: GitOp<T>): Promise<T> {
+  return indexQueue.enqueue(fn)
+}
 import { GitQueue, enqueue, enqueueGlobal, indexQueue, readIndexOp, readOp, runGitCancellable, syncControllers, type GitOp } from './git/runner'
+export { readOp } from './git/runner'
 import { assertCloneUrl, assertRefName, assertSafeRef, relPathSafe } from './git/validate'
 import type {
   BranchInfo,
@@ -19,6 +24,11 @@ import type {
 } from '../shared/types'
 import { conflictKindOf, looksBinary, parseLsFilesU, parseUnmergedXY, shortRef, stagesByPath, type UnmergedEntry } from './conflict-stages'
 import { SPLASH_H, SPLASH_MIN_MS, SPLASH_W, splashHtml, splashImagePath, splashLang, type SplashLang } from './splash'
+
+
+export function readOp<T>(fn: GitOp<T>): Promise<T> {
+  return indexQueue.enqueue(fn)
+}
 
 const APP_TITLE: Record<SplashLang, string> = {
   en: 'TreeLine — Where the Git maze becomes a straight path - WerneckLab',
