@@ -13,6 +13,90 @@ import { RefBadge, visibleRefs } from './HistoryGraph'
 /** Colunas que maximizam JUNTAS: Unstaged e Staged são os dois lados do mesmo quadro. */
 const PAIRED = new Set(['unstaged', 'staged'])
 
+
+function FileRow({
+  path,
+  staged,
+  active,
+  code,
+  busy,
+  roving,
+  isConflict = false,
+  onSelect,
+  onContextMenu,
+  onStage,
+  onUnstage
+}: {
+  path: string
+  staged: boolean
+  active: boolean
+  code: string
+  busy: boolean
+  roving: boolean
+  isConflict?: boolean
+  onSelect: () => void
+  onContextMenu: (e: React.MouseEvent) => void
+  onStage?: () => void
+  onUnstage?: () => void
+}): React.ReactElement {
+  return (
+    <div
+      className={`file-row${isConflict ? ' conflict-row' : ''}`}
+      tabIndex={roving ? 0 : -1}
+      aria-selected={active}
+      title={isConflict ? 'Conflict — click to resolve' : undefined}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
+      onContextMenu={onContextMenu}
+    >
+      <span className={isConflict ? 'code conflict-code' : 'code'}>{code || (staged ? '+' : '?')}</span>
+      <span className="grow">{path}</span>
+      {!isConflict && staged && onUnstage && (
+        <button
+          className="mini-btn"
+          title="Unstage file"
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation()
+            onUnstage()
+          }}
+        >
+          Unstage
+        </button>
+      )}
+      {!isConflict && !staged && onStage && (
+        <button
+          className="mini-btn"
+          title="Stage file"
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation()
+            onStage()
+          }}
+        >
+          Stage
+        </button>
+      )}
+      {isConflict && (
+        <button
+          className="mini-btn primary"
+          title="Resolve conflict"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelect()
+          }}
+        >
+          Resolve
+        </button>
+      )}
+    </div>
+  )
+}
 const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, commitRef) {
   const status = useStore((s) => s.status)
   const selectedFile = useStore((s) => s.selectedFile)
@@ -358,56 +442,21 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               {expandBtn('conflicted')}
             </div>
             {conflicted.map((p) => (
-              <div
+              <FileRow
                 key={`!!${p}`}
-                className="file-row conflict-row"
-                tabIndex={p === conflictedRoving ? 0 : -1}
-                aria-selected={selectedFile?.path === p}
-                title={tr('conflict.hint')}
-                onClick={() => void selectFile({ path: p, staged: false })}
-                onKeyDown={(e) =>
-                  rowKeyDown(e, () => void selectFile({ path: p, staged: false }))
-                }
+                path={p}
+                staged={false}
+                active={selectedFile?.path === p}
+                code="!"
+                busy={busy}
+                roving={p === conflictedRoving}
+                isConflict
+                onSelect={() => {
+                  const i = conflicted.indexOf(p)
+                  void openResolver().then(() => (i >= 0 ? useStore.getState().gotoConflictFile(i) : undefined))
+                }}
                 onContextMenu={(e) => fileMenu(e, p, false, true)}
-              >
-                <span className="code conflict-code">!</span>
-                <span className="grow">{p}</span>
-                <button
-                  className="mini-btn primary"
-                  title={tr('cr.title')}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    // Abre o overlay já posicionado neste arquivo.
-                    const i = conflicted.indexOf(p)
-                    void useStore
-                      .getState()
-                      .openResolver()
-                      .then(() => (i >= 0 ? useStore.getState().gotoConflictFile(i) : undefined))
-                  }}
-                >
-                  {tr('cr.editBoth')}
-                </button>
-                <button
-                  className="mini-btn"
-                  title={tr('conflict.ours')}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void resolveOurs(p)
-                  }}
-                >
-                  {tr('conflict.ours')}
-                </button>
-                <button
-                  className="mini-btn"
-                  title={tr('conflict.theirs')}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void resolveTheirs(p)
-                  }}
-                >
-                  {tr('conflict.theirs')}
-                </button>
-              </div>
+              />
             ))}
           </div>
         )}
@@ -427,29 +476,18 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             {expandBtn('unstaged')}
           </div>
           {unstaged.map((f) => (
-            <div
+            <FileRow
               key={f.path}
-              className="file-row"
-              tabIndex={f.path === unstagedRoving ? 0 : -1}
-              aria-selected={selectedFile?.path === f.path && !selectedFile.staged}
-              onClick={() => void selectFile({ path: f.path, staged: false })}
-              onKeyDown={(e) => rowKeyDown(e, () => void selectFile({ path: f.path, staged: false }))}
+              path={f.path}
+              staged={false}
+              active={selectedFile?.path === f.path && !selectedFile.staged}
+              code={f.code.trim()}
+              busy={busy}
+              roving={f.path === unstagedRoving}
+              onSelect={() => void selectFile({ path: f.path, staged: false })}
               onContextMenu={(e) => fileMenu(e, f.path, false, true)}
-            >
-              <span className="code">{f.code.trim() || '?'}</span>
-              <span className="grow">{f.path}</span>
-              <button
-                className="mini-btn"
-                title={tr('det.stageFile')}
-                disabled={busy}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  void selectFile({ path: f.path, staged: false }).then(() => stageSelected())
-                }}
-              >
-                {tr('det.stage')}
-              </button>
-            </div>
+              onStage={() => void selectFile({ path: f.path, staged: false }).then(() => stageSelected())}
+            />
           ))}
           {untracked.map((p) => (
             <div
@@ -496,29 +534,18 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             {expandBtn('staged')}
           </div>
           {staged.map((f) => (
-            <div
+            <FileRow
               key={f.path}
-              className="file-row"
-              tabIndex={f.path === stagedRoving ? 0 : -1}
-              aria-selected={selectedFile?.path === f.path && selectedFile.staged}
-              onClick={() => void selectFile({ path: f.path, staged: true })}
-              onKeyDown={(e) => rowKeyDown(e, () => void selectFile({ path: f.path, staged: true }))}
+              path={f.path}
+              staged={true}
+              active={selectedFile?.path === f.path && selectedFile.staged}
+              code={f.code.trim()}
+              busy={busy}
+              roving={f.path === stagedRoving}
+              onSelect={() => void selectFile({ path: f.path, staged: true })}
               onContextMenu={(e) => fileMenu(e, f.path, true, true)}
-            >
-              <span className="code">{f.code.trim() || '+'}</span>
-              <span className="grow">{f.path}</span>
-              <button
-                className="mini-btn"
-                title={tr('det.unstageFile')}
-                disabled={busy}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  void selectFile({ path: f.path, staged: true }).then(() => unstageSelected())
-                }}
-              >
-                {tr('det.unstage')}
-              </button>
-            </div>
+              onUnstage={() => void selectFile({ path: f.path, staged: true }).then(() => unstageSelected())}
+            />
           ))}
           {staged.length === 0 && <div className="file-empty">{tr('det.noStaged')}</div>}
         </div>

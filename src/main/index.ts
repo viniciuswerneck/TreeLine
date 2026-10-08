@@ -4,7 +4,7 @@ import { isAbsolute, join } from 'node:path'
 import { simpleGit } from 'simple-git'
 import { mx, asLang, type UILang } from './messages'
 
-import { GitQueue, enqueue, enqueueGlobal, indexQueue, readIndexOp, readOp, runGitCancellable, syncControllers, type GitOp } from './git/runner'
+import { enqueue, enqueueGlobal, readIndexOp, readOp, runGitCancellable, syncControllers, syncKey } from './git/runner'
 export { readOp } from './git/runner'
 import { assertCloneUrl, assertRefName, assertSafeRef, relPathSafe } from './git/validate'
 import './git/search'
@@ -74,9 +74,9 @@ async function writeBookmarks(list: string[]): Promise<string[]> {
 
 // ---------------------------------------------------------------------------
 // Fila por repo: serializa operações git e evita `index.lock` em
-// push+fetch / stage+commit concorrentes.
+// push+fetch / stage+commit concorrentes. Implementação em `git/runner.ts`
+// (Map<repo, GitQueue> — um repo lento nunca bloqueia o outro).
 // ---------------------------------------------------------------------------
-const queues = new Map<string, Promise<unknown>>()
 
 
 
@@ -112,33 +112,20 @@ if (!process.env['GIT_EDITOR']) {
   process.env['GIT_EDITOR'] = 'true'
 }
 
-// Rede pode pendurar (DNS, auth lenta): timeout com kill no spawn (ver
-// `runGitCancellable` abaixo) + erro legível.
-const SYNC_TIMEOUT_MS = 120_000
-
-// ---------------------------------------------------------------------------
-// Git com cancel real: network ops (push/pull/fetch/clone) rodam em spawn
-// próprio com AbortController — timeout MATA o filho (SIGTERM→SIGKILL) e a UI
-// pode cancelar via `treeline:cancelSync`. simple-git não expõe o filho,
-// então aqui é `git` direto com env herdado (helpers/flags do process.env).
-// ---------------------------------------------------------------------------
-import { spawn } from 'node:child_process'
-
-
-interface GitRun {
-  stdout: string
-  stderr: string
-}
+// Rede pode pendurar (DNS, auth lenta): timeout com kill no spawn (SIGTERM →
+// SIGKILL em 5s) dentro de `runGitCancellable` (`git/runner.ts`), que também
+// transforma exit code != 0 em erro — sem isso push rejeitado/pull falho
+// reportavam sucesso. Cancel real via `treeline:cancelSync`.
 
 
 
 ipcMain.handle('treeline:cancelSync', (_event, repo: string, op: string) => {
-  const c = syncControllers.get(`${repo}:${op}`)
-  if (c?.proc) c.proc.kill('SIGTERM')
-  if (op === 'Clone') {
-    const cc = syncControllers.get('__clone__:Clone')
-    if (cc?.proc) cc.proc.kill('SIGTERM')
-  }
+  // Chave exata `${repo}:${op}` (mesma gravada em runGitCancellable); o
+  // fallback por `op` cobre o clone, que roda no diretório PAI — o renderer
+  // não conhece o destino e manda repo=''.
+  const exact = syncControllers.get(syncKey(repo, op))
+  const targets = exact ? [exact] : [...syncControllers.values()].filter((c) => c.op === op)
+  for (const c of targets) c.term()
 })
 
 // Erro técnico do git vira orientação acionável: o caso mais comum é remote
@@ -336,13 +323,14 @@ ipcMain.handle('treeline:mergePreview', (_event, repo: string, ref: string) =>
   readOp(async (): Promise<import('../shared/types').MergePreview> => {
     const git = simpleGit(repo)
     const [filesRaw, countRaw] = await Promise.all([
-      git.raw(['diff', '--name-only', `HEAD...${ref}`]),
+      git.raw(['diff', '--name-only', '-z', `HEAD...${ref}`]),
       git.raw(['rev-list', '--count', `HEAD..${ref}`])
     ])
-    return {
-      files: filesRaw.split('\n').map((f) => f.trim()).filter(Boolean),
-      commits: Number.parseInt(countRaw.trim(), 10) || 0
-    }
+    const files = filesRaw
+      .split('\0')
+      .map((f) => f.trim())
+      .filter(Boolean)
+    return { files, commits: Number.parseInt(countRaw.trim(), 10) || 0 }
   })
 )
 
@@ -848,8 +836,13 @@ ipcMain.handle('treeline:getRemotes', (_event, repo: string) =>
   })
 )
 
-ipcMain.handle('treeline:addRemote', (_event, repo: string, name: string, url: string) =>
-  enqueue(repo, () => simpleGit(repo).addRemote(name.trim(), url.trim()).then(() => undefined))
+ipcMain.handle('treeline:addRemote', (_event, repo: string, name: string, url: string, lang?: unknown) =>
+  // Mesma validação do clone: URL `ext::`/`file://`/loopback não entra no
+  // config (era executada num fetch/pull posterior).
+  enqueue(repo, async () => {
+    assertCloneUrl(url, asLang(lang))
+    await simpleGit(repo).addRemote(name.trim(), url.trim())
+  })
 )
 
 ipcMain.handle('treeline:removeRemote', (_event, repo: string, name: string) =>
@@ -1025,10 +1018,15 @@ async function watchRepo(repo: string, win: BrowserWindow | null): Promise<void>
         const keep = ['/.git/HEAD', '/.git/index', '/.git/refs', '/.git/MERGE_HEAD', '/.git/MERGE_MSG', '/.git/CHERRY_PICK_HEAD', '/.git/REVERT_HEAD']
         return !keep.some((k) => rel === k || rel.startsWith(k + '/'))
       }
+      // Árvores pesadas: sem elas o watcher monta milhões de inotify watches
+      // (node_modules/.cache, build/) e o SO derruba o processo com ENOSPC.
+      if (/(^|[/\\])(node_modules|dist|build|target|out|coverage|\.venv|\.next|\.turbo)([/\\]|$)/.test(rel)) return true
       return /(^|[/\\])\.(git|hg|svn)([/\\]|$)/.test(rel)
     },
     ignoreInitial: true,
-    depth: undefined
+    // Profundidade limitada: mudanças em .git/… são watches explícitos acima;
+    // além de 20 níveis (raro em código) o custo de acompanhar deixa de valer.
+    depth: 20
   })
   const entry: WatchEntry = { watcher, win, timer: null }
   const fire = (): void => {
@@ -1278,7 +1276,15 @@ ipcMain.handle('treeline:getDiff', (_event, repo: string, file: string, staged: 
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async () => {
     const args = staged ? ['diff', '--cached', '--unified=3', '--', file] : ['diff', '--unified=3', '--', file]
-    const out = await simpleGit(repo).raw(args)
+    // Teto de 1 MB: um "diff" enorme (merge de minúsculas, arquivo de texto
+    // gigante) trava o renderer; corta em limite de linha e marca a nota
+    // (`\ …` vira linha "note" no parse do DiffViewer).
+    const MAX_DIFF = 1024 * 1024
+    let out = await simpleGit(repo).raw(args)
+    if (out.length > MAX_DIFF) {
+      const cut = out.lastIndexOf('\n', MAX_DIFF)
+      out = out.slice(0, cut > 0 ? cut : MAX_DIFF) + '\n\\ ' + mx(asLang(lang), 'diffTruncated') + '\n'
+    }
     if (out.trim()) return out
     // Arquivo novo (untracked): `git diff` sai vazio porque ele nunca entrou
     // no index. Para revisar o código antes do commit, emite um diff sintético
@@ -1288,9 +1294,9 @@ ipcMain.handle('treeline:getDiff', (_event, repo: string, file: string, staged: 
       try {
         const tracked = (await simpleGit(repo).raw(['ls-files', '--', file])).trim()
         if (!tracked) {
-          const rel = relPathSafe(repo, file, 'en' as UILang)
-          if (!rel) return ''
           const l = asLang(lang)
+          const rel = relPathSafe(repo, file, l)
+          if (!rel) return ''
           const buf = await fs.readFile(join(repo, rel))
           const head = `--- /dev/null\n+++ b/${rel}\n`
           if (looksBinary(buf)) return head + mx(l, 'newBinary') + '\n'
@@ -1360,7 +1366,9 @@ ipcMain.handle('treeline:getDiff', (_event, repo: string, file: string, staged: 
 )
 
 ipcMain.handle('treeline:stage', (_event, repo: string, file: string) =>
-  enqueue(repo, () => simpleGit(repo).add(file).then(() => undefined))
+  // `--` obrigatório: sem ele um arquivo chamado `-p`/`--all` na worktree
+  // vira opção do git (option injection).
+  enqueue(repo, () => simpleGit(repo).raw(['add', '--', file]).then(() => undefined))
 )
 
 ipcMain.handle('treeline:unstage', (_event, repo: string, file: string) =>
@@ -1727,22 +1735,22 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
       return [r]
     })
     const files = isMerge
-      ? (await simpleGit(repo).raw(['diff', '--name-only', `${h}^1`, h]))
-          .split('\n')
+      ? (await simpleGit(repo).raw(['diff', '--name-only', '-z', `${h}^1`, h]))
+          .split('\0')
           .map((f) => f.trim())
           .filter((f) => f.length > 0)
       : rest
           .join('\x1e')
-          .split('\n')
+          .split('\0')
           .map((f) => f.trim())
           .filter((f) => f.length > 0)
     // +/- por arquivo (merge sem diff próprio pode vir vazio: sem stats).
     let stats: import('../shared/types').FileStat[] = []
     try {
       const ns = await simpleGit(repo).raw(
-        isMerge ? ['diff', '--numstat', `${h}^1`, h] : ['show', '--numstat', '--format=', h]
+        isMerge ? ['diff', '--numstat', '-z', `${h}^1`, h] : ['show', '--numstat', '-z', '--format=', h]
       )
-      stats = ns.split('\n').flatMap((line) => {
+      stats = ns.split('\0').flatMap((line) => {
         const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/)
         if (!m?.[3]) return []
         const num = (v: string): number => (v === '-' ? 0 : Number.parseInt(v, 10) || 0)
@@ -2359,7 +2367,7 @@ function joinSides(a: string, b: string): string {
  * antes (mesma política de reset hard/rebase).
  */
 async function resolveSideRaw(repo: string, file: string, side: ConflictSide, l: UILang): Promise<void> {
-  const rel = relPathSafe(repo, file, 'en' as UILang)
+  const rel = relPathSafe(repo, file, l)
   if (!rel) throw new Error(mx(l, 'unsafeRef', { x: file }))
   await backupBundle(repo)
   const git = simpleGit(repo)
@@ -2388,7 +2396,7 @@ ipcMain.handle('treeline:resolveConflictSide', (_event, repo: string, file: stri
 ipcMain.handle('treeline:applyConflictResult', (_event, repo: string, file: string, content: string, del: boolean, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
-    const rel = relPathSafe(repo, file, 'en' as UILang)
+    const rel = relPathSafe(repo, file, l)
     if (!rel) throw new Error(mx(l, 'unsafeRef', { x: file }))
     const git = simpleGit(repo)
     // Sem bundle aqui de propósito: o editor salva a cada região e um
@@ -2509,14 +2517,17 @@ ipcMain.handle('treeline:setUpstream', (_event, repo: string, branch: string, up
   })
 )
 
-ipcMain.handle('treeline:editRemote', (_event, repo: string, name: string, url: string) =>
-  enqueue(repo, () => simpleGit(repo).raw(['remote', 'set-url', name.trim(), url.trim()]).then(() => undefined))
+ipcMain.handle('treeline:editRemote', (_event, repo: string, name: string, url: string, lang?: unknown) =>
+  enqueue(repo, async () => {
+    assertCloneUrl(url, asLang(lang))
+    await simpleGit(repo).raw(['remote', 'set-url', name.trim(), url.trim()])
+  })
 )
 
-ipcMain.handle('treeline:getBlame', (_event, repo: string, file: string, rev?: string) =>
+ipcMain.handle('treeline:getBlame', (_event, repo: string, file: string, rev?: string, lang?: unknown) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async (): Promise<import('../shared/types').BlameLine[]> => {
-    const rel = relPathSafe(repo, file, 'en' as UILang)
+    const rel = relPathSafe(repo, file, asLang(lang))
     if (!rel) return []
     const args = ['blame', '--line-porcelain']
     if (rev?.trim()) {
@@ -2567,8 +2578,9 @@ ipcMain.handle('treeline:getFileHistory', (_event, repo: string, file: string, l
 
 // Rebase interativo via GIT_SEQUENCE_EDITOR=cp <plano>: o git executa
 // `$EDITOR <todo>` via shell, então `cp plano todo` injeta nossa sequência.
-// Mutex global: process.env é do processo inteiro, não por repo.
-let rebaseInteractiveTail: Promise<unknown> = Promise.resolve()
+// Mutex global (env do processo, não por repo): `enqueueGlobal` roda numa
+// fila DEDICADA (`envQueue` em git/runner.ts). Antes ele aninhava `enqueue`
+// na mesma fila do gitQueue e o rebase-i travava o app inteiro para sempre.
 
 
 
@@ -2618,17 +2630,17 @@ ipcMain.handle('treeline:rebaseInteractive', (_event, repo: string, base: string
   }))
 )
 
-ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: string) =>
+ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: string, lang?: unknown) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async (): Promise<import('../shared/types').CompareSummary> => {
-    assertSafeRef(a, 'en' as UILang)
-    assertSafeRef(b, 'en' as UILang)
+    assertSafeRef(a, asLang(lang))
+    assertSafeRef(b, asLang(lang))
     const [names, ns] = await Promise.all([
-      simpleGit(repo).raw(['diff', '--name-only', a.trim(), b.trim()]),
-      simpleGit(repo).raw(['diff', '--numstat', a.trim(), b.trim()])
+      simpleGit(repo).raw(['diff', '--name-only', '-z', a.trim(), b.trim()]),
+      simpleGit(repo).raw(['diff', '--numstat', '-z', a.trim(), b.trim()])
     ])
-    const files = names.split('\n').map((f) => f.trim()).filter(Boolean)
-    const stats: import('../shared/types').FileStat[] = ns.split('\n').flatMap((line) => {
+    const files = names.split('\0').map((f) => f.trim()).filter(Boolean)
+    const stats: import('../shared/types').FileStat[] = ns.split('\0').flatMap((line) => {
       const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/)
       if (!m?.[3]) return []
       const num = (v: string): number => (v === '-' ? 0 : Number.parseInt(v, 10) || 0)
@@ -2638,12 +2650,12 @@ ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: s
   })
 )
 
-ipcMain.handle('treeline:compareDiff', (_event, repo: string, a: string, b: string, file: string) =>
+ipcMain.handle('treeline:compareDiff', (_event, repo: string, a: string, b: string, file: string, lang?: unknown) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async () => {
-    assertSafeRef(a, 'en' as UILang)
-    assertSafeRef(b, 'en' as UILang)
-    const rel = relPathSafe(repo, file, 'en' as UILang)
+    assertSafeRef(a, asLang(lang))
+    assertSafeRef(b, asLang(lang))
+    const rel = relPathSafe(repo, file, asLang(lang))
     return simpleGit(repo).raw(['diff', '--unified=3', a.trim(), b.trim(), '--', rel ?? ''])
   })
 )
@@ -2677,8 +2689,8 @@ ipcMain.handle('treeline:openPR', (_event, repo: string) =>
   })
 )
 
-ipcMain.handle('treeline:discard', async (_event, repo: string, file: string, tracked: boolean) => {
-  const rel = relPathSafe(repo, file, 'en' as UILang)
+ipcMain.handle('treeline:discard', async (_event, repo: string, file: string, tracked: boolean, lang?: unknown) => {
+  const rel = relPathSafe(repo, file, asLang(lang))
   if (!rel) return
   await enqueue(repo, async () => {
     if (tracked) {
@@ -2704,8 +2716,8 @@ void app.whenReady().then(async () => {
 ipcMain.handle('treeline:getTrackedFiles', (_event, repo: string) =>
   readOp(async (): Promise<string[]> => {
     try {
-      const out = await simpleGit(repo).raw(['ls-tree', '-r', '--name-only', 'HEAD'])
-      return out.split('\n').map((x) => x.trim()).filter(Boolean)
+      const out = await simpleGit(repo).raw(['ls-tree', '-r', '-z', '--name-only', 'HEAD'])
+      return out.split('\0').map((x) => x.trim()).filter(Boolean)
     } catch {
       return []
     }

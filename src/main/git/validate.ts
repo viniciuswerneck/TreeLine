@@ -1,20 +1,56 @@
-import { isAbsolute, join, normalize } from 'node:path'
+import { realpathSync } from 'node:fs'
+import { dirname, join, normalize, sep } from 'node:path'
 import type { UILang } from '../messages'
-import { asLang, mx } from '../messages'
+import { mx } from '../messages'
 
 export function assertSafeRef(name: string, lang: UILang, key = 'invalidRef'): void {
   const n = (name || '').trim()
-  if (!n || n.includes('..') || n.includes('~') || n.includes('^') || n.includes(':') || n.startsWith('/') || n.endsWith('/')) {
+  // `startsWith('-')`: option injection — `--force`, `-c core.sshCommand=…`,
+  // `--upload-pack=` viram opções do git quando a ref vai crua para argv.
+  if (
+    !n ||
+    n.startsWith('-') ||
+    n.includes('..') ||
+    n.includes('~') ||
+    n.includes('^') ||
+    n.includes(':') ||
+    n.startsWith('/') ||
+    n.endsWith('/')
+  ) {
     throw new Error(mx(lang, key, { n }))
   }
 }
 
+/** realpath do alvo; arquivo ainda inexistente resolve pelo ancestral existente. */
+function real(target: string): string {
+  let cur = target
+  for (;;) {
+    try {
+      return realpathSync(cur)
+    } catch {
+      const parent = dirname(cur)
+      if (parent === cur) return target
+      cur = parent
+    }
+  }
+}
+
+/**
+ * Path relativo seguro dentro de `root` (paths do git são relativos ao cwd).
+ * Além do check textual de `..`, compara o **realpath**: symlink dentro do
+ * repo apontando para fora não vira escrita/`trashItem` fora dele.
+ */
 export function relPathSafe(root: string, p: string, lang: UILang): string {
   const rp = p.replace(/\\/g, '/')
   const np = normalize(join(root, rp))
   const nr = normalize(root)
   if (np === nr) return '.'
-  if (!np.startsWith(nr + '/') && np !== nr) {
+  if (!np.startsWith(nr + sep) && np !== nr) {
+    throw new Error(mx(lang, 'pathOutOfRepo', { p: rp }))
+  }
+  const realRoot = real(root)
+  const realTarget = real(np)
+  if (realTarget !== realRoot && !realTarget.startsWith(realRoot + sep)) {
     throw new Error(mx(lang, 'pathOutOfRepo', { p: rp }))
   }
   return rp
@@ -22,22 +58,6 @@ export function relPathSafe(root: string, p: string, lang: UILang): string {
 
 export function assertRefName(name: string, lang: UILang): void {
   assertSafeRef(name, lang, 'invalidRefName')
-}
-
-export function assertRebasePlan(plan: string, lang: UILang): void {
-  const p = plan.trim()
-  if (!p) throw new Error(mx(lang, 'rebaseEmpty'))
-  for (const line of p.split(/\r?\n/)) {
-    const s = line.trim()
-    if (!s) continue
-    const [op] = s.split(/\s+/, 1)
-    if (!['pick', 'p', 'reword', 'r', 'edit', 'e', 'squash', 's', 'fixup', 'f', 'drop', 'd', 'exec', 'x'].includes(op)) {
-      throw new Error(mx(lang, 'rebaseInvalidOp', { op }))
-    }
-    if (op === 'exec' || op === 'x') {
-      throw new Error(mx(lang, 'rebaseNoExec'))
-    }
-  }
 }
 
 export function assertCloneUrl(u: string, lang: UILang): void {

@@ -47,17 +47,17 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:setUpstream', repo, branch, upstream, lang),
   editRemote: (repo: string, name: string, url: string, lang?: string) =>
     ipcRenderer.invoke('treeline:editRemote', repo, name, url, lang),
-  getBlame: (repo: string, file: string, rev?: string) =>
-    ipcRenderer.invoke('treeline:getBlame', repo, file, rev),
+  getBlame: (repo: string, file: string, rev?: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:getBlame', repo, file, rev, lang),
   getFileHistory: (repo: string, file: string, limit?: number) =>
     ipcRenderer.invoke('treeline:getFileHistory', repo, file, limit),
   getRebasePlan: (repo: string, base: string) => ipcRenderer.invoke('treeline:getRebasePlan', repo, base),
   rebaseInteractive: (repo: string, base: string, plan: unknown, lang?: string, autostash?: boolean) =>
     ipcRenderer.invoke('treeline:rebaseInteractive', repo, base, plan, lang, autostash),
-  compareCommits: (repo: string, a: string, b: string) =>
-    ipcRenderer.invoke('treeline:compareCommits', repo, a, b),
-  compareDiff: (repo: string, a: string, b: string, file: string) =>
-    ipcRenderer.invoke('treeline:compareDiff', repo, a, b, file),
+  compareCommits: (repo: string, a: string, b: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:compareCommits', repo, a, b, lang),
+  compareDiff: (repo: string, a: string, b: string, file: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:compareDiff', repo, a, b, file, lang),
   openPR: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:openPR', repo, lang),
   stage: (repo: string, file: string) => ipcRenderer.invoke('treeline:stage', repo, file),
   unstage: (repo: string, file: string) => ipcRenderer.invoke('treeline:unstage', repo, file),
@@ -94,8 +94,8 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:getCommitDiff', repo, hash, file),
   reveal: (path: string) => ipcRenderer.invoke('treeline:reveal', path),
   removeRecent: (path: string) => ipcRenderer.invoke('treeline:removeRecent', path),
-  discard: (repo: string, file: string, tracked: boolean) =>
-    ipcRenderer.invoke('treeline:discard', repo, file, tracked),
+  discard: (repo: string, file: string, tracked: boolean, lang?: string) =>
+    ipcRenderer.invoke('treeline:discard', repo, file, tracked, lang),
   copyText: (text: string) => ipcRenderer.invoke('treeline:copyText', text),
   confirm: (title: string, message: string, detail: string, ok: string, cancel: string) =>
     ipcRenderer.invoke('treeline:confirm', title, message, detail, ok, cancel),

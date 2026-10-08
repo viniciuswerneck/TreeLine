@@ -395,12 +395,12 @@ export interface TreeLineAPI {
   getRemoteBranches(repo: string): Promise<RemoteBranchInfo[]>
   setUpstream(repo: string, branch: string, upstream: string, lang?: string): Promise<void>
   editRemote(repo: string, name: string, url: string, lang?: string): Promise<void>
-  getBlame(repo: string, file: string, rev?: string): Promise<BlameLine[]>
+  getBlame(repo: string, file: string, rev?: string, lang?: string): Promise<BlameLine[]>
   getFileHistory(repo: string, file: string, limit?: number): Promise<FileHistoryEntry[]>
   getRebasePlan(repo: string, base: string): Promise<RebasePlanEntry[]>
   rebaseInteractive(repo: string, base: string, plan: RebasePlanEntry[], lang?: string, autostash?: boolean): Promise<void>
-  compareCommits(repo: string, a: string, b: string): Promise<CompareSummary>
-  compareDiff(repo: string, a: string, b: string, file: string): Promise<string>
+  compareCommits(repo: string, a: string, b: string, lang?: string): Promise<CompareSummary>
+  compareDiff(repo: string, a: string, b: string, file: string, lang?: string): Promise<string>
   openPR(repo: string, lang?: string): Promise<void>
   lfsPull(repo: string, lang?: string): Promise<SyncResult>
   lfsPush(repo: string, lang?: string): Promise<SyncResult>
@@ -420,7 +420,7 @@ export interface TreeLineAPI {
   getCommitDiff(repo: string, hash: string, file: string): Promise<string>
   reveal(path: string): Promise<void>
   removeRecent(path: string): Promise<string[]>
-  discard(repo: string, file: string, tracked: boolean): Promise<void>
+  discard(repo: string, file: string, tracked: boolean, lang?: string): Promise<void>
   copyText(text: string): Promise<void>
   confirm(title: string, message: string, detail: string, ok: string, cancel: string): Promise<boolean>
   // Branch

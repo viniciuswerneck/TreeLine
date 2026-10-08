@@ -264,6 +264,7 @@ export default function HistoryGraph() {
 
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase()
+    const fd = filter.trim()
     return (c: LaneCommit): boolean => {
       // Modo current: o servidor já mandou só ancestry do branch; aqui só texto.
       if (!q) return true
@@ -271,7 +272,7 @@ export default function HistoryGraph() {
         c.message.toLowerCase().includes(q) ||
         c.author.toLowerCase().includes(q) ||
         c.hash.toLowerCase().includes(q) ||
-        c.date.includes(filter.trim()) ||
+        c.date.includes(fd) ||
         c.refs.some((r) => r.toLowerCase().includes(q))
       )
     }

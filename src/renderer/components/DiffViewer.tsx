@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { HunkInfo } from '../../shared/types'
 import { useStore } from '../store'
 
@@ -320,8 +320,41 @@ export default function DiffViewer({ text, staged = false, hunks, interactive = 
   const lines = useMemo(() => parseDiff(text), [text])
   const useHunks = interactive && hunks && hunks.length > 0
   const useSplit = useHunks && mode === 'split'
+  const diffRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = diffRef.current
+    if (!el) return
+    const onKey = (e: KeyboardEvent): void => {
+      const active = document.activeElement as HTMLElement | null
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return
+      const step = 20
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault()
+        el.scrollTop += step
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault()
+        el.scrollTop -= step
+      } else if (e.key === 'd') {
+        e.preventDefault()
+        el.scrollTop += el.clientHeight / 2
+      } else if (e.key === 'u') {
+        e.preventDefault()
+        el.scrollTop -= el.clientHeight / 2
+      } else if (e.key === 'g') {
+        e.preventDefault()
+        el.scrollTop = 0
+      } else if (e.key === 'G') {
+        e.preventDefault()
+        el.scrollTop = el.scrollHeight
+      }
+    }
+    el.addEventListener('keydown', onKey)
+    el.tabIndex = 0
+    return () => el.removeEventListener('keydown', onKey)
+  }, [])
+
   return (
-    <div className="diff-view" role="document" aria-label="Diff">
+    <div ref={diffRef} className="diff-view" role="document" aria-label="Diff">
       {useSplit
         ? (hunks as HunkInfo[]).map((h) => <SplitHunk key={h.index} hunk={h} staged={staged} />)
         : useHunks

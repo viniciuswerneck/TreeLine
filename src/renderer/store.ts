@@ -1152,7 +1152,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
       t(lang, 'dlg.discard')
     )
     if (!ok) return
-    await fail(window.treeline.discard(current, path, tracked), (e) => set({ error: e }))
+    await fail(window.treeline.discard(current, path, tracked, get().lang), (e) => set({ error: e }))
     await get().refresh()
   },
 
@@ -1173,7 +1173,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     const { current } = get()
     if (!current) return
     set({ blame: [], blameFile: path, blameLoading: true, error: null })
-    const rows = await fail(window.treeline.getBlame(current, path, rev), (e) => set({ error: cleanErr(e) }))
+    const rows = await fail(window.treeline.getBlame(current, path, rev, get().lang), (e) => set({ error: cleanErr(e) }))
     set({ blame: rows ?? [], blameLoading: false })
   },
   closeBlame: () => set({ blame: [], blameFile: null, blameLoading: false, dialog: get().dialog === 'blame' ? null : get().dialog }),
@@ -1205,7 +1205,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     if (compareA === hash) return
     set({ compareB: hash, compare: null, compareFile: null, compareDiffText: '', error: null })
     if (!current) return
-    const sum = await fail(window.treeline.compareCommits(current, compareA, hash), (e) => set({ error: cleanErr(e) }))
+    const sum = await fail(window.treeline.compareCommits(current, compareA, hash, get().lang), (e) => set({ error: cleanErr(e) }))
     if (sum !== null) {
       set({ compare: sum })
       if (sum.files.length === 1) await get().selectCompareFile(sum.files[0] as string)
@@ -1216,7 +1216,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     const { current, compareA, compareB } = get()
     if (!current || !compareA || !compareB) return
     set({ compareFile: path, compareDiffText: '' })
-    const d = await fail(window.treeline.compareDiff(current, compareA, compareB, path), (e) => set({ error: cleanErr(e) }))
+    const d = await fail(window.treeline.compareDiff(current, compareA, compareB, path, get().lang), (e) => set({ error: cleanErr(e) }))
     set({ compareDiffText: d ?? '' })
   },
   paletteOpen: false,
