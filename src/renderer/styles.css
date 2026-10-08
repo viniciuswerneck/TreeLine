@@ -213,19 +213,27 @@ body {
 }
 
 /* ---- History ---- */
+/* Região fixa acima da lista: filtros ficam fora da área de rolagem para
+   nunca sumirem (busca sem resultado, lista vazia, scroll até o fim). */
+.history-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg-panel); }
 .history { flex: 1; min-height: 0; overflow: auto; background: var(--bg-panel); border-bottom: 1px solid var(--border-line); }
 .history-filter {
   display: flex; align-items: center; gap: 12px; padding: 6px 12px;
   border-bottom: 1px solid var(--border-line); font-size: 12px; color: var(--text-2);
-  position: sticky; top: 0; background: var(--bg-panel); z-index: 2;
+  background: var(--bg-panel); flex-shrink: 0;
 }
-.history-filter + .history-head { top: 29px; }
 .history-count { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-search { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--text-2); flex-shrink: 0; }
 .history-search input {
   border: 1px solid var(--border-line); border-radius: var(--radius-sm);
   background: var(--bg-app); color: var(--text-1); padding: 5px 10px; width: 200px; font: inherit; font-size: 12.5px;
 }
+.search-clear {
+  border: none; background: transparent; color: var(--text-2); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0 5px; border-radius: var(--radius-sm);
+}
+.search-clear:hover { background: var(--bg-hover); color: var(--text-1); }
+.search-clear:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 /* ---- Combo de branches do history (estilo Git Graph) ---- */
 .branch-combo { position: relative; }
 .branch-combo-btn {

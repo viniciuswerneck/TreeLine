@@ -389,63 +389,11 @@ export default function HistoryGraph() {
     ? selectedCommit
     : (visibleRows[0]?.hash as string | undefined)
 
-  const isEmpty = rows.length === 0 && dirtyCount === 0
-  if (isEmpty) {
-    return (
-      <div className="history">
-        <div className="history-filter">
-          <span className="history-count" title={tr('hist.listed')}>
-            {tr('hist.commits', { n: 0 })}
-          </span>
-          <BranchCombo />
-          <span className="history-search">
-            <Search size={14} />
-            <input
-              ref={searchRef}
-              placeholder={`${tr('hist.filterPh')} (${formatShortcut(shortcuts.search)})`}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  e.preventDefault()
-                  setFilter('')
-                  searchRef.current?.blur()
-                }
-              }}
-            />
-          </span>
-        </div>
-        <div className="welcome">
-          <h1>{filter ? tr('pal.empty') : tr('hist.empty')}</h1>
-          <p className="muted">{filter ? tr('pal.empty') : tr('hist.emptyHint')}</p>
-        </div>
-      </div>
-    )
-  }
+  // Lista de commits vazia (com ou sem Working Copy suja): mostra o aviso.
+  const isEmpty = rows.length === 0
 
   return (
-    <div
-      ref={contRef}
-      className="history"
-      onScroll={(e) => {
-        const cont = e.currentTarget as HTMLElement
-        if (cont.scrollHeight - cont.scrollTop - cont.clientHeight < 400) void loadMoreCommits()
-        // Coalesce: um update de janela por frame, no máximo.
-        pendingScroll.current = cont.scrollTop
-        if (rafRef.current) return
-        rafRef.current = requestAnimationFrame(() => {
-          rafRef.current = 0
-          const top0 = pendingScroll.current
-          if (top0 === null) return
-          const el = contRef.current
-          if (!el) return
-          const top = Math.max(0, top0 - offsetRef.current)
-          const start = Math.max(0, Math.floor(top / ROW_H) - OVERSCAN)
-          const end = Math.min(rows.length, Math.ceil((top + el.clientHeight) / ROW_H) + OVERSCAN)
-          setWin((prev) => (prev[0] === start && prev[1] === end ? prev : [start, end]))
-        })
-      }}
-    >
+    <div className="history-wrap">
       <div className="history-filter">
         <span className="history-count" title={tr('hist.listed')}>
           {tr('hist.commits', { n: rows.length })}
@@ -461,7 +409,26 @@ export default function HistoryGraph() {
             placeholder={`${tr('hist.filterPh')} (${formatShortcut(shortcuts.search)})`}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                setFilter('')
+                searchRef.current?.blur()
+              }
+            }}
           />
+          {filter && (
+            <button
+              className="search-clear"
+              title={tr('hist.clearFilter')}
+              onClick={() => {
+                setFilter('')
+                searchRef.current?.focus()
+              }}
+            >
+              ×
+            </button>
+          )}
         </span>
         {(compareA || compareB) && (
           <button
@@ -476,92 +443,121 @@ export default function HistoryGraph() {
           <RefreshCw size={13} className={loading ? 'spin' : undefined} /> {tr('common.refresh')}
         </button>
       </div>
-      <div className="history-head" style={{ gridTemplateColumns: gridCols }}>
-        <span>{tr('hist.graph')}</span>
-        <span>{tr('hist.message')}</span>
-        <span>{tr('hist.date')}</span>
-        <span>{tr('hist.author')}</span>
-        <span>{tr('hist.hash')}</span>
-      </div>
-      {dirtyCount > 0 && (
-        <div className="history-row working-copy" style={{ gridTemplateColumns: gridCols }} title={tr('hist.wcTitle')}>
-          <span className="graph-cell">
-            <span className="graph-wc-dot" />
-          </span>
-          <span className="msg">
-            <strong>{tr('hist.wc')}</strong>
-            <span className="muted">
-              {' '}
-              — {tr('hist.wcChanges', { n: dirtyCount })}
+      <div
+        ref={contRef}
+        className="history"
+        onScroll={(e) => {
+          const cont = e.currentTarget as HTMLElement
+          if (cont.scrollHeight - cont.scrollTop - cont.clientHeight < 400) void loadMoreCommits()
+          // Coalesce: um update de janela por frame, no máximo.
+          pendingScroll.current = cont.scrollTop
+          if (rafRef.current) return
+          rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = 0
+            const top0 = pendingScroll.current
+            if (top0 === null) return
+            const el = contRef.current
+            if (!el) return
+            const top = Math.max(0, top0 - offsetRef.current)
+            const start = Math.max(0, Math.floor(top / ROW_H) - OVERSCAN)
+            const end = Math.min(rows.length, Math.ceil((top + el.clientHeight) / ROW_H) + OVERSCAN)
+            setWin((prev) => (prev[0] === start && prev[1] === end ? prev : [start, end]))
+          })
+        }}
+      >
+        <div className="history-head" style={{ gridTemplateColumns: gridCols }}>
+          <span>{tr('hist.graph')}</span>
+          <span>{tr('hist.message')}</span>
+          <span>{tr('hist.date')}</span>
+          <span>{tr('hist.author')}</span>
+          <span>{tr('hist.hash')}</span>
+        </div>
+        {dirtyCount > 0 && (
+          <div className="history-row working-copy" style={{ gridTemplateColumns: gridCols }} title={tr('hist.wcTitle')}>
+            <span className="graph-cell">
+              <span className="graph-wc-dot" />
             </span>
-          </span>
-          <span className="muted">—</span>
-          <span className="muted">—</span>
-          <span className="mono muted">—</span>
-        </div>
-      )}
-      <div ref={spacerRef} style={{ height: 0 }} />
-      {win[0] > 0 && <div style={{ height: win[0] * ROW_H }} />}
-      {visibleRows.map((c, k) => {
-        const i = win[0] + k
-        return (
-        <div
-          key={c.hash}
-          data-hash={c.hash}
-          tabIndex={c.hash === rovingHash ? 0 : -1}
-          className={`history-row${c.hash === compareA || c.hash === compareB ? ' comparing' : ''}${headFlash > 0 && visibleRefs(c.refs).includes('HEAD') ? ' head-flash' : ''}`}
-          style={{ gridTemplateColumns: gridCols }}
-          aria-selected={selectedCommit === c.hash}
-          title={`${c.message}\n${c.hash}\n${tr('cmp.pickHint')}`}
-          onClick={(e) => {
-            if (e.ctrlKey || e.metaKey) {
-              void setCompareEnd(c.hash).then(() => {
-                const st = useStore.getState()
-                if (st.compareA && st.compareB) openDlg('compare')
-              })
-            } else void selectCommit(selectedCommit === c.hash ? null : c.hash)
-          }}
-          onKeyDown={(e) => rowKeyDown(e, i, c.hash)}
-          onContextMenu={(e) => commitMenu(e, c.hash, c.message, c.author)}
-        >
-          <span className="graph-cell">
-            <GraphCell
-              commit={c}
-              maxLane={maxLane}
-              above={i === 0 ? [] : bottomTouches(rows[i - 1] as LaneCommit)}
-              below={i === rows.length - 1 ? [] : topTouches(rows[i + 1] as LaneCommit)}
-            />
-          </span>
-          <span className="msg">
-            {visibleRefs(c.refs).map((r) => (
-              <RefBadge key={r} name={r} />
-            ))}
-            {(c.hash === compareA || c.hash === compareB) && (
-              <span className="cmp-mark" aria-hidden="true" title={tr('cmp.pickHint')}>
-                ⇄
+            <span className="msg">
+              <strong>{tr('hist.wc')}</strong>
+              <span className="muted">
+                {' '}
+                — {tr('hist.wcChanges', { n: dirtyCount })}
               </span>
-            )}
-            {c.message}
-          </span>
-          <span className="muted" title={c.date.slice(0, 16).replace('T', ' ')}>
-            {absDate(DATE_LOCALE[lang], c.date)}
-          </span>
-          <span className="muted author-cell" title={c.author}>
-            <Avatar name={c.author} />
-            <span className="author-name">{c.author}</span>
-          </span>
-          <span className="mono muted">{shortHash(c.hash)}</span>
-        </div>
-        )
-      })}
-      {win[1] < rows.length && <div style={{ height: (rows.length - win[1]) * ROW_H }} />}
-      {hasMoreCommits && (
-        <div className="history-more">
-          <button className="mini-btn" disabled={loadingMore} onClick={() => void loadMoreCommits()}>
-            {loadingMore ? tr('dlg.working') : tr('hist.loadMore')}
-          </button>
-        </div>
-      )}
+            </span>
+            <span className="muted">—</span>
+            <span className="muted">—</span>
+            <span className="mono muted">—</span>
+          </div>
+        )}
+        <div ref={spacerRef} style={{ height: 0 }} />
+        {isEmpty && (
+          <div className="welcome">
+            <h1>{filter ? tr('hist.noMatch') : tr('hist.empty')}</h1>
+            <p className="muted">{filter ? tr('hist.noMatchHint') : tr('hist.emptyHint')}</p>
+          </div>
+        )}
+        {win[0] > 0 && <div style={{ height: win[0] * ROW_H }} />}
+        {visibleRows.map((c, k) => {
+          const i = win[0] + k
+          return (
+          <div
+            key={c.hash}
+            data-hash={c.hash}
+            tabIndex={c.hash === rovingHash ? 0 : -1}
+            className={`history-row${c.hash === compareA || c.hash === compareB ? ' comparing' : ''}${headFlash > 0 && visibleRefs(c.refs).includes('HEAD') ? ' head-flash' : ''}`}
+            style={{ gridTemplateColumns: gridCols }}
+            aria-selected={selectedCommit === c.hash}
+            title={`${c.message}\n${c.hash}\n${tr('cmp.pickHint')}`}
+            onClick={(e) => {
+              if (e.ctrlKey || e.metaKey) {
+                void setCompareEnd(c.hash).then(() => {
+                  const st = useStore.getState()
+                  if (st.compareA && st.compareB) openDlg('compare')
+                })
+              } else void selectCommit(selectedCommit === c.hash ? null : c.hash)
+            }}
+            onKeyDown={(e) => rowKeyDown(e, i, c.hash)}
+            onContextMenu={(e) => commitMenu(e, c.hash, c.message, c.author)}
+          >
+            <span className="graph-cell">
+              <GraphCell
+                commit={c}
+                maxLane={maxLane}
+                above={i === 0 ? [] : bottomTouches(rows[i - 1] as LaneCommit)}
+                below={i === rows.length - 1 ? [] : topTouches(rows[i + 1] as LaneCommit)}
+              />
+            </span>
+            <span className="msg">
+              {visibleRefs(c.refs).map((r) => (
+                <RefBadge key={r} name={r} />
+              ))}
+              {(c.hash === compareA || c.hash === compareB) && (
+                <span className="cmp-mark" aria-hidden="true" title={tr('cmp.pickHint')}>
+                  ⇄
+                </span>
+              )}
+              {c.message}
+            </span>
+            <span className="muted" title={c.date.slice(0, 16).replace('T', ' ')}>
+              {absDate(DATE_LOCALE[lang], c.date)}
+            </span>
+            <span className="muted author-cell" title={c.author}>
+              <Avatar name={c.author} />
+              <span className="author-name">{c.author}</span>
+            </span>
+            <span className="mono muted">{shortHash(c.hash)}</span>
+          </div>
+          )
+        })}
+        {win[1] < rows.length && <div style={{ height: (rows.length - win[1]) * ROW_H }} />}
+        {hasMoreCommits && (
+          <div className="history-more">
+            <button className="mini-btn" disabled={loadingMore} onClick={() => void loadMoreCommits()}>
+              {loadingMore ? tr('dlg.working') : tr('hist.loadMore')}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
