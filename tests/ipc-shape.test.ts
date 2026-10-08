@@ -27,7 +27,10 @@ describe('ipc handlers invocados', () => {
   })
 
   it('readOp existe e invoca', () => {
-    expect(src).toContain('function readOp<T>(fn: () => Promise<T>): Promise<T> {')
+    const srcIndex = src
+    const srcRunner = readFileSync(join(__dirname, '..', 'src', 'main', 'git', 'runner.ts'), 'utf-8')
+    const has = srcIndex.includes('function readOp<T>') || srcRunner.includes('export function readOp<T>') || srcIndex.includes('export { readOp }') || srcRunner.includes('function readOp<T>')
+    expect(has).toBe(true)
   })
 
   /**
