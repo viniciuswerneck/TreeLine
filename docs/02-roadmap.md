@@ -97,6 +97,6 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | Flatpak/AppStream | 4 | ◑ (manifesto, metainfo e screenshots prontos; submissão no Flathub pendente) |
 | CI de release | 4 | ☑ (typecheck + Vitest + build + `.deb`/AppImage + GitHub Release em tag `v*`) |
 | Pacote/binário sem colisão | 4 | ☑ (`treeline-git-gui` no `.deb`, `/usr/bin` e Flatpak; `TreeLine` segue como nome de exibição) |
-| Hardening (segurança/estado/a11y) | 4 | ◐ revisão em `07-plano-de-acao.md` (10 partes); Partes 1 (avisos), 2 (segurança interna), 3 (estabilidade ao trocar de repo/sync) e 4 (feedback: carregando/vazio/erros) concluídas — próximas: 5-6 (a11y/i18n) e depois 10 (quebra de monolitos: `main/index.ts` → `src/main/git/*` + `app/*`, `store.ts` → slices zustand, guardrail CI com `madge` + tamanho de arquivo) antes das features (8/9) |
+| Hardening (segurança/estado/a11y) | 4 | ◐ revisão em `07-plano-de-acao.md` (10 partes); Partes 1 (avisos), 2 (segurança interna), 3 (estabilidade ao trocar de repo/sync), 4 (feedback: carregando/vazio/erros) e 5 (a11y, `5a05739`) concluídas; 6 parcial (falta 6.1 paleta em inglês e 6.7 chaves mortas) — próximo: concluir 6, depois 10 (só 10.1–10.3 feitos; `main/index.ts` ainda 2.717 linhas/124 handlers, `store.ts` 1.620 linhas, `src/store/slices/` vazio, sem guardrail `madge`) antes das features (8/9) — coluna "Feito" do plano auditada em 2026-10-08 (27 itens `[x]` devolvidos a `[ ]`) |
 
 Legenda: ☐TODO / ◐parcial / ☑pronto / ◑em andamento. Atualizar por release.

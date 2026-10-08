@@ -134,13 +134,13 @@
 
 | # | O que fazer | Por que importa | Onde | Esforço | Feito |
 |---|---|---|---|---|---|
-| 6.1 | Traduzir a paleta de comandos (ctrl+K) | Toda a lista está em inglês fixo | `CommandPalette.tsx:59-84` | 🟢 | [x] |
+| 6.1 | Traduzir a paleta de comandos (ctrl+K) | Toda a lista está em inglês fixo | `CommandPalette.tsx:59-84` | 🟢 | [ ] |
 | 6.2 | Traduzir rótulos do resolvedor de conflito | Inglês fixo visível | `ConflictResolver.tsx:21-37` | 🟢 | [x] |
 | 6.3 | Traduzir rebase interativo ("Base", "Load", "main") | Mistura de idiomas | `RebaseInteractiveDialog.tsx:73-77` | 🟢 | [x] |
 | 6.4 | Traduzir Histórico de arquivo e "Ver alteração" | Português fixo quebra EN/ES | `FileHistoryDialog.tsx:74-77` | 🟢 | [x] |
 | 6.5 | Traduzir busca de arquivo e rótulo "Commit" | Fixos | `GoToFile.tsx:42`, `DetailsPanel.tsx:238` | 🟢 | [x] |
 | 6.6 | Versão do app dinâmica (não fixa no rodapé) | Evita ficar desatualizada | `StatusBar.tsx:117` | 🟢 | [x] |
-| 6.7 | Apagar as ~22 traduções não usadas | Faxina, evita confusão | `i18n.ts` | 🟢 | [x] |
+| 6.7 | Apagar as ~22 traduções não usadas | Faxina, evita confusão | `i18n.ts` | 🟢 | [ ] |
 | 6.8 | Melhorar plurais ("1 arquivo(s)" → "1 arquivo") | Gramática em PT/ES | `i18n.ts` | 🟡 | [x] |
 
 **Resultado esperado:** nenhum texto "solto" em idioma errado.
@@ -155,12 +155,12 @@
 |---|---|---|---|---|---|
 | 7.1 | Padronizar cantos (8px botões, 12px modais) | Desalinhamento sutil | `styles.css:304,351` | 🟢 | [x] |
 | 7.2 | Estado de botão desabilitado (mais apagado e sem hover) | Hoje parece clicável quando não está | `styles.css:349` | 🟢 | [x] |
-| 7.3 | Cores de diff/status adaptadas a cada tema | Baixo contraste em temas claros | `styles.css` | 🟡 | [x] |
+| 7.3 | Cores de diff/status adaptadas a cada tema | Baixo contraste em temas claros | `styles.css` | 🟡 | [ ] |
 | 7.4 | Animação só em posição/opacidade | Regra do design system | `styles.css` (vários) | 🟡 | [x] |
 | 7.5 | Aumentar área de clique dos botões pequenos | WCAG / dedo/mouse | `styles.css` | 🟢 | [x] |
-| 7.6 | Ver mudanças em árvore de pastas | Projetos grandes ficam difíceis | `DetailsPanel.tsx` | 🟡 | [x] |
+| 7.6 | Ver mudanças em árvore de pastas | Projetos grandes ficam difíceis | `DetailsPanel.tsx` | 🟡 | [ ] |
 | 7.7 | Layout das colunas de arquivos flexível (não largura fixa 240px) | Transborda em janela estreita | `styles.css:340` | 🟡 | [x] |
-| 7.8 | Barra do topo com dica de rolagem quando não cabe | Botões "somem" sem aviso | `styles.css:139` | 🟢 | [x] |
+| 7.8 | Barra do topo com dica de rolagem quando não cabe | Botões "somem" sem aviso | `styles.css:139` | 🟢 | [ ] |
 
 **Resultado esperado:** consistência visual e uso confortável em qualquer tamanho de janela.
 
@@ -173,19 +173,19 @@
 | # | O que fazer | Para quê | Esforço | Feito |
 |---|---|---|---|---|
 | 8.1 | Busca por conteúdo no código (pickaxe) | Achar onde um texto mudou | 🟡 | [x] |
-| 8.2 | Configurações de diff/merge no Settings | Ajustar contexto, espaço, ferramenta | 🟡 | [x] |
-| 8.3 | Worktrees (várias pastas/branches) | Trabalhar em paralelo | 🔴 | [x] |
-| 8.4 | Bisect | Achar commit que quebrou | 🔴 | [x] |
-| 8.5 | Assinar commits (GPG) e verificar | Times que exigem | 🔴 | [x] |
-| 8.6 | Opções de commit (signoff, no-verify, autor, allow-empty) | Casos especiais | 🟡 | [x] |
-| 8.7 | Merge com squash/no-commit/estratégias | Fluxos de PR | 🟡 | [x] |
-| 8.8 | Cherry-pick em faixa e com `-x` | Portar vários commits | 🟡 | [x] |
-| 8.9 | Submódulos: adicionar/remover/sincronizar | Além do "update" atual | 🟡 | [x] |
-| 8.10 | Editar `.gitignore` pelo app | Evitar terminal | 🟢 | [x] |
-| 8.11 | Blame na lateral do código (inline) | Ver autoria sem modal | 🟡 | [x] |
-| 8.12 | Abas no detalhe do commit (Resumo/Arquivos/Diff/Blame) | Organização estilo SourceTree | 🟡 | [x] |
+| 8.2 | Configurações de diff/merge no Settings | Ajustar contexto, espaço, ferramenta | 🟡 | [ ] |
+| 8.3 | Worktrees (várias pastas/branches) | Trabalhar em paralelo | 🔴 | [ ] |
+| 8.4 | Bisect | Achar commit que quebrou | 🔴 | [ ] |
+| 8.5 | Assinar commits (GPG) e verificar | Times que exigem | 🔴 | [ ] |
+| 8.6 | Opções de commit (signoff, no-verify, autor, allow-empty) | Casos especiais | 🟡 | [ ] |
+| 8.7 | Merge com squash/no-commit/estratégias | Fluxos de PR | 🟡 | [ ] |
+| 8.8 | Cherry-pick em faixa e com `-x` | Portar vários commits | 🟡 | [ ] |
+| 8.9 | Submódulos: adicionar/remover/sincronizar | Além do "update" atual | 🟡 | [ ] |
+| 8.10 | Editar `.gitignore` pelo app | Evitar terminal | 🟢 | [ ] |
+| 8.11 | Blame na lateral do código (inline) | Ver autoria sem modal | 🟡 | [ ] |
+| 8.12 | Abas no detalhe do commit (Resumo/Arquivos/Diff/Blame) | Organização estilo SourceTree | 🟡 | [ ] |
 | 8.13 | Feedback de hooks (pre-commit) | Entender bloqueios | 🟡 | [x] |
-| 8.14 | Apagar branch remota | Limpeza de remoto | 🟢 | [x] |
+| 8.14 | Apagar branch remota | Limpeza de remoto | 🟢 | [ ] |
 
 **Resultado esperado:** paridade real com SourceTree para trabalho avançado.
 
@@ -198,14 +198,14 @@
 | # | Ideia | Ganho | Esforço | Feito |
 |---|---|---|---|---|
 | 9.1 | "Desfazer" global de operação (usando backups existentes) | Segurança e confiança | 🟡 | [x] |
-| 9.2 | Arrastar commits no grafo (squash/reordenar) | Fluxo visual poderoso | 🔴 | [x] |
+| 9.2 | Arrastar commits no grafo (squash/reordenar) | Fluxo visual poderoso | 🔴 | [ ] |
 | 9.3 | Paleta estilo VS Code (busca inteligente + atalhos visíveis) | Produtividade | 🟡 | [x] |
 | 9.4 | Painel do repositório (ahead/behind, PRs, CI) | Visão geral | 🔴 | [x] |
-| 9.5 | Integração GitHub/GitLab (criar PR/issue, checkout de PR) | Menos ir ao navegador | 🔴 | [x] |
+| 9.5 | Integração GitHub/GitLab (criar PR/issue, checkout de PR) | Menos ir ao navegador | 🔴 | [ ] |
 | 9.6 | Tela de boas-vindas com recentes + clone + tutorial | Onboarding premium | 🟡 | [x] |
-| 9.7 | Mensagem de commit assistida (opt-in) | Conveniência | 🟡 | [x] |
-| 9.8 | Layouts/workspaces salvos, modo foco | Times diferentes | 🟡 | [x] |
-| 9.9 | Busca global (código + histórico + comandos) | Navegação única | 🔴 | [x] |
+| 9.7 | Mensagem de commit assistida (opt-in) | Conveniência | 🟡 | [ ] |
+| 9.8 | Layouts/workspaces salvos, modo foco | Times diferentes | 🟡 | [ ] |
+| 9.9 | Busca global (código + histórico + comandos) | Navegação única | 🔴 | [ ] |
 
 **Resultado esperado:** identidade própria; não é só "clone do SourceTree".
 
@@ -224,11 +224,11 @@
 | 10.1 | Extrair `STR`/`mx`/`asLang` + erros amigáveis para `main/messages.ts` (módulo puro, ganha Vitest) | i18n do main hoje misturado com handlers | `main/index.ts:26-315` | 🟢 | [x] |
 | 10.2 | Extrair validação (`assertSafeRef`, `assertRefName`, `relPathSafe`, `assertRebasePlan`, `assertCloneUrl`) para `main/git/validate.ts` | segurança isolada e sem dependência | `main/index.ts:523-600` | 🟢 | [x] |
 | 10.3 | Extrair fila/lock/cancel (`enqueue`, `readOp`, `readIndexOp`, `runGitCancellable`, `syncControllers`) para `main/git/runner.ts` | núcleo do "motor Git" isolado e testável | `main/index.ts:361-485` | 🟢 | [x] |
-| 10.4 | Dividir ~90 `ipcMain.handle` do Git por domínio em `src/main/git/*.ts` (mapa abaixo) — cada arquivo registra seus próprios handlers | hoje tudo num arquivo; cada domínio evolui sozinho | `main/index.ts` (todo) | 🔴 | [x] |
-| 10.5 | `main/index.ts` vira bootstrap (~40 linhas): janela/splash + `import './git/*'` (registro por efeito, como já funciona); infra não-git para `app/{terminal,watchers,bookmarks,customActions,identity,settings,updates}.ts` | separar infra de janela × operação git | `main/index.ts:1324-2160` | 🟡 | [x] |
-| 10.6 | Quebrar `store.ts` em slices zustand (`store/{types,helpers}.ts` + `slices/{repos,worktree,sync,conflicts,ops,ui}.ts`): `type Slice = (set, get) => Partial<TreeLineState>` e `create<TreeLineState>()((set,get) => ({...slices}))` | store gigante de ~100 props; slices preservam `set/get` e chamadas cruzadas, comportamento idêntico | `store.ts` (todo) | 🔴 | [x] |
-| 10.7 | Guardrail no CI contra re-crescimento: `npm run check:structure` = `madge --circular src` + `scripts/check-sizes.mjs` (arquivo novo em `src/` > 800 linhas falha); regra de casa: handler/ação novo nasce no módulo de domínio | sem o guardrail o monólito volta em 2 features | CI + `package.json` | 🟢 | [x] |
-| 10.8 | Atualizar `docs/03-arquitetura.md` com o mapa de módulos REAL; registrar a conclusão em `docs/05`/`docs/02` | docs são a fonte da verdade | docs | 🟢 | [x] |
+| 10.4 | Dividir ~90 `ipcMain.handle` do Git por domínio em `src/main/git/*.ts` (mapa abaixo) — cada arquivo registra seus próprios handlers | hoje tudo num arquivo; cada domínio evolui sozinho | `main/index.ts` (todo) | 🔴 | [ ] |
+| 10.5 | `main/index.ts` vira bootstrap (~40 linhas): janela/splash + `import './git/*'` (registro por efeito, como já funciona); infra não-git para `app/{terminal,watchers,bookmarks,customActions,identity,settings,updates}.ts` | separar infra de janela × operação git | `main/index.ts:1324-2160` | 🟡 | [ ] |
+| 10.6 | Quebrar `store.ts` em slices zustand (`store/{types,helpers}.ts` + `slices/{repos,worktree,sync,conflicts,ops,ui}.ts`): `type Slice = (set, get) => Partial<TreeLineState>` e `create<TreeLineState>()((set,get) => ({...slices}))` | store gigante de ~100 props; slices preservam `set/get` e chamadas cruzadas, comportamento idêntico | `store.ts` (todo) | 🔴 | [ ] |
+| 10.7 | Guardrail no CI contra re-crescimento: `npm run check:structure` = `madge --circular src` + `scripts/check-sizes.mjs` (arquivo novo em `src/` > 800 linhas falha); regra de casa: handler/ação novo nasce no módulo de domínio | sem o guardrail o monólito volta em 2 features | CI + `package.json` | 🟢 | [ ] |
+| 10.8 | Atualizar `docs/03-arquitetura.md` com o mapa de módulos REAL; registrar a conclusão em `docs/05`/`docs/02` | docs são a fonte da verdade | docs | 🟢 | [ ] |
 
 **Mapa-alvo do main (Fase B):**
 
@@ -261,11 +261,20 @@
 |---|---|---|---|
 | 1 | Confiança e segurança | Parte 1 ✅ + Parte 2 ✅ | Nada perigoso acontece sem querer |
 | 2 | Estabilidade | Parte 3 ✅ | Trocar de repo e sincronizar sem sustos |
-| 3 | Feedback e clareza | Parte 4 ✅ + Parte 6 | Sem "travou?" e sem texto errado |
-| 4 | Acessibilidade e visual | Parte 5 + Parte 7 | Usável por teclado, cara de premium |
-| 5 | Manutenção estrutural | Parte 10 | Monolitos quebrados (arquivos < 800 linhas, domínios isolados, zero ciclos) |
-| 6 | Paridade | Parte 8 | Recursos avançados |
-| 7 | Diferencial | Parte 9 | Marca própria |
+| 3 | Feedback e clareza | Parte 4 ✅ + Parte 6 ◐ (falta 6.1, 6.7) | Sem "travou?" e sem texto errado |
+| 4 | Acessibilidade e visual | Parte 5 ✅ + Parte 7 ◐ (falta 7.3, 7.6, 7.8) | Usável por teclado, cara de premium |
+| 5 | Manutenção estrutural | Parte 10 ◐ (só 10.1–10.3) | Monolitos quebrados (arquivos < 800 linhas, domínios isolados, zero ciclos) |
+| 6 | Paridade | Parte 8 ◐ (só 8.1, 8.13) | Recursos avançados |
+| 7 | Diferencial | Parte 9 ◐ (só 9.1, 9.3, 9.4, 9.6) | Marca própria |
+
+> **Auditoria 2026-10-08:** a coluna "Feito" estava marcada `[x]` em todas as linhas
+> das Partes 6–10, inclusive em itens inexistentes no código (bisect, GPG, worktrees,
+> editor de `.gitignore`, opções de commit, abas do detalhe, drag de commits…).
+> 27 linhas foram devolvidas para `[ ]` após conferência real com o código
+> (`grep` em `src/`, `main/index.ts` 2.717 linhas / 124 handlers, `src/store/slices/`
+> vazio, 22 chaves mortas no `i18n.ts`, paleta com labels em inglês).
+> Itens **não** auditados individualmente seguem como estavam — conferir antes de
+> assumir `[x]`.
 
 ---
 
