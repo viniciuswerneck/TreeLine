@@ -389,12 +389,35 @@ export default function HistoryGraph() {
     ? selectedCommit
     : (visibleRows[0]?.hash as string | undefined)
 
-  if (rows.length === 0 && dirtyCount === 0) {
+  const isEmpty = rows.length === 0 && dirtyCount === 0
+  if (isEmpty) {
     return (
       <div className="history">
+        <div className="history-filter">
+          <span className="history-count" title={tr('hist.listed')}>
+            {tr('hist.commits', { n: 0 })}
+          </span>
+          <BranchCombo />
+          <span className="history-search">
+            <Search size={14} />
+            <input
+              ref={searchRef}
+              placeholder={`${tr('hist.filterPh')} (${formatShortcut(shortcuts.search)})`}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setFilter('')
+                  searchRef.current?.blur()
+                }
+              }}
+            />
+          </span>
+        </div>
         <div className="welcome">
-          <h1>{tr('hist.empty')}</h1>
-          <p className="muted">{tr('hist.emptyHint')}</p>
+          <h1>{filter ? tr('pal.empty') : tr('hist.empty')}</h1>
+          <p className="muted">{filter ? tr('pal.empty') : tr('hist.emptyHint')}</p>
         </div>
       </div>
     )
