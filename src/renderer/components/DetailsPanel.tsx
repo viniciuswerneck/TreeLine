@@ -1,6 +1,7 @@
 import { ArrowLeft, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { forwardRef, useEffect, useState } from 'react'
 import { useStore } from '../store'
+import type { DictKey } from '../i18n'
 import DiffViewer, { loadDiffMode, saveDiffMode, type DiffMode } from './DiffViewer'
 import { RefBadge, visibleRefs } from './HistoryGraph'
 
@@ -21,11 +22,15 @@ function FileRow({
   code,
   busy,
   roving,
+  tr,
   isConflict = false,
+  marked = false,
+  markTitle,
   onSelect,
   onContextMenu,
   onStage,
-  onUnstage
+  onUnstage,
+  onToggleMark
 }: {
   path: string
   staged: boolean
@@ -33,18 +38,22 @@ function FileRow({
   code: string
   busy: boolean
   roving: boolean
+  tr: (key: DictKey, vars?: Record<string, string | number>) => string
   isConflict?: boolean
+  marked?: boolean
+  markTitle?: string
   onSelect: () => void
   onContextMenu: (e: React.MouseEvent) => void
   onStage?: () => void
   onUnstage?: () => void
+  onToggleMark?: () => void
 }): React.ReactElement {
   return (
     <div
       className={`file-row${isConflict ? ' conflict-row' : ''}`}
       tabIndex={roving ? 0 : -1}
       aria-selected={active}
-      title={isConflict ? 'Conflict — click to resolve' : undefined}
+      title={isConflict ? tr('det.conflictTitle') : undefined}
       onClick={onSelect}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -54,44 +63,55 @@ function FileRow({
       }}
       onContextMenu={onContextMenu}
     >
+      {onToggleMark && (
+        <input
+          type="checkbox"
+          className="mark-box"
+          checked={marked}
+          title={markTitle}
+          aria-label={markTitle}
+          onClick={(e) => e.stopPropagation()}
+          onChange={onToggleMark}
+        />
+      )}
       <span className={isConflict ? 'code conflict-code' : 'code'}>{code || (staged ? '+' : '?')}</span>
       <span className="grow">{path}</span>
       {!isConflict && staged && onUnstage && (
         <button
           className="mini-btn"
-          title="Unstage file"
+          title={tr('det.unstageFile')}
           disabled={busy}
           onClick={(e) => {
             e.stopPropagation()
             onUnstage()
           }}
         >
-          Unstage
+          {tr('det.unstage')}
         </button>
       )}
       {!isConflict && !staged && onStage && (
         <button
           className="mini-btn"
-          title="Stage file"
+          title={tr('det.stageFile')}
           disabled={busy}
           onClick={(e) => {
             e.stopPropagation()
             onStage()
           }}
         >
-          Stage
+          {tr('det.stage')}
         </button>
       )}
       {isConflict && (
         <button
           className="mini-btn primary"
-          title="Resolve conflict"
+          title={tr('det.resolve')}
           onClick={(e) => {
             e.stopPropagation()
             onSelect()
           }}
         >
-          Resolve
+          {tr('det.resolve')}
         </button>
       )}
     </div>
@@ -112,18 +132,34 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const unstageAll = useStore((s) => s.unstageAll)
   const setMessage = useStore((s) => s.setMessage)
   const setAmend = useStore((s) => s.setAmend)
+  const fileFilter = useStore((s) => s.fileFilter)
+  const setFileFilter = useStore((s) => s.setFileFilter)
+  const marked = useStore((s) => s.marked)
+  const toggleMark = useStore((s) => s.toggleMark)
+  const stageMarked = useStore((s) => s.stageMarked)
+  const unstageMarked = useStore((s) => s.unstageMarked)
   const doCommit = useStore((s) => s.doCommit)
   const resolveOurs = useStore((s) => s.resolveOurs)
   const openResolver = useStore((s) => s.openResolver)
   const resolveTheirs = useStore((s) => s.resolveTheirs)
 
-  const unstaged = status?.unstaged ?? []
-  const staged = status?.staged ?? []
-  const untracked = status?.untracked ?? []
-  const conflicted = status?.conflicted ?? []
+  const allUnstaged = status?.unstaged ?? []
+  const allStaged = status?.staged ?? []
+  const allUntracked = status?.untracked ?? []
+  const allConflicted = status?.conflicted ?? []
+  // Filtro textual (path) aplicado às listas visíveis; as contagens seguem o
+  // que está na tela. A seleção/commit continuam sobre o status completo.
+  const q = fileFilter.trim().toLowerCase()
+  const keep = (p: string): boolean => !q || p.toLowerCase().includes(q)
+  const unstaged = allUnstaged.filter((f) => keep(f.path))
+  const staged = allStaged.filter((f) => keep(f.path))
+  const untracked = allUntracked.filter((p) => keep(p))
+  const conflicted = allConflicted.filter((p) => keep(p))
+  const markedU = marked.filter((k) => k.startsWith('u:')).length
+  const markedS = marked.filter((k) => k.startsWith('s:')).length
   // Sem nada em stage (e sem Amend), Commit não tem o que fazer:
   // desabilita em vez de deixar estourar erro.
-  const canCommit = message.trim().length > 0 && (staged.length > 0 || amend)
+  const canCommit = message.trim().length > 0 && (allStaged.length > 0 || amend)
 
   const selectedCommit = useStore((s) => s.selectedCommit)
   const commitDetail = useStore((s) => s.commitDetail)
@@ -438,6 +474,14 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
       {expanded && <div className="pane-backdrop" onClick={() => setExpanded(null)} />}
       <div className="details-title">
         {tr('det.fileStatus')}
+        <input
+          className="file-filter"
+          value={fileFilter}
+          onChange={(e) => setFileFilter(e.target.value)}
+          placeholder={tr('det.filterPh')}
+          aria-label={tr('det.filterPh')}
+          spellCheck={false}
+        />
         <button className="mini-btn" title={`${tr('common.refresh')} (F5)`} onClick={() => void refresh()}>
           <RefreshCw size={12} className={loading ? 'spin' : undefined} /> {tr('common.refresh')}
         </button>
@@ -458,6 +502,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
                 code="!"
                 busy={busy}
                 roving={p === conflictedRoving}
+                tr={tr}
                 isConflict
                 onSelect={() => {
                   const i = conflicted.indexOf(p)
@@ -473,12 +518,12 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             <h4>{tr('det.unstaged', { n: unstaged.length + untracked.length })}</h4>
             {(unstaged.length > 0 || untracked.length > 0) && (
               <button
-                className="mini-btn"
-                title={tr('det.stageAllTitle')}
+                className={`mini-btn${markedU > 0 ? ' primary' : ''}`}
+                title={markedU > 0 ? tr('det.stageMarked', { n: markedU }) : tr('det.stageAllTitle')}
                 disabled={busy}
-                onClick={() => void stageAll()}
+                onClick={() => void (markedU > 0 ? stageMarked() : stageAll())}
               >
-                                {tr('det.stageAll')}
+                {markedU > 0 ? tr('det.stageMarked', { n: markedU }) : tr('det.stageAll')}
               </button>
             )}
             {expandBtn('unstaged')}
@@ -492,6 +537,10 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               code={f.code.trim()}
               busy={busy}
               roving={f.path === unstagedRoving}
+              tr={tr}
+              marked={marked.includes(`u:${f.path}`)}
+              markTitle={tr('det.mark')}
+              onToggleMark={() => toggleMark(`u:${f.path}`)}
               onSelect={() => void selectFile({ path: f.path, staged: false })}
               onContextMenu={(e) => fileMenu(e, f.path, false, true)}
               onStage={() => void selectFile({ path: f.path, staged: false }).then(() => stageSelected())}
@@ -507,6 +556,15 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               onKeyDown={(e) => rowKeyDown(e, () => void selectFile({ path: p, staged: false }))}
               onContextMenu={(e) => fileMenu(e, p, false, false)}
             >
+              <input
+                type="checkbox"
+                className="mark-box"
+                checked={marked.includes(`u:${p}`)}
+                title={tr('det.mark')}
+                aria-label={tr('det.mark')}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => toggleMark(`u:${p}`)}
+              />
               <span className="code">?</span>
               <span className="grow">{p}</span>
               <button
@@ -531,12 +589,12 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             <h4>{tr('det.staged', { n: staged.length })}</h4>
             {staged.length > 0 && (
               <button
-                className="mini-btn"
-                title={tr('det.unstageAllTitle')}
+                className={`mini-btn${markedS > 0 ? ' primary' : ''}`}
+                title={markedS > 0 ? tr('det.unstageMarked', { n: markedS }) : tr('det.unstageAllTitle')}
                 disabled={busy}
-                onClick={() => void unstageAll()}
+                onClick={() => void (markedS > 0 ? unstageMarked() : unstageAll())}
               >
-                                {tr('det.unstageAll')}
+                {markedS > 0 ? tr('det.unstageMarked', { n: markedS }) : tr('det.unstageAll')}
               </button>
             )}
             {expandBtn('staged')}
@@ -550,6 +608,10 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
               code={f.code.trim()}
               busy={busy}
               roving={f.path === stagedRoving}
+              tr={tr}
+              marked={marked.includes(`s:${f.path}`)}
+              markTitle={tr('det.mark')}
+              onToggleMark={() => toggleMark(`s:${f.path}`)}
               onSelect={() => void selectFile({ path: f.path, staged: true })}
               onContextMenu={(e) => fileMenu(e, f.path, true, true)}
               onUnstage={() => void selectFile({ path: f.path, staged: true }).then(() => unstageSelected())}
@@ -645,7 +707,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
             disabled={!canCommit || busy}
             title={!canCommit ? tr('det.commitHint') : `${tr('toolbar.commitStaged')} (${tr('det.ctrlEnter')})`}
           >
-            {busy ? tr('dlg.loading') : tr('det.commit')}{staged.length > 0 && !amend ? ` (${staged.length})` : ''}
+            {busy ? tr('dlg.loading') : tr('det.commit')}{allStaged.length > 0 && !amend ? ` (${allStaged.length})` : ''}
           </button>
           {error && <span className="error">{error}</span>}
         </div>

@@ -354,6 +354,14 @@ body {
 .file-row:hover { background: var(--bg-hover); }
 .file-row[aria-selected="true"] { background: var(--bg-selected); }
 .file-row .code { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-2); width: 28px; }
+.mark-box { width: 13px; height: 13px; margin: 0; flex-shrink: 0; cursor: pointer; accent-color: var(--accent); }
+.file-filter {
+  margin-left: auto; width: 190px; min-width: 90px;
+  background: var(--bg-app); color: var(--text-1);
+  border: 1px solid var(--border-line); border-radius: 6px;
+  padding: 3px 8px; font-size: 11px; text-transform: none; letter-spacing: 0;
+}
+.details-title .mini-btn { margin-left: 8px; }
 .mini-btn {
   margin-left: auto; border: 1px solid var(--border-line); background: var(--bg-app); color: var(--text-1);
   border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;

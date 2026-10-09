@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { SHORTCUT_DEFAULTS, eventShortcut, loadShortcuts, saveShortcuts, type ShortcutAction } from './shortcuts'
-import type { BlameLine, BranchDetail, BranchInfo, CodeSearchChange, CodeSearchGroup, CodeSearchOptions, CodeSearchProgress, CodeSearchStats, CompareSummary, CommitDetail, CommitInfo, ConflictFile, ConflictOp, ConflictSide, FileHistoryEntry, FlowType, GitIdentity, HunkInfo, LfsInfo, OpState, RebasePlanEntry, ReflogEntry, RemoteBranchInfo, RemoteInfo, RepoStatus, ResetMode, StashInfo, SubmoduleInfo, SyncOp, TagInfo, WorktreeInfo } from '../shared/types'
+import type { BlameLine, BranchDetail, BranchInfo, CodeSearchChange, CodeSearchGroup, CodeSearchOptions, CodeSearchProgress, CodeSearchStats, CompareSummary, CommitDetail, CommitInfo, ConflictFile, ConflictOp, ConflictSide, CredentialHelperInfo, FileHistoryEntry, FlowType, GitIdentity, HunkInfo, LfsInfo, OpState, RebasePlanEntry, ReflogEntry, RemoteBranchInfo, RemoteInfo, RepoStatus, ResetMode, StashInfo, SubmoduleInfo, SyncOp, TagInfo, WorktreeInfo } from '../shared/types'
 import { applyTheme, loadTheme } from './themes'
 import { applyLang, loadLang, t, type DictKey, type Lang } from './i18n'
 import type { MenuItem } from './components/ContextMenu'
@@ -90,6 +90,10 @@ export const SYNC_OP_LABEL: Record<SyncOp, string> = { push: 'Push', pull: 'Pull
 // "cancelado" mentiroso.
 let pendingCancel: SyncOp | null = null
 
+// Sequência das chamadas de refresh(): se um refresh antigo termina depois de
+// outro começar (troca de repo), ele NÃO pode zerar o `loading` do novo.
+let refreshSeq = 0
+
 function cancelledSyncToast(op: SyncOp, lang: Lang): SyncState | null {
   if (pendingCancel !== op) return null
   pendingCancel = null
@@ -130,6 +134,8 @@ interface TreeLineState {
   openDialog: () => Promise<void>
   selectRepo: (path: string) => Promise<void>
   refresh: () => Promise<void>
+  /** Recarrega só o status (stage/unstage): evita log/branches/reflog/LFS a cada clique. */
+  refreshStatus: () => Promise<void>
   selectFile: (f: SelectedFile | null) => Promise<void>
   setMessage: (m: string) => void
   setAmend: (a: boolean) => void
@@ -140,6 +146,14 @@ interface TreeLineState {
   unstageSelected: () => Promise<void>
   stageAll: () => Promise<void>
   unstageAll: () => Promise<void>
+  fileFilter: string
+  setFileFilter: (f: string) => void
+  /** Chaves de arquivo marcadas: `${'s'|'u'}:${path}` (staged/unstaged). */
+  marked: string[]
+  toggleMark: (key: string) => void
+  clearMarks: () => void
+  stageMarked: () => Promise<void>
+  unstageMarked: () => Promise<void>
   doCommit: () => Promise<void>
   doPush: () => Promise<void>
   doPushForce: () => Promise<void>
@@ -197,6 +211,8 @@ interface TreeLineState {
   closeSettings: () => void
   setIdentityScope: (s: 'global' | 'local') => void
   saveIdentity: (id: GitIdentity) => Promise<void>
+  credHelper: CredentialHelperInfo | null
+  setCredHelper: (h: '' | 'libsecret' | 'cache') => Promise<void>
   selectedCommit: string | null
   commitDetail: CommitDetail | null
   commitDiff: string
@@ -380,6 +396,8 @@ moveTab: (from, to) => {
   loading: false,
   error: null,
   filter: '',
+  fileFilter: '',
+  marked: [],
   branchFilter: 'all',
   branchSel: [],
   logPage: 0,
@@ -441,14 +459,36 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     } catch {
       /* ignora */
     }
-    set({ current: path, openTabs: tabs, status: null, commits: [], branches: [], branchSel: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, lfs: null, submodules: [], selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, blameLoading: false, fileHistory: [], fileHistoryPath: null, fhistLoading: false, compareA: null, compareB: null, compare: null, dialog: null, confirmState: null, filter: '', branchFilter: 'all', resolverOpen: false, conflictFiles: [], conflictIndex: 0, conflictLoading: false, conflictOp: null, sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false }, syncRepo: null, busy: false })
+    set({ current: path, openTabs: tabs, status: null, commits: [], branches: [], branchSel: [], branchesDetailed: [], remoteBranches: [], stashes: [], tags: [], remotes: [], reflog: [], mergeState: { inProgress: false }, rebaseState: { inProgress: false }, pickState: { inProgress: false }, revertState: { inProgress: false }, worktree: null, lfs: null, submodules: [], selectedFile: null, diff: '', hunks: [], error: null, selectedCommit: null, commitDetail: null, commitDiff: '', blame: [], blameFile: null, blameLoading: false, fileHistory: [], fileHistoryPath: null, fhistLoading: false, compareA: null, compareB: null, compare: null, dialog: null, confirmState: null, filter: '', fileFilter: '', marked: [], branchFilter: 'all', resolverOpen: false, conflictFiles: [], conflictIndex: 0, conflictLoading: false, conflictOp: null, rerere: false, flowInstalled: false, sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: false }, syncRepo: null, busy: false })
     await window.treeline.addRecent(path)
     await get().refresh()
+  },
+
+  // Stage/unstage só mexem no index: recarregar log/branches/reflog/LFS/
+  // submodules/flow a cada clique era o maior custo de latência do operador.
+  // Aqui lê só o status e reabre o diff do arquivo selecionado.
+  refreshStatus: async () => {
+    const repo = get().current
+    if (!repo) return
+    const status = await fail(window.treeline.getStatus(repo), (e) => set({ error: e }))
+    if (get().current !== repo) return
+    if (status) {
+      // Poda marcas de arquivos que saíram do status (staged/unstaged mudou).
+      const valid = new Set([
+        ...status.staged.map((f) => `s:${f.path}`),
+        ...status.unstaged.map((f) => `u:${f.path}`),
+        ...status.untracked.map((p) => `u:${p}`)
+      ])
+      set({ status, marked: get().marked.filter((k) => valid.has(k)) })
+    }
+    const sel = get().selectedFile
+    if (sel) await get().selectFile(sel)
   },
 
   refresh: async () => {
     const repo = get().current
     if (!repo) return
+    const seq = ++refreshSeq
     set({ loading: true, error: null })
     // Fase 1: branch atual (para o log com ancestry real no modo current).
     const [status, branches] = await Promise.all([
@@ -457,7 +497,10 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     ])
     // 3.1: se trocou de repo durante a leitura, descarta — nunca mistura
     // dados do repo A numa tela que já mostra o repo B.
-    if (get().current !== repo) return
+    if (get().current !== repo) {
+      if (seq === refreshSeq) set({ loading: false })
+      return
+    }
     const ref = logRefs({ ...get(), branches: branches ?? [], status })
     const [commits, branchesDetailed, remoteBranches, stashes, tags, remotes, reflog, mergeState, rebaseState, pickState, revertState, worktree, lfs, submodules, flow] = await Promise.all([
       fail(window.treeline.getLog(repo, 300, 0, ref), (e) => set({ error: e })),
@@ -496,7 +539,10 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
         ])
       : [null, null, null]
     // 3.1: resposta atrasada do repo antigo não invade a tela do novo.
-    if (get().current !== repo) return
+    if (get().current !== repo) {
+      if (seq === refreshSeq) set({ loading: false })
+      return
+    }
     set({
       conflictFiles: conflictFiles ?? (wantConflicts ? get().conflictFiles : []),
       // `getConflictOp` só devolve 'stash' enquanto há unmerged no index: no
@@ -508,6 +554,18 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
       commits: commits ?? get().commits,
       logPage: 0,
       hasMoreCommits: (commits?.length ?? 0) >= 300,
+      // Marca de arquivo que saiu do status (commit/stage mudou de grupo)
+      // não pode sobreviver ao refresh completo.
+      marked: status
+        ? get().marked.filter(
+            (k) =>
+              new Set([
+                ...status.staged.map((f) => `s:${f.path}`),
+                ...status.unstaged.map((f) => `u:${f.path}`),
+                ...status.untracked.map((p) => `u:${p}`)
+              ]).has(k)
+          )
+        : get().marked,
       branches: branches ?? get().branches,
       branchesDetailed: branchesDetailed ?? get().branchesDetailed,
       remoteBranches: remoteBranches ?? get().remoteBranches,
@@ -563,12 +621,9 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     if (!current || !status) return
     set({ error: null, busy: true })
     try {
-      const files = [...status.unstaged.map((f) => f.path), ...status.untracked]
-      for (const file of files) {
-        const ok = await fail(window.treeline.stage(current, file), (e) => set({ error: e }))
-        if (ok === null) return
-      }
-      await get().refresh()
+      const ok = await fail(window.treeline.stageAll(current), (e) => set({ error: e }))
+      if (ok === null) return
+      await get().refreshStatus()
     } finally {
       set({ busy: false })
     }
@@ -579,11 +634,54 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     if (!current || !status) return
     set({ error: null, busy: true })
     try {
-      for (const f of status.staged) {
-        const ok = await fail(window.treeline.unstage(current, f.path), (e) => set({ error: e }))
-        if (ok === null) return
+      const ok = await fail(window.treeline.unstageAll(current), (e) => set({ error: e }))
+      if (ok === null) return
+      await get().refreshStatus()
+    } finally {
+      set({ busy: false })
+    }
+  },
+
+  setFileFilter: (f) => set({ fileFilter: f }),
+
+  toggleMark: (key) =>
+    set((st) => ({
+      marked: st.marked.includes(key) ? st.marked.filter((k) => k !== key) : [...st.marked, key]
+    })),
+
+  clearMarks: () => set({ marked: [] }),
+
+  stageMarked: async () => {
+    const { current, marked } = get()
+    if (!current) return
+    const files = marked.filter((k) => k.startsWith('u:')).map((k) => k.slice(2))
+    if (files.length === 0) return
+    set({ error: null, busy: true })
+    try {
+      const ok = await fail(window.treeline.stageFiles(current, files), (e) => set({ error: e }))
+      if (ok !== null) {
+        // Remove só as marcas que processamos: apagar `s:` também descartaria
+        // a seleção de unstage que o usuário tinha montado em paralelo.
+        set({ marked: get().marked.filter((k) => !k.startsWith('u:')) })
+        await get().refreshStatus()
       }
-      await get().refresh()
+    } finally {
+      set({ busy: false })
+    }
+  },
+
+  unstageMarked: async () => {
+    const { current, marked } = get()
+    if (!current) return
+    const files = marked.filter((k) => k.startsWith('s:')).map((k) => k.slice(2))
+    if (files.length === 0) return
+    set({ error: null, busy: true })
+    try {
+      const ok = await fail(window.treeline.unstageFiles(current, files), (e) => set({ error: e }))
+      if (ok !== null) {
+        set({ marked: get().marked.filter((k) => !k.startsWith('s:')) })
+        await get().refreshStatus()
+      }
     } finally {
       set({ busy: false })
     }
@@ -596,7 +694,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     try {
       const ok = await fail(window.treeline.stage(current, selectedFile.path), (e) => set({ error: e }))
       if (ok !== null) {
-        await get().refresh()
+        await get().refreshStatus()
         await get().selectFile({ path: selectedFile.path, staged: true })
       }
     } finally {
@@ -611,7 +709,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     try {
       const ok = await fail(window.treeline.unstage(current, selectedFile.path), (e) => set({ error: e }))
       if (ok !== null) {
-        await get().refresh()
+        await get().refreshStatus()
         await get().selectFile({ path: selectedFile.path, staged: false })
       }
     } finally {
@@ -812,6 +910,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
       fail(window.treeline.getConflictFiles(current), (e) => set({ error: e })),
       fail(window.treeline.getConflictOp(current), (e) => set({ error: e }))
     ])
+    if (get().current !== current) return
     set({ conflictFiles: files ?? [], conflictOp: op ?? null, conflictLoading: false })
   },
 
@@ -823,6 +922,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     set({ conflictIndex: index, conflictLoading: true })
     const cur = get().current
     if (cur) await fail(window.treeline.getConflictStages(cur, files[index].path), (e) => set({ error: e }))
+    if (get().current !== cur) return
     set({ conflictLoading: false })
   },
 
@@ -851,7 +951,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     const { current, conflictFiles, conflictIndex } = get()
     if (!current) return
     const remaining = await fail(window.treeline.getConflictFiles(current), (e) => set({ error: e }))
-    if (!remaining) return
+    if (!remaining || get().current !== current) return
     if (remaining.length === 0) {
       // NÃO fecha: o rodapé vira "0 conflitos" com Continue habilitado.
       set({ conflictFiles: [], conflictIndex: 0 })
@@ -862,6 +962,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     const next = Math.min(conflictIndex, remaining.length - 1)
     set({ conflictFiles: remaining, conflictIndex: path && remaining[next]?.path === path ? next : Math.min(next + 1, remaining.length - 1) })
     if (remaining[next]) await fail(window.treeline.getConflictStages(current, remaining[next].path), (e) => set({ error: e }))
+    if (get().current !== current) return
     await get().refresh()
   },
 
@@ -876,6 +977,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     }
     set({ conflictFiles: [], conflictIndex: 0, message: get().tr('cr.applied', { f: `${files.length} file(s)` }) })
     // Igual a advanceAfterResolve: fica no overlay para o Continue da operação.
+    if (get().current !== current) return
     await get().refresh()
   },
 
@@ -1033,9 +1135,14 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
   identitySaving: false,
   identityError: null,
   identitySaved: false,
+  credHelper: null,
 
   openSettings: async () => {
     set({ settingsOpen: true, identityError: null, identitySaved: false })
+    void window.treeline
+      .getCredentialHelper()
+      .then((info) => set({ credHelper: info }))
+      .catch(() => undefined)
     const { current } = get()
     if (current) {
       // `rerere.enabled` é config LOCAL do repo: lê aqui para o Settings não
@@ -1045,6 +1152,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
         fail(window.treeline.getEffectiveIdentity(current), (e) => set({ identityError: e })),
         fail(window.treeline.getRerere(current), (e) => set({ error: e }))
       ])
+      if (get().current !== current) return
       if (rerere !== null) set({ rerere })
       if (eff !== null) {
         set({
@@ -1062,6 +1170,13 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
   closeSettings: () => set({ settingsOpen: false, identityError: null, identitySaved: false }),
 
   setIdentityScope: (s) => set({ identityScope: s }),
+
+  setCredHelper: async (h) => {
+    const ok = await fail(window.treeline.setCredentialHelper(h, get().lang), (e) => set({ error: e }))
+    if (ok === null) return
+    const info = await fail(window.treeline.getCredentialHelper(), (e) => set({ error: e }))
+    if (info !== null) set({ credHelper: info })
+  },
 
   saveIdentity: async (id) => {
     const lang = get().lang
@@ -1095,6 +1210,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     const { current } = get()
     if (!current || !hash) return
     const detail = await fail(window.treeline.getCommitDetail(current, hash), (e) => set({ error: e }))
+    if (get().current !== current) return
     if (detail !== null) {
       set({ commitDetail: detail })
       if (detail.files.length === 1) await get().selectCommitFile(detail.files[0] as string)
@@ -1108,6 +1224,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     const diff = await fail(window.treeline.getCommitDiff(current, selectedCommit, path), (e) =>
       set({ error: e })
     )
+    if (get().current !== current || get().selectedCommit !== selectedCommit) return
     set({ commitDiff: diff ?? '' })
   },
 
@@ -1174,6 +1291,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     if (!current) return
     set({ blame: [], blameFile: path, blameLoading: true, error: null })
     const rows = await fail(window.treeline.getBlame(current, path, rev, get().lang), (e) => set({ error: cleanErr(e) }))
+    if (get().current !== current) return
     set({ blame: rows ?? [], blameLoading: false })
   },
   closeBlame: () => set({ blame: [], blameFile: null, blameLoading: false, dialog: get().dialog === 'blame' ? null : get().dialog }),
@@ -1185,6 +1303,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     if (!current) return
     set({ fileHistory: [], fileHistoryPath: path, fhistLoading: true, error: null })
     const rows = await fail(window.treeline.getFileHistory(current, path, 100), (e) => set({ error: cleanErr(e) }))
+    if (get().current !== current) return
     set({ fileHistory: rows ?? [], fhistLoading: false })
   },
   closeFileHistory: () => set({ fileHistory: [], fileHistoryPath: null, fhistLoading: false, dialog: get().dialog === 'fileHistory' ? null : get().dialog }),
@@ -1192,6 +1311,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     const { current } = get()
     if (!current || !hash || !path) return ''
     const diff = await fail(window.treeline.getCommitDiff(current, hash, path), (e) => set({ error: cleanErr(e) }))
+    if (get().current !== current) return ''
     return diff ?? ''
   },
   compareA: null,
@@ -1206,6 +1326,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     set({ compareB: hash, compare: null, compareFile: null, compareDiffText: '', error: null })
     if (!current) return
     const sum = await fail(window.treeline.compareCommits(current, compareA, hash, get().lang), (e) => set({ error: cleanErr(e) }))
+    if (get().current !== current || get().compareA !== compareA || get().compareB !== hash) return
     if (sum !== null) {
       set({ compare: sum })
       if (sum.files.length === 1) await get().selectCompareFile(sum.files[0] as string)
@@ -1217,6 +1338,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     if (!current || !compareA || !compareB) return
     set({ compareFile: path, compareDiffText: '' })
     const d = await fail(window.treeline.compareDiff(current, compareA, compareB, path, get().lang), (e) => set({ error: cleanErr(e) }))
+    if (get().current !== current || get().compareA !== compareA || get().compareB !== compareB) return
     set({ compareDiffText: d ?? '' })
   },
   paletteOpen: false,
@@ -1232,6 +1354,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     if (!current) return
     try {
       const tracked = await window.treeline.getTrackedFiles(current).catch(() => [] as string[])
+      if (get().current !== current) return
       const untracked = status?.untracked ?? []
       const unstaged = (status?.unstaged ?? []).map((f) => f.path)
       const staged = status?.staged ?? []

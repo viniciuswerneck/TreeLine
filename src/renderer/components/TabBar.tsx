@@ -41,7 +41,7 @@ export default function TabBar() {
 
   if (openTabs.length === 0) return null
   return (
-    <div className="tabbar" role="tablist" aria-label="Repositories">
+    <div className="tabbar" role="tablist" aria-label={tr('tab.aria')}>
       {openTabs.map((t) => {
         const active = t === current
         return (

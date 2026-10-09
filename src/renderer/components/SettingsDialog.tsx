@@ -130,6 +130,8 @@ export default function SettingsDialog() {
   const current = useStore((s) => s.current)
   const rerere = useStore((s) => s.rerere)
   const toggleRerere = useStore((s) => s.toggleRerere)
+  const credHelper = useStore((s) => s.credHelper)
+  const setCredHelper = useStore((s) => s.setCredHelper)
   const tr = useStore((s) => s.tr)
 
   const [name, setName] = useState(identity.name)
@@ -159,7 +161,7 @@ export default function SettingsDialog() {
         className="modal two-col"
         role="dialog"
         aria-modal="true"
-        aria-label="Settings"
+        aria-label={tr('settings.aria')}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
@@ -256,7 +258,7 @@ export default function SettingsDialog() {
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder={tr('settings.emailPh')}
                 inputMode="email"
               />
             </label>
@@ -314,6 +316,43 @@ export default function SettingsDialog() {
             <p className="muted" style={{ fontSize: '11px', marginTop: 4 }}>
               {rerere ? tr('cr.rerereOn') : tr('cr.rerereOff')}
             </p>
+          </div>
+          <div className="two-col-col">
+            <div className="dlg-section">{tr('settings.secCred')}</div>
+            <p className="muted" style={{ fontSize: '11px' }}>{tr('settings.credHint')}</p>
+            <label className="field">
+              <span>{tr('settings.secCred')}</span>
+              <select
+                value={
+                  credHelper?.current.some((h) => h.includes('libsecret'))
+                    ? 'libsecret'
+                    : credHelper?.current.some((h) => h.includes('cache'))
+                      ? 'cache'
+                      : 'keep'
+                }
+                onChange={(e) => {
+                  // "Manter" é no-op: só cache/libsecret alteram o config.
+                  // Antes o valor '' do "manter" chamava setCredentialHelper('')
+                  // e apagava TODOS os helpers globais do usuário.
+                  if (e.target.value === 'keep') return
+                  void setCredHelper(e.target.value as 'libsecret' | 'cache')
+                }}
+              >
+                <option value="keep">{tr('settings.credKeep')}</option>
+                <option value="cache">{tr('settings.credCache')}</option>
+                <option value="libsecret" disabled={credHelper ? !credHelper.libsecretAvailable : true}>
+                  {tr('settings.credLibsecret')}
+                </option>
+              </select>
+            </label>
+            <p className="muted" style={{ fontSize: '11px' }}>
+              {credHelper && credHelper.current.length > 0
+                ? tr('settings.credCurrent', { v: credHelper.current.join(', ') })
+                : tr('settings.credNone')}
+            </p>
+            {credHelper && !credHelper.libsecretAvailable && (
+              <p className="muted" style={{ fontSize: '11px' }}>{tr('settings.credUnavailable')}</p>
+            )}
           </div>
         </div>
         <div className="modal-actions">

@@ -255,7 +255,7 @@ function SplitHunk({ hunk, staged }: { hunk: HunkInfo; staged: boolean }) {
           </button>
         )}
       </div>
-      <div className="split-grid" role="table" aria-label="Split diff">
+      <div className="split-grid" role="table" aria-label={tr('diff.ariaSplit')}>
         {rows.map((r, i) => {
           const changed = r.lineIdx.length > 0
           const on = r.lineIdx.length > 0 && r.lineIdx.every((x) => sel.has(x))
@@ -317,6 +317,7 @@ interface DiffViewerProps {
  * em unified ou split (duas colunas com setas por bloco).
  */
 export default function DiffViewer({ text, staged = false, hunks, interactive = false, mode = 'unified' }: DiffViewerProps) {
+  const tr = useStore((s) => s.tr)
   const lines = useMemo(() => parseDiff(text), [text])
   const useHunks = interactive && hunks && hunks.length > 0
   const useSplit = useHunks && mode === 'split'
@@ -354,7 +355,7 @@ export default function DiffViewer({ text, staged = false, hunks, interactive = 
   }, [])
 
   return (
-    <div ref={diffRef} className="diff-view" role="document" aria-label="Diff">
+    <div ref={diffRef} className="diff-view" role="document" aria-label={tr('diff.aria')}>
       {useSplit
         ? (hunks as HunkInfo[]).map((h) => <SplitHunk key={h.index} hunk={h} staged={staged} />)
         : useHunks

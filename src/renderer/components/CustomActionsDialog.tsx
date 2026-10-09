@@ -99,11 +99,11 @@ export default function CustomActionsDialog() {
       <div className="field-row">
         <label className="field">
           <span>{tr('custom.name')}</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Lint" />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('custom.namePh')} />
         </label>
         <label className="field">
           <span>{tr('custom.cmd')}</span>
-          <input value={cmd} onChange={(e) => setCmd(e.target.value)} placeholder="npm run" />
+          <input value={cmd} onChange={(e) => setCmd(e.target.value)} placeholder={tr('custom.cmdPh')} />
         </label>
       </div>
       <label className="field">
@@ -111,7 +111,7 @@ export default function CustomActionsDialog() {
         <input
           value={args}
           onChange={(e) => setArgs(e.target.value)}
-          placeholder="lint --fix {{file}}"
+          placeholder={tr('custom.argsPh')}
         />
       </label>
       <p className="dlg-hint">{tr('custom.tokens')}</p>
