@@ -2,18 +2,42 @@ import { Archive, Bookmark, Cloud, FolderOpen, GitBranch, Globe, History, Packag
 import { useState } from 'react'
 import { dialogOps, useStore } from '../store'
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(true)
+const SECTIONS_KEY = 'treeline-side-sections'
+
+function readSectionState(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(SECTIONS_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(() => readSectionState()[id] !== false)
+  const toggle = (): void => {
+    setOpen((o) => {
+      const next = !o
+      const all = readSectionState()
+      all[id] = next
+      try {
+        localStorage.setItem(SECTIONS_KEY, JSON.stringify(all))
+      } catch {
+        // localStorage indisponível: expandir/recolher segue valendo só na sessão
+      }
+      return next
+    })
+  }
   return (
     <>
       <div
         className="sidebar-section-title collapsible"
         tabIndex={0}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
-            setOpen((o) => !o)
+            toggle()
           }
         }}
         role="button"
@@ -25,7 +49,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation()
-            setOpen((o) => !o)
+            toggle()
           }}
         >
           {open ? '▾' : '▸'}
@@ -131,7 +155,7 @@ export default function Sidebar() {
       >
         {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
       </button>
-      <Section title={tr('side.bookmarks', { n: repos.length })}>
+      <Section id="bookmarks" title={tr('side.bookmarks', { n: repos.length })}>
         {repos.map((r) => (
           <div
             key={r}
@@ -163,7 +187,7 @@ export default function Sidebar() {
         </div>
       </Section>
 
-      <Section title={tr('side.workspace')}>
+      <Section id="workspace" title={tr('side.workspace')}>
         <div
           className="sidebar-row"
           aria-selected={false}
@@ -192,7 +216,7 @@ export default function Sidebar() {
         </div>
       </Section>
 
-      <Section title={tr('side.branches', { n: branchesDetailed.length })}>
+      <Section id="branches" title={tr('side.branches', { n: branchesDetailed.length })}>
         <div className="sidebar-row small" title={tr('side.currentOnlyTitle')}>
           <label className="check-row" onClick={(e) => e.stopPropagation()}>
             <input
@@ -263,7 +287,7 @@ export default function Sidebar() {
         </div>
       </Section>
 
-      <Section title={tr('side.remotes')}>
+      <Section id="remotes" title={tr('side.remotes')}>
         {remotes.map((r) => (
           <div key={r.name} className="sidebar-row" title={r.url} onClick={() => openDlg('remotes')}>
             <Globe size={14} />
@@ -278,7 +302,7 @@ export default function Sidebar() {
         )}
       </Section>
 
-      <Section title={tr('side.remoteBranches', { n: remoteBranches.length })}>
+      <Section id="remoteBranches" title={tr('side.remoteBranches', { n: remoteBranches.length })}>
         {remoteBranches.slice(0, 30).map((r) => (
           <div
             key={r.name}
@@ -305,7 +329,7 @@ export default function Sidebar() {
         ))}
       </Section>
 
-      <Section title={tr('side.tags')}>
+      <Section id="tags" title={tr('side.tags')}>
         {tags.map((t) => {
           const isHere = t.checkedOut && status?.detachedTag === t.name
           return (
@@ -344,7 +368,7 @@ export default function Sidebar() {
         )}
       </Section>
 
-      <Section title={tr('side.stashes')}>
+      <Section id="stashes" title={tr('side.stashes')}>
         {stashes.map((st) => (
           <div key={st.ref} className="sidebar-row" title={st.message} onClick={() => openDlg('stash')}>
             <Archive size={14} />
@@ -360,7 +384,7 @@ export default function Sidebar() {
       </Section>
 
       {submodules.length > 0 && (
-        <Section title={tr('side.submodules', { n: submodules.length })}>
+        <Section id="submodules" title={tr('side.submodules', { n: submodules.length })}>
           {submodules.map((sm) => (
             <div
               key={sm.path}
@@ -391,7 +415,7 @@ export default function Sidebar() {
       )}
 
       {(lfs?.installed || lfs?.tracked) && (
-        <Section title={tr('lfs.title')}>
+        <Section id="lfs" title={tr('lfs.title')}>
           <div
             className="sidebar-row small"
             title={lfs.installed ? tr('lfs.files', { n: lfs.files }) : tr('lfs.notInstalled')}
