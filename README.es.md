@@ -4,7 +4,7 @@
 
 **TreeLine es una alternativa a SourceTree para Linux**: un cliente Git visual (Git GUI) para Ubuntu/Debian con el flujo familiar de quien usaba SourceTree en Windows o Mac. Si buscabas *SourceTree para Linux*, *SourceTree en Ubuntu* o un *Git client para Linux* — es esto.
 
-![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.6.8-green)
+![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.6.9-green)
 
 > Implementación 100% original — sin afiliación con Atlassian. Inspirado en el flujo de SourceTree, sin copiar marca, iconos o textos.
 
@@ -39,7 +39,7 @@ Otras alternativas que la gente compara: GitKraken, GitHub Desktop (sin versión
 Descarga el `.deb` o el `.AppImage` en la página de **Releases** e instala:
 
 ```bash
-sudo apt install ./treeline-git-gui_0.6.8_amd64.deb
+sudo apt install ./treeline-git-gui_0.6.9_amd64.deb
 ```
 
 Requisito: `git >= 2.40`. Opcional: `git-lfs`, `git-flow`.
@@ -83,7 +83,7 @@ Manual de usuario (pt-BR, Git desde cero) en [`manual/`](manual/).
 - **0.5.0** — stage por hunk/línea, diff split, revert/reset, `--force-with-lease`, blame/compare, paleta de comandos
 - **0.6.0 – 0.6.2** — watcher + fetch automático, LFS, submódulos recursivos, custom actions, pestañas con drag, atajos reasignables, Flatpak/CI, virtualización con 10k commits, Ajustes en 2 columnas
 - **0.6.3** — paquete y binario renombrados a `treeline-git-gui` (sin choque con el paquete `treeline` de Ubuntu)
-- **0.6.8** — resolvedor de conflictos 3 vías con rerere, Unstaged/Staged expandiéndose juntos, combo de ramas con búsqueda + remotas en el historial
+- **0.6.9** — resolvedor de conflictos 3 vías con rerere, Unstaged/Staged expandiéndose juntos, combo de ramas con búsqueda + remotas en el historial
 - **Siguiente** — envío a Flathub, `libsecret`/GNOME Keyring, auto-update, `--rpm`/AUR
 
 Detalle y paridad con SourceTree en [`docs/02-roadmap.md`](docs/02-roadmap.md).
