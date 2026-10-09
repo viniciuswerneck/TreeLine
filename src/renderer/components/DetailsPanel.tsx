@@ -298,6 +298,14 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   // Par maximizado = 2 linhas: listas Unstaged|Staged em cima, diff embaixo.
   const pairOpen = expanded === 'files'
 
+  // Ao maximizar Stage|Staged juntos, exibe o diff em modo split (2 colunas)
+  // igual ao VS Code — sem alterar o layout de arquivos.
+  useEffect(() => {
+    if (pairOpen && !selectedCommit) {
+      setDiffMode('split')
+    }
+  }, [pairOpen, selectedCommit])
+
   // Roving tabindex por coluna (uma linha clicável por coluna na ordem de Tab).
   const unstagedPaths = [...unstaged.map((f) => f.path), ...untracked]
   const unstagedSel = !!selectedFile && !selectedFile.staged && unstagedPaths.includes(selectedFile.path)
