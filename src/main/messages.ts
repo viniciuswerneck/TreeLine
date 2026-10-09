@@ -66,6 +66,7 @@ export const STR: Record<string, Record<UILang, string>> = {
     es: 'Esa URL no está permitida (archivo local, loopback o transporte ext::).'
   },
   nameEmpty: { en: 'Enter a name.', pt: 'Informe um nome.', es: 'Introduce un nombre.' },
+  credHelperInvalid: { en: 'Unsupported credential helper.', pt: 'Helper de credenciais não suportado.', es: 'Helper de credenciales no soportado.' },
   invalidRef: { en: 'Invalid reference: {n}', pt: 'Referência inválida: {n}', es: 'Referencia inválida: {n}' },
   invalidRefName: { en: 'Invalid branch/tag name: {n}', pt: 'Nome de branch/tag inválido: {n}', es: 'Nombre de rama/tag inválido: {n}' },
   nameInvalid: { en: 'Invalid name: {x}', pt: 'Nome inválido: {x}', es: 'Nombre inválido: {x}' },

@@ -1,12 +1,13 @@
 // Splash screen do TreeLine: arte do usuário (`build/splash.jpg`, 1376x768)
 // em tela cheia + barrinha de carregamento, slogan e versão sobrepostos.
 // A imagem vai em extraResources (fora do asar) e cai para o caminho do
-// repo em `npm run dev`. Fica 3s na tela (SPLASH_MIN_MS).
+// repo em `npm run dev`. Fica o mínimo para não piscar (SPLASH_MIN_MS) e
+// some assim que a janela está pronta — antes eram 3s fixos de espera.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
 
-export const SPLASH_MIN_MS = 3000
+export const SPLASH_MIN_MS = 900
 
 export const SPLASH_W = 880
 export const SPLASH_H = 492

@@ -154,6 +154,14 @@ export interface EffectiveIdentity extends GitIdentity {
   globalEmail: string
 }
 
+/** Estado do `credential.helper` do git (segurança de credenciais). */
+export interface CredentialHelperInfo {
+  /** Helpers configurados (global + system), na ordem do git. */
+  current: string[]
+  /** `git-credential-libsecret` disponível nesta instalação (keyring). */
+  libsecretAvailable: boolean
+}
+
 /** Detalhe de um commit para o painel inferior (meta + arquivos tocados). */
 export interface CommitDetail extends CommitInfo {
   files: string[]
@@ -364,6 +372,14 @@ export interface TreeLineAPI {
   stageLines(repo: string, file: string, staged: boolean, hunkIndex: number, lineIndexes: number[], lang?: string): Promise<void>
   stage(repo: string, file: string): Promise<void>
   unstage(repo: string, file: string): Promise<void>
+  /** Stage em lote (`git add -A`): 1 processo git em vez de 1 por arquivo. */
+  stageAll(repo: string): Promise<void>
+  /** Unstage em lote (`git reset -q HEAD`): 1 processo git em vez de N. */
+  unstageAll(repo: string): Promise<void>
+  /** Stage de uma lista de arquivos: 1 processo git com N pathspecs. */
+  stageFiles(repo: string, files: string[]): Promise<void>
+  /** Unstage de uma lista de arquivos: 1 processo git com N pathspecs. */
+  unstageFiles(repo: string, files: string[]): Promise<void>
   /** Lista todos os arquivos rastreados no HEAD (para índice de busca rápida). */
   getTrackedFiles(repo: string): Promise<string[]>
   /** Busca texto em todas as branches; progresso incremental via onSearchProgress. */
@@ -413,6 +429,8 @@ export interface TreeLineAPI {
   getIdentity(): Promise<GitIdentity>
   setIdentity(id: GitIdentity, lang?: string): Promise<void>
   getEffectiveIdentity(repo: string): Promise<EffectiveIdentity>
+  getCredentialHelper(): Promise<CredentialHelperInfo>
+  setCredentialHelper(helper: '' | 'libsecret' | 'cache', lang?: string): Promise<void>
   setRepoIdentity(repo: string, id: GitIdentity, lang?: string): Promise<void>
   setLang(lang: string): Promise<void>
   getVersion(): Promise<string>
@@ -422,7 +440,6 @@ export interface TreeLineAPI {
   removeRecent(path: string): Promise<string[]>
   discard(repo: string, file: string, tracked: boolean, lang?: string): Promise<void>
   copyText(text: string): Promise<void>
-  confirm(title: string, message: string, detail: string, ok: string, cancel: string): Promise<boolean>
   // Branch
   createBranch(repo: string, name: string, from: string, checkout: boolean, lang?: string): Promise<void>
   checkoutBranch(repo: string, name: string, lang?: string): Promise<void>

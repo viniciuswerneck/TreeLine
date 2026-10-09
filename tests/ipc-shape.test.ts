@@ -110,4 +110,43 @@ describe('ipc handlers invocados', () => {
     const ab = store.slice(store.indexOf('abortCurrentOp: async'), store.indexOf('stageHunk: async'))
     expect(ab, 'Abort de stash chamaria merge --abort').toContain('window.treeline.abortStash(repo)')
   })
+
+  /**
+   * Stage/unstage em lote: 1 processo git para a worktree inteira ou para N
+   * pathspecs. Antes o renderer disparava 1 IPC + 1 git POR ARQUIVO (travava
+   * em repo grande). Este teste evita a regressão para o loop.
+   */
+  it('stage/unstage em lote: 1 comando git, não loop por arquivo', () => {
+    const bodyOf = (channel: string): string => {
+      const at = src.indexOf(`ipcMain.handle('${channel}'`)
+      expect(at, `handler ${channel} não encontrado`).toBeGreaterThan(-1)
+      return src.slice(at, src.indexOf('ipcMain.handle(', at + 10))
+    }
+    expect(bodyOf('treeline:stageAll'), 'stageAll não usa git add -A').toContain("['add', '-A']")
+    expect(bodyOf('treeline:stageFiles'), 'stageFiles não batching pathspecs').toContain("['add', '--', ...safe]")
+    expect(bodyOf('treeline:unstageAll'), 'unstageAll não usa reset HEAD').toContain("['reset', '-q', 'HEAD']")
+    expect(bodyOf('treeline:unstageFiles'), 'unstageFiles não batching pathspecs').toContain(
+      "['reset', '-q', 'HEAD', '--', ...safe]"
+    )
+
+    // O renderer usa os IPCs de lote (não mais o loop file-a-file).
+    const store = readFileSync(join(__dirname, '..', 'src', 'renderer', 'store.ts'), 'utf-8')
+    const all = store.slice(store.indexOf('stageAll: async'), store.indexOf('stageSelected: async'))
+    expect(all, 'stageAll voltou a iterar arquivos').not.toContain('for (const file of files)')
+    expect(all, 'stageAll não chama o IPC de lote').toContain('window.treeline.stageAll(current)')
+    expect(all, 'unstageAll não chama o IPC de lote').toContain('window.treeline.unstageAll(current)')
+  })
+
+  /**
+   * credential.helper: o main só aceita a allowlist (libsecret/cache/vazio) —
+   * nunca deixa o renderer gravar `store` (texto puro) nem um valor arbitrário.
+   */
+  it('credential.helper restrito a allowlist', () => {
+    const body = src.slice(src.indexOf("ipcMain.handle('treeline:setCredentialHelper'"))
+    expect(body, 'aceita helper fora da allowlist').toContain("h !== 'libsecret' && h !== 'cache'")
+  })
+
+  it('confirm nativo removido (renderer usa ConfirmDialog interno)', () => {
+    expect(src.includes("treeline:confirm'")).toBe(false)
+  })
 })

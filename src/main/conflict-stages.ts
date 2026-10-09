@@ -2,6 +2,7 @@ import type { ConflictKind } from '../shared/types'
 
 /** Uma linha de `git ls-files -u`: mode sha stage<TAB>path. */
 export interface UnmergedEntry {
+  mode: string
   sha: string
   stage: number
   path: string
@@ -21,9 +22,14 @@ export function parseLsFilesU(raw: string): UnmergedEntry[] {
     const tab = line.indexOf('\t')
     if (tab < 0) continue
     const meta = line.slice(0, tab).trim().split(/\s+/)
-    out.push({ sha: meta[1] ?? '', stage: Number(meta[2]), path: line.slice(tab + 1) })
+    out.push({ mode: meta[0] ?? '', sha: meta[1] ?? '', stage: Number(meta[2]), path: line.slice(tab + 1) })
   }
   return out
+}
+
+/** Mode `160000` = gitlink (submódulo): o sha aponta para um commit, não blob. */
+export function isGitlink(mode: string): boolean {
+  return mode === '160000'
 }
 
 /**

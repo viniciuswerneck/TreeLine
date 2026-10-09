@@ -111,12 +111,13 @@ export function runGitCancellable(
   op: string,
   args: string[],
   lang: UILang,
-  timeoutMs: number = SYNC_TIMEOUT_MS
+  timeoutMs: number = SYNC_TIMEOUT_MS,
+  extraEnv: Record<string, string> = {}
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const proc = spawn('git', args, {
       cwd: repo,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' }
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C', ...extraEnv }
     })
     let out = ''
     let err = ''

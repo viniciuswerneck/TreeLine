@@ -4,9 +4,10 @@ import { isAbsolute, join } from 'node:path'
 import { simpleGit } from 'simple-git'
 import { mx, asLang, type UILang } from './messages'
 
-import { enqueue, enqueueGlobal, readIndexOp, readOp, runGitCancellable, syncControllers, syncKey } from './git/runner'
+import { enqueue, enqueueGlobal, readIndexOp, readOp, runGitCancellable, syncControllers, syncKey, SYNC_TIMEOUT_MS } from './git/runner'
 export { readOp } from './git/runner'
 import { assertCloneUrl, assertRefName, assertSafeRef, relPathSafe } from './git/validate'
+import { parseNumstatZ } from './git/parsers'
 import './git/search'
 import type {
   BranchInfo,
@@ -20,8 +21,9 @@ import type {
   RepoStatus,
   SyncResult
 } from '../shared/types'
-import { conflictKindOf, looksBinary, parseLsFilesU, parseUnmergedXY, shortRef, stagesByPath, type UnmergedEntry } from './conflict-stages'
+import { conflictKindOf, isGitlink, looksBinary, parseLsFilesU, parseUnmergedXY, shortRef, stagesByPath, type UnmergedEntry } from './conflict-stages'
 import { SPLASH_H, SPLASH_MIN_MS, SPLASH_W, splashHtml, splashImagePath, splashLang, type SplashLang } from './splash'
+import { placeWindow, readWindowState, writeWindowState, type WindowState } from './window-state'
 
 
 export 
@@ -125,7 +127,12 @@ ipcMain.handle('treeline:cancelSync', (_event, repo: string, op: string) => {
   // não conhece o destino e manda repo=''.
   const exact = syncControllers.get(syncKey(repo, op))
   const targets = exact ? [exact] : [...syncControllers.values()].filter((c) => c.op === op)
-  for (const c of targets) c.term()
+  for (const c of targets) {
+    // Marca o cancel ANTES do term(): o 'close' decide a mensagem por flag,
+    // e sem cancelled=true o kill vira "falhou (exit -1)" genérico.
+    c.cancelled = true
+    c.term()
+  }
 })
 
 // Erro técnico do git vira orientação acionável: o caso mais comum é remote
@@ -141,28 +148,6 @@ function friendlySyncError(op: string, e: unknown, lang: UILang = 'en'): Error {
   }
   return e instanceof Error ? e : new Error(msg)
 }
-
-// ---------------------------------------------------------------------------
-// IPC genérico: confirmação nativa (operações destrutivas).
-// Textos vêm do renderer (i18n); o main só exibe. Retorna true = confirmar.
-// ---------------------------------------------------------------------------
-ipcMain.handle(
-  'treeline:confirm',
-  async (event, title: string, message: string, detail: string, ok: string, cancel: string) => {
-    const opts = {
-      type: 'question' as const,
-      title,
-      message,
-      detail,
-      buttons: [cancel, ok],
-      defaultId: 0,
-      cancelId: 0
-    }
-    const win = BrowserWindow.fromWebContents(event.sender)
-    const res = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
-    return res.response === 1
-  }
-)
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -560,6 +545,8 @@ ipcMain.handle('treeline:rebaseOnto', (_event, repo: string, ref: string, lang?:
   enqueue(repo, async () => {
     const l = asLang(lang)
     assertSafeRef(ref, l)
+    // Rebase reescreve histórico: bundle antes (mesma política do reset hard).
+    await backupBundle(repo)
     try {
       await simpleGit(repo).rebase([ref, ...(autostash === true ? ['--autostash'] : [])])
     } catch (e) {
@@ -885,24 +872,15 @@ ipcMain.handle('treeline:cloneRepo', async (event, url: string, lang?: unknown) 
   const base = cloneUrl.replace(/\/$/, '').split('/').pop() ?? 'repo'
   const name = base.replace(/\.git$/, '') || 'repo'
   const target = join(parent, name)
-  const prevAsk = process.env['GIT_ASKPASS']
-  const runClone = async (): Promise<void> => {
-    try {
-      await runGitCancellable(parent, 'Clone', ['clone', cloneUrl, target], l)
-    } catch (e) {
-      throw friendlySyncError('Clone', e, l)
-    }
-  }
+  // GIT_ASKPASS vai SÓ no processo do clone (env do filho): não polui o
+  // process.env global nem pode vazar para um fetch/pull concorrente.
   try {
-    if (askPass) process.env['GIT_ASKPASS'] = askPass
-    await runClone()
+    await runGitCancellable(parent, 'Clone', ['clone', cloneUrl, target], l, SYNC_TIMEOUT_MS, askPass ? { GIT_ASKPASS: askPass } : {})
+  } catch (e) {
+    throw friendlySyncError('Clone', e, l)
   } finally {
-    if (prevAsk === undefined) delete process.env['GIT_ASKPASS']
-    else process.env['GIT_ASKPASS'] = prevAsk
     if (askPass) await fs.rm(askPass, { force: true })
   }
-  const list = [target, ...(await readBookmarks()).filter((p) => p !== target)]
-  await writeBookmarks(list)
   return target
 })
 
@@ -961,11 +939,13 @@ ipcMain.handle('treeline:termStart', (event, repo: string, cols: number, rows: n
   })
   terms.set(repo, { proc, win })
   proc.onData((data) => {
-    win?.webContents.send('treeline:termData', repo, data)
+    if (win && !win.isDestroyed()) win.webContents.send('treeline:termData', repo, data)
   })
   proc.onExit(() => {
-    terms.delete(repo)
-    win?.webContents.send('treeline:termExit', repo)
+    // Só limpa se AINDA é esta sessão: um restart (termStop + termStart) não
+    // pode ter o onExit da sessão velha matando o registro da nova.
+    if (terms.get(repo)?.proc === proc) terms.delete(repo)
+    if (win && !win.isDestroyed()) win.webContents.send('treeline:termExit', repo)
   })
 })
 
@@ -1012,6 +992,10 @@ async function watchRepo(repo: string, win: BrowserWindow | null): Promise<void>
   const gd = await gitDirOf(repo)
   const watcher = watch([repo, join(gd, 'HEAD'), join(gd, 'index')], {
     ignored: (path: string) => {
+      // Worktree linkada: o gitdir mora FORA do repo (ex.: .git/worktrees/x).
+      // Sem esta exceção o filtro de `.git` abaixo descarta os watches
+      // explícitos de HEAD/index e o app deixa de ver commits do terminal.
+      if (path === join(gd, 'HEAD') || path === join(gd, 'index')) return false
       const rel = path.startsWith(repo) ? path.slice(repo.length) : path
       // Ignora .git inteiro, EXCETO os arquivos de estado que importam.
       if (rel.startsWith('/.git/')) {
@@ -1062,10 +1046,12 @@ ipcMain.handle('treeline:unwatchRepo', (_event, repo: string) => {
 // ---------------------------------------------------------------------------
 // Janela principal.
 // ---------------------------------------------------------------------------
-function createWindow(splash: BrowserWindow | null, splashAt: number): void {
+async function createWindow(splash: BrowserWindow | null, splashAt: number): Promise<void> {
+  const saved = placeWindow(await readWindowState())
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: saved.width,
+    height: saved.height,
+    ...(saved.x !== undefined && saved.y !== undefined ? { x: saved.x, y: saved.y } : {}),
     minWidth: 960,
     minHeight: 600,
     title: APP_TITLE[splashLang()],
@@ -1079,18 +1065,41 @@ function createWindow(splash: BrowserWindow | null, splashAt: number): void {
     }
   })
 
+  if (saved.maximized) win.maximize()
+
+  // Persiste geometria com debounce (resize/move disparam em rajada) e no close.
+  let stateTimer: NodeJS.Timeout | null = null
+  const saveState = (): void => {
+    if (win.isDestroyed()) return
+    const b = win.getNormalBounds()
+    const state: WindowState = { x: b.x, y: b.y, width: b.width, height: b.height, maximized: win.isMaximized() }
+    writeWindowState(state)
+  }
+  const scheduleSave = (): void => {
+    if (stateTimer) clearTimeout(stateTimer)
+    stateTimer = setTimeout(saveState, 400)
+    stateTimer.unref?.()
+  }
+  win.on('resize', scheduleSave)
+  win.on('move', scheduleSave)
+  win.on('close', () => {
+    if (stateTimer) clearTimeout(stateTimer)
+    saveState()
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     void win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  // Splash fica 3s na tela (SPLASH_MIN_MS) para não piscar; fecha ao mostrar a janela.
-  // Fallback: em Wayland sem GPU (--disable-gpu) o 'ready-to-show' pode nunca
-  // disparar e o usuário ficaria preso no splash; o timeout garante a saída.
+  // Splash fica o mínimo anti-flash (SPLASH_MIN_MS ≈ 0.9s) e fecha ao mostrar
+  // a janela. Fallback: em Wayland sem GPU (--disable-gpu) o 'ready-to-show'
+  // pode nunca disparar e o usuário ficaria preso no splash; o timeout garante
+  // a saída.
   let shown = false
   const showMain = (): void => {
-    if (shown) return
+    if (shown || win.isDestroyed()) return
     shown = true
     splash?.close()
     win.show()
@@ -1100,7 +1109,9 @@ function createWindow(splash: BrowserWindow | null, splashAt: number): void {
     const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashAt))
     setTimeout(showMain, wait)
   })
-  setTimeout(showMain, SPLASH_MIN_MS + 8000)
+  const fallbackTimer = setTimeout(showMain, SPLASH_MIN_MS + 8000)
+  fallbackTimer.unref?.()
+  win.on('close', () => clearTimeout(fallbackTimer))
   win.webContents.on('did-finish-load', () => console.log('[treeline] main did-finish-load'))
   win.webContents.on('did-fail-load', (_e, code, desc) => console.error(`[treeline] main did-fail-load ${code} ${desc}`))
 }
@@ -1373,7 +1384,57 @@ ipcMain.handle('treeline:stage', (_event, repo: string, file: string) =>
 
 ipcMain.handle('treeline:unstage', (_event, repo: string, file: string) =>
   enqueue(repo, async () => {
-    await simpleGit(repo).raw(['reset', '-q', 'HEAD', '--', file])
+    // HEAD pode não existir (branch unborn): o reset com tree-ish falha, mas
+    // sem ele esvazia o index sem tocar na worktree (mesmo da unstageAll).
+    try {
+      await simpleGit(repo).raw(['reset', '-q', 'HEAD', '--', file])
+    } catch {
+      await simpleGit(repo).raw(['reset', '-q', '--', file])
+    }
+  })
+)
+
+// Lote: 1 processo git para toda a worktree. O `stageAll`/`unstageAll` do
+// renderer antes disparava 1 IPC + 1 git POR ARQUIVO (travava em repo grande).
+ipcMain.handle('treeline:stageAll', (_event, repo: string) =>
+  enqueue(repo, () => simpleGit(repo).raw(['add', '-A']).then(() => undefined))
+)
+
+ipcMain.handle('treeline:unstageAll', (_event, repo: string) =>
+  enqueue(repo, async () => {
+    // HEAD não existe em branch unborn: cai para o reset sem tree-ish, que
+    // esvazia o index sem tocar na worktree.
+    try {
+      await simpleGit(repo).raw(['reset', '-q', 'HEAD'])
+    } catch {
+      await simpleGit(repo).raw(['reset', '-q'])
+    }
+  })
+)
+
+// Lote por lista de arquivos (seleção múltipla): 1 processo git com N pathspecs.
+// `--` impede option injection; paths absolutos e `..` são descartados.
+function safeRelPaths(files: unknown): string[] {
+  if (!Array.isArray(files)) return []
+  return files
+    .filter((f): f is string => typeof f === 'string')
+    .map((f) => f.replace(/\\/g, '/'))
+    .filter((f) => f.length > 0 && !f.startsWith('/') && !f.split('/').includes('..'))
+}
+
+ipcMain.handle('treeline:stageFiles', (_event, repo: string, files: unknown) =>
+  enqueue(repo, () => {
+    const safe = safeRelPaths(files)
+    if (safe.length === 0) return Promise.resolve()
+    return simpleGit(repo).raw(['add', '--', ...safe]).then(() => undefined)
+  })
+)
+
+ipcMain.handle('treeline:unstageFiles', (_event, repo: string, files: unknown) =>
+  enqueue(repo, async () => {
+    const safe = safeRelPaths(files)
+    if (safe.length === 0) return
+    await simpleGit(repo).raw(['reset', '-q', 'HEAD', '--', ...safe])
   })
 )
 
@@ -1710,6 +1771,50 @@ ipcMain.handle('treeline:setRepoIdentity', async (_event, repo: string, id: GitI
   await simpleGit(repo).raw(['config', 'user.email', email])
 })
 
+// ---------------------------------------------------------------------------
+// credential.helper: reusa o keyring do sistema (libsecret) ou o cache em
+// memória do git. Nunca oferece `store` (grava senha em texto puro). Token/
+// senha nunca passam por aqui — só o NOME do helper entra na config.
+// ---------------------------------------------------------------------------
+ipcMain.handle('treeline:getCredentialHelper', () =>
+  readOp(async (): Promise<import('../shared/types').CredentialHelperInfo> => {
+    const readScope = async (scope: string): Promise<string[]> => {
+      try {
+        const out = await simpleGit().raw(['config', scope, '--get-all', 'credential.helper'])
+        return out
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      } catch {
+        return []
+      }
+    }
+    const [globalH, systemH] = await Promise.all([readScope('--global'), readScope('--system')])
+    let libsecretAvailable = false
+    try {
+      const execPath = (await simpleGit().raw(['--exec-path'])).trim()
+      await fs.access(join(execPath, 'git-credential-libsecret'))
+      libsecretAvailable = true
+    } catch {
+      libsecretAvailable = false
+    }
+    return { current: [...globalH, ...systemH], libsecretAvailable }
+  })
+)
+
+ipcMain.handle('treeline:setCredentialHelper', async (_event, helper: unknown, lang?: unknown) => {
+  const l = asLang(lang)
+  const h = typeof helper === 'string' ? helper : ''
+  if (h !== '' && h !== 'libsecret' && h !== 'cache') throw new Error(mx(l, 'credHelperInvalid'))
+  // Substitui TODOS os helpers anteriores (um `--add` empilharia store+libsecret).
+  try {
+    await simpleGit().raw(['config', '--global', '--unset-all', 'credential.helper'])
+  } catch {
+    /* não havia nada para remover */
+  }
+  if (h) await simpleGit().raw(['config', '--global', '--add', 'credential.helper', h])
+})
+
 ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, lang?: unknown) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async (): Promise<CommitDetail> => {
@@ -1718,7 +1823,7 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
       'show', '--name-only', '--date=iso',
       '--pretty=format:%H%x00%P%x00%an%x00%cn%x00%ad%x00%D%x00%s%x1e', hash
     ])
-    const [head, ...rest] = out.split('\x1e')
+    const [head] = out.split('\x1e')
     const parts = (head ?? '').split('\0')
     if (parts.length < 7) throw new Error(mx(l, 'commitNotFound'))
     const [hashRaw, parentStr, author, committer, date, refStr, message] = parts as [string, string, string, string, string, string, string]
@@ -1739,9 +1844,8 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
           .split('\0')
           .map((f) => f.trim())
           .filter((f) => f.length > 0)
-      : rest
-          .join('\x1e')
-          .split('\0')
+      : (await simpleGit(repo).raw(['show', '--name-only', '--format=', h]))
+          .split('\n')
           .map((f) => f.trim())
           .filter((f) => f.length > 0)
     // +/- por arquivo (merge sem diff próprio pode vir vazio: sem stats).
@@ -1750,12 +1854,7 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
       const ns = await simpleGit(repo).raw(
         isMerge ? ['diff', '--numstat', '-z', `${h}^1`, h] : ['show', '--numstat', '-z', '--format=', h]
       )
-      stats = ns.split('\0').flatMap((line) => {
-        const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/)
-        if (!m?.[3]) return []
-        const num = (v: string): number => (v === '-' ? 0 : Number.parseInt(v, 10) || 0)
-        return [{ path: (m[3] as string).trim(), added: num(m[1] as string), deleted: num(m[2] as string) }]
-      })
+      stats = parseNumstatZ(ns)
     } catch {
       /* sem stats */
     }
@@ -1914,6 +2013,9 @@ ipcMain.handle('treeline:stageHunk', (_event, repo: string, file: string, staged
 ipcMain.handle('treeline:discardHunk', (_event, repo: string, file: string, staged: boolean, hunkIndex: number, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
+    // Descartar hunk apaga mudança sem undo. backupBundle(--all) por hunk
+    // seria caro demais; salva só o patch do arquivo (barato e suficiente).
+    await backupDiscard(repo, file, staged)
     const { header, hunks } = await diffForHunks(repo, file, staged)
     const h = hunks.find((x) => x.index === hunkIndex)
     if (!h) throw new Error(mx(l, 'noHunk', { n: hunkIndex + 1 }))
@@ -1948,6 +2050,27 @@ async function backupBundle(repo: string): Promise<string> {
   const file = join(dir, `${stamp}.bundle`)
   await simpleGit(repo).raw(['bundle', 'create', file, '--all'])
   return file
+}
+
+/**
+ * Backup proporcional ao descarte de hunk/linha: guarda o patch atual do
+ * arquivo (worktree ou index) em `treeline-backups`, sem `bundle --all`
+ * (que num repo grande custaria segundos por clique). Best-effort.
+ */
+async function backupDiscard(repo: string, file: string, staged: boolean): Promise<void> {
+  try {
+    const dir = join(await gitDirOf(repo), 'treeline-backups')
+    await fs.mkdir(dir, { recursive: true })
+    const patch = await simpleGit(repo)
+      .raw(['diff', ...(staged ? ['--cached'] : []), '--', file])
+      .catch(() => '')
+    if (!patch.trim()) return
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const safe = file.replace(/[/\\]/g, '_')
+    await fs.writeFile(join(dir, `${stamp}-${safe}.patch`), patch)
+  } catch {
+    /* backup é best-effort: nunca impede o descarte */
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2219,20 +2342,23 @@ ipcMain.handle('treeline:getConflictFiles', (_event, repo: string) =>
   readOp(async (): Promise<ConflictFile[]> => {
     const git = simpleGit(repo)
     const { ours: oursLabel, theirs: theirsLabel } = await conflictLabels(repo)
-    const stages = stagesByPath(parseLsFilesU(await git.raw(['ls-files', '-u', '-z'])))
+    const entries = parseLsFilesU(await git.raw(['ls-files', '-u', '-z']))
+    const stages = stagesByPath(entries)
     const out: ConflictFile[] = []
     for (const { xy, path } of parseUnmergedXY(await git.raw(['status', '--porcelain=v2', '-z']))) {
       const st = stages.get(path) ?? []
+      // Submódulo: o estágio aponta para um COMMIT (gitlink), não texto.
+      const submodule = entries.some((e) => e.path === path && isGitlink(e.mode))
       // Só rotula como binário depois de olhar o blob; aqui é pré-checagem
       // barata (os 3 estágios presentes sem marcador).
       out.push({
         path,
         xy,
-        kind: conflictKindOf(xy, st),
+        kind: submodule ? 'submodule' : conflictKindOf(xy, st),
         oursLabel,
         theirsLabel,
         stages: st,
-        binary: false
+        binary: submodule
       })
     }
     return out
@@ -2261,21 +2387,29 @@ ipcMain.handle('treeline:getConflictStages', (_event, repo: string, file: string
     const byStage = new Map(entries.map((e) => [e.stage, e]))
     const { ours: oursLabel, theirs: theirsLabel } = await conflictLabels(repo)
 
+    const submodule = entries.some((e) => isGitlink(e.mode))
     const readBlob = async (stage: number): Promise<{ text: string; binary: boolean } | null> => {
       const e = byStage.get(stage)
       if (!e) return null
-      const raw = await git.raw(['cat-file', 'blob', e.sha])
-      return { text: raw, binary: looksBinary(Buffer.from(raw, 'utf8')) }
+      // Gitlink: o sha é um commit do submódulo — `cat-file blob` falharia.
+      if (isGitlink(e.mode)) return { text: '', binary: true }
+      try {
+        const raw = await git.raw(['cat-file', 'blob', e.sha])
+        return { text: raw, binary: looksBinary(Buffer.from(raw, 'utf8')) }
+      } catch {
+        // Objeto ausente/corrompido não pode derrubar o resolvedor inteiro.
+        return { text: '', binary: true }
+      }
     }
     const s2 = await readBlob(2)
     const s3 = await readBlob(3)
     const s1 = await readBlob(1)
 
-    // Binário: a UI mostra "resolver por lado" e não tenta merge de texto.
-    if (s2?.binary || s3?.binary) {
+    // Binário/submódulo: a UI mostra "resolver por lado" e não tenta merge.
+    if (submodule || s2?.binary || s3?.binary) {
       return {
         path: file,
-        kind: 'binary',
+        kind: submodule ? 'submodule' : 'binary',
         marked: '',
         ours: null,
         theirs: null,
@@ -2640,12 +2774,7 @@ ipcMain.handle('treeline:compareCommits', (_event, repo: string, a: string, b: s
       simpleGit(repo).raw(['diff', '--numstat', '-z', a.trim(), b.trim()])
     ])
     const files = names.split('\0').map((f) => f.trim()).filter(Boolean)
-    const stats: import('../shared/types').FileStat[] = ns.split('\0').flatMap((line) => {
-      const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/)
-      if (!m?.[3]) return []
-      const num = (v: string): number => (v === '-' ? 0 : Number.parseInt(v, 10) || 0)
-      return [{ path: (m[3] as string).trim(), added: num(m[1] as string), deleted: num(m[2] as string) }]
-    })
+    const stats: import('../shared/types').FileStat[] = parseNumstatZ(ns)
     return { files, stats }
   })
 )
@@ -2705,7 +2834,7 @@ ipcMain.handle('treeline:discard', async (_event, repo: string, file: string, tr
 // ---------------------------------------------------------------------------
 void app.whenReady().then(async () => {
   const { win: splash, at } = await createSplash()
-  createWindow(splash, at)
+  await createWindow(splash, at)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       void createSplash().then((s) => createWindow(s.win, s.at))

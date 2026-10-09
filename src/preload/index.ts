@@ -61,6 +61,10 @@ const api: TreeLineAPI = {
   openPR: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:openPR', repo, lang),
   stage: (repo: string, file: string) => ipcRenderer.invoke('treeline:stage', repo, file),
   unstage: (repo: string, file: string) => ipcRenderer.invoke('treeline:unstage', repo, file),
+  stageAll: (repo: string) => ipcRenderer.invoke('treeline:stageAll', repo),
+  unstageAll: (repo: string) => ipcRenderer.invoke('treeline:unstageAll', repo),
+  stageFiles: (repo: string, files: string[]) => ipcRenderer.invoke('treeline:stageFiles', repo, files),
+  unstageFiles: (repo: string, files: string[]) => ipcRenderer.invoke('treeline:unstageFiles', repo, files),
   getTrackedFiles: (repo: string) => ipcRenderer.invoke('treeline:getTrackedFiles', repo),
   searchCode: (repo: string, query: string, opts: import('../shared/types').CodeSearchOptions, token: number) =>
     ipcRenderer.invoke('treeline:searchCode', repo, query, opts, token),
@@ -85,6 +89,8 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:setIdentity', id, lang),
   setLang: (lang: string) => ipcRenderer.invoke('treeline:setLang', lang),
   getEffectiveIdentity: (repo: string) => ipcRenderer.invoke('treeline:getEffectiveIdentity', repo),
+  getCredentialHelper: () => ipcRenderer.invoke('treeline:getCredentialHelper'),
+  setCredentialHelper: (helper: string, lang?: string) => ipcRenderer.invoke('treeline:setCredentialHelper', helper, lang),
   setRepoIdentity: (repo: string, id: { name: string; email: string }, lang?: string) =>
     ipcRenderer.invoke('treeline:setRepoIdentity', repo, id, lang),
   getVersion: () => ipcRenderer.invoke('treeline:getVersion'),
@@ -97,8 +103,6 @@ const api: TreeLineAPI = {
   discard: (repo: string, file: string, tracked: boolean, lang?: string) =>
     ipcRenderer.invoke('treeline:discard', repo, file, tracked, lang),
   copyText: (text: string) => ipcRenderer.invoke('treeline:copyText', text),
-  confirm: (title: string, message: string, detail: string, ok: string, cancel: string) =>
-    ipcRenderer.invoke('treeline:confirm', title, message, detail, ok, cancel),
   createBranch: (repo: string, name: string, from: string, checkout: boolean, lang?: string) =>
     ipcRenderer.invoke('treeline:createBranch', repo, name, from, checkout, lang),
   checkoutBranch: (repo: string, name: string, lang?: string) =>

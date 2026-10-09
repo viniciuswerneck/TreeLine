@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { conflictKindOf, parseLsFilesU, parseUnmergedXY, shortRef, stagesByPath } from '../src/main/conflict-stages'
+import { conflictKindOf, isGitlink, parseLsFilesU, parseUnmergedXY, shortRef, stagesByPath } from '../src/main/conflict-stages'
 
 /**
  * O mapeamento XY -> tipo de conflito é o lugar onde o Git mente se a gente
@@ -97,24 +97,29 @@ describe('parseLsFilesU', () => {
     // Regressão: splittar por \n colava os 3 estágios num path só.
     const raw = ['100644 abc123 1\tf.txt', '100644 def456 2\tf.txt', '100644 ghi789 3\tf.txt'].join('\0')
     expect(parseLsFilesU(raw)).toEqual([
-      { sha: 'abc123', stage: 1, path: 'f.txt' },
-      { sha: 'def456', stage: 2, path: 'f.txt' },
-      { sha: 'ghi789', stage: 3, path: 'f.txt' }
+      { mode: '100644', sha: 'abc123', stage: 1, path: 'f.txt' },
+      { mode: '100644', sha: 'def456', stage: 2, path: 'f.txt' },
+      { mode: '100644', sha: 'ghi789', stage: 3, path: 'f.txt' }
     ])
     // path com espaço não invade o campo de stage
     expect(parseLsFilesU('100644 abc123 2\tmeu arquivo.txt')).toEqual([
-      { sha: 'abc123', stage: 2, path: 'meu arquivo.txt' }
+      { mode: '100644', sha: 'abc123', stage: 2, path: 'meu arquivo.txt' }
     ])
+  })
+
+  it('expõe o mode (gitlink = 160000) para detectar submódulo', () => {
+    expect(isGitlink('160000')).toBe(true)
+    expect(isGitlink('100644')).toBe(false)
   })
 })
 
 describe('stagesByPath', () => {
   it('agrupa os estágios por path', () => {
     const m = stagesByPath([
-      { sha: 'a', stage: 3, path: 'x' },
-      { sha: 'b', stage: 1, path: 'x' },
-      { sha: 'c', stage: 2, path: 'x' },
-      { sha: 'd', stage: 2, path: 'y' }
+      { mode: '100644', sha: 'a', stage: 3, path: 'x' },
+      { mode: '100644', sha: 'b', stage: 1, path: 'x' },
+      { mode: '100644', sha: 'c', stage: 2, path: 'x' },
+      { mode: '100644', sha: 'd', stage: 2, path: 'y' }
     ])
     expect(m.get('x')).toEqual([1, 2, 3])
     expect(m.get('y')).toEqual([2])
