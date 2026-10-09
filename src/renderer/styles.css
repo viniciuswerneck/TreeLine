@@ -1439,3 +1439,118 @@ select:focus-visible {
   color: var(--accent);
   background: var(--bg-selected);
 }
+
+/* ---- Diff mock (VS Code side-by-side reference) ---- */
+.diff-mock {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Fira Code', Consolas, 'Source Code Pro', ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  border: 1px solid #2f2f2f;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.diff-mock-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #181818;
+  border-bottom: 1px solid #2f2f2f;
+}
+.diff-mock-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-right: 1px solid #2f2f2f;
+}
+.diff-mock-pane-head:last-child { border-right: 0; }
+.diff-mock-file { font-weight: 600; }
+.diff-mock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #cc6633;
+  color: #fff;
+  font-size: 11px;
+}
+.diff-mock-sub { color: #808080; }
+.diff-mock-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.diff-mock-pane {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+.diff-mock-gutter {
+  display: flex;
+  flex-direction: column;
+  width: 48px;
+  padding: 0 8px 0 12px;
+  text-align: right;
+  color: #858585;
+  user-select: none;
+  border-right: 1px solid #2f2f2f;
+  background: #181818;
+}
+.diff-mock-gutter > div { height: 22px; line-height: 22px; }
+.diff-mock-gutter .dim { color: #555555; }
+.diff-mock-gutter .add { color: #6ca86e; font-weight: 600; }
+.diff-mock-code {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px;
+  white-space: pre;
+  overflow: auto;
+}
+.diff-mock-code > div { height: 22px; line-height: 22px; }
+.diff-mock-removed {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255,255,255,0.04) 0 2px,
+    transparent 2px 4px
+  );
+  background-color: rgba(120,120,120,0.12);
+}
+.diff-mock-added { background-color: #2e4d3a; }
+.diff-mock-added-text { color: #4ec9b0; position: relative; }
+.diff-mock-error {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    #f14c4c 0 2px,
+    transparent 2px 4px
+  );
+}
+.diff-mock-splitter {
+  width: 1px;
+  background: #2f2f2f;
+  cursor: col-resize;
+}
+.diff-mock-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 8px;
+  background: #181818;
+  border-top: 1px solid #2f2f2f;
+  color: #808080;
+  font-size: 12px;
+}
