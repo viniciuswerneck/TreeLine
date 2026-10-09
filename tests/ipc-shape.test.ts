@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -8,9 +8,28 @@ import { describe, expect, it } from 'vitest'
  * Um `(async ...)` solto como retorno do handle devolve a FUNÇÃO ao
  * Electron ("An object could not be cloned") em vez da Promise —
  * bug real que quebrou getDiff/getHunks e esvaziou o app.
+ *
+ * Desde a Parte 10 (10.4/10.5) os handlers vivem em `src/main/{git,app}/*.ts`,
+ * não mais no index.ts. O src abaixo concatena TODAS as fontes do main em
+ * ordem alfabética — os `bodyOf` abaixo continuam encontrando o registro do
+ * canal no arquivo do domínio correspondente.
  */
+function mainSources(): string {
+  const base = join(__dirname, '..', 'src', 'main')
+  const files: string[] = []
+  const walk = (dir: string): void => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (e.name.endsWith('.ts')) files.push(p)
+    }
+  }
+  walk(base)
+  return files.sort().map((f) => readFileSync(f, 'utf-8')).join('\n\n')
+}
+
 describe('ipc handlers invocados', () => {
-  const src = readFileSync(join(__dirname, '..', 'src', 'main', 'index.ts'), 'utf-8')
+  const src = mainSources()
 
   it('nenhum async solto fora de enqueue/readOp', () => {
     const lines = src.split('\n')
