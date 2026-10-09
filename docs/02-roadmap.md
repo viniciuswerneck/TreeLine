@@ -23,7 +23,7 @@ Paridade do loop básico do SourceTree.
 - [x] Branch: create/checkout/rename/delete a partir de toolbar, sidebar (duplo-clique + menu + ahead/behind/upstream por branch, busca, drop-merge) e dialog próprio (com force-retry se unmerged, preset de ref via menu do grafo)
 - [x] Remote manager: add/list/remove/edit-URL, clone por URL, init local, abrir PR no browser (toolbar + sidebar)
 - [x] Search local de commits (barra do histórico filtra a lista)
-- [x] Extras além do plano: 10 temas (5 light + 5 dark + System), Settings com identidade do autor (user.name/email), statusbar clicável com staged/unstaged, i18n en/pt/es, menus de botão direito, diff colorido, splash + ícone próprio, paleta `Ctrl+K`, sidebar colapsável (`Ctrl+B`), Blame + File history, Compare entre 2 commits (Ctrl+click)
+- [x] Extras além do plano: 12 temas (6 light + 6 dark + System, incluindo 2 de alto contraste `hc-light`/`hc-dark`), Settings com identidade do autor (user.name/email), statusbar clicável com staged/unstaged, i18n en/pt/es, menus de botão direito, diff colorido, splash + ícone próprio, paleta `Ctrl+K`, sidebar colapsável (`Ctrl+B`), Blame + File history, Compare entre 2 commits (Ctrl+click)
 
 Aceite: usuário faz clone -> branch -> stage hunk -> commit -> push sem terminal.
 
@@ -87,7 +87,7 @@ Fora de 1.x: Jira nativo, Hg, AI commit.
 | LFS/Submodules | 2-3 | ☑ (LFS com dialog pull/push/track/untrack + badge; submodules recursivos com update/init) |
 | Remote manager | 1 | ☑ (add/list/remove/edit-URL, clone/init, push lease, abrir PR) |
 | Custom Actions/Terminal | 3 | ☑ (terminal integrado com node-pty; custom actions com args, tokens de contexto e saída ANSI) |
-| Temas claro/escuro | extra | ☑ (10 temas + System) |
+| Temas claro/escuro | extra | ☑ (12 temas + System, 2 de alto contraste) |
 | Settings identidade autor | extra | ☑ (2 colunas: general, identidade, sync, atalhos e **Credentials** via allowlist `libsecret`/`cache` — nunca `store`; altura limitada e responsiva) |
 | Paleta de comandos | extra | ☑ (`Ctrl+K`: sync, dialogs, PR, terminal, sidebar, custom actions; key por id, nomes repetidos não colidem) |
 | Busca de código (texto em arquivos) | 0.7 | ☑ (`Ctrl+Shift+F`: busca texto em **todas as branches** — `git grep` por ref agrupado por branch (atual = working tree + `--untracked`), com último commit que alterou o texto (pickaxe `-G` + `name-rev`, mostrando a branch); toggles case/regex/remotes, resultados incrementais, cancelável, clique abre o blame; caps: 40 branches locais + 20 remotes, 1000 hits, 25 paths de histórico) |

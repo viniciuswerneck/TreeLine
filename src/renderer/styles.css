@@ -1,5 +1,5 @@
 /* TreeLine — tokens Fluent adaptados (ver docs/06-design-system.md) + layout 4 regiões. */
-/* TreeLine — 10 temas próprios (5 light + 5 dark) + modo System.
+/* TreeLine — 12 temas próprios (6 light + 6 dark) + modo System.
    Sem data-theme = System (segue prefers-color-scheme). */
 :root {
   --radius-sm: 8px;
@@ -76,6 +76,16 @@
   --shadow-1: 0 1px 2px rgba(20,80,140,.1), 0 4px 16px rgba(20,80,140,.1);
   color-scheme: light;
 }
+:root[data-theme="hc-light"] {
+  --bg-app: #ffffff; --bg-sidebar: #ffffff; --bg-panel: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.18); --bg-selected: rgba(0, 0, 0, 0.28);
+  --border-line: rgba(0, 0, 0, 0.35); --border-hl: rgba(0, 0, 0, 0.18);
+  --text-1: #000000; --text-2: #1f1f1f; --accent: #0033e0; --accent-text: #ffffff;
+  --shadow-1: none;
+  color-scheme: light;
+}
+
+/* ---- Dark ---- */
 
 /* ---- Dark ---- */
 :root[data-theme="treeline-dark"] {
@@ -116,6 +126,16 @@
   --border-line: rgba(0, 0, 0, 0.5); --border-hl: rgba(235, 170, 255, 0.12);
   --text-1: #f4e9f7; --text-2: #a78fae; --accent: #c86be8; --accent-text: #1c081f;
   --shadow-1: 0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+
+/* ---- High Contrast (WCAG AAA: nada translúcido, sem sombra) ---- */
+:root[data-theme="hc-dark"] {
+  --bg-app: #000000; --bg-sidebar: #000000; --bg-panel: #0a0a0a;
+  --bg-hover: rgba(255, 255, 255, 0.2); --bg-selected: rgba(255, 255, 255, 0.3);
+  --border-line: rgba(255, 255, 255, 0.4); --border-hl: #ffffff;
+  --text-1: #ffffff; --text-2: #d9d9d9; --accent: #ffd60a; --accent-text: #000000;
+  --shadow-1: none;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -608,6 +628,58 @@ body {
 .welcome { margin: auto; text-align: center; max-width: 440px; padding: 32px; }
 .welcome h1 { font-size: 22px; margin: 12px 0 8px; }
 .welcome p { color: var(--text-2); }
+
+/* ---- Mascote do estado vazio (commit-dot) ---- */
+.mascot-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 4px; }
+.mascot { width: 130px; height: 117px; cursor: pointer; outline: none; border-radius: 12px; }
+.mascot:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.mascot .mascot-antenna { animation: mascot-sway 3.2s ease-in-out .2s infinite; transform-origin: 100px 44px; }
+.mascot .mascot-eyes { animation: mascot-blink 4.6s linear .8s infinite; transform-origin: 100px 88px; }
+.mascot .mascot-dirt { animation: mascot-dirt 1s ease-in-out .4s infinite; }
+.mascot .mascot-sweat { animation: mascot-sweat 1.6s ease-in-out .6s infinite; }
+.mascot .mascot-lens { animation: mascot-lens 2.4s ease-in-out .3s infinite; transform-origin: 150px 58px; }
+.mascot-msg { margin: 0; min-height: 1.2em; color: var(--text-2); font-size: 13px; }
+.mascot-action {
+  margin-top: 4px; border: 1px solid var(--border-line); background: var(--bg-app); color: var(--text-1);
+  border-radius: 8px; padding: 5px 14px; font-size: 12px; cursor: pointer;
+}
+.mascot-action:hover { background: var(--bg-hover); }
+.mascot-action:active { transform: scale(.97); }
+.mascot-action:focus-visible { box-shadow: 0 0 0 2px var(--accent); outline: none; }
+
+.mascot-jump { animation: mascot-jump .6s cubic-bezier(.2,.8,.2,1); }
+
+@keyframes mascot-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  94%, 96% { transform: scaleY(.12); }
+}
+@keyframes mascot-sway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2.5deg); }
+}
+@keyframes mascot-dirt {
+  0%, 100% { transform: translateX(-2px) scale(1); }
+  50% { transform: translateX(2px) scale(1.04); }
+}
+@keyframes mascot-sweat {
+  0%, 100% { transform: translate(0, 0); opacity: .85; }
+  50% { transform: translate(2px, 3px); opacity: .5; }
+}
+@keyframes mascot-lens {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(6deg); }
+}
+@keyframes mascot-jump {
+  0% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(-18px) scale(.96, 1.06); }
+  55% { transform: translateY(0) scale(1.12, .9); }
+  75% { transform: translateY(-5px) scale(.98, 1.03); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mascot * { animation: none !important; }
+  .mascot-jump { animation: none !important; }
+}
 
 /* ---- Dialogs de operação (Branch/Merge/Stash/…) ---- */
 .modal.wide { width: 560px; max-height: calc(100vh - 96px); overflow-y: auto; }

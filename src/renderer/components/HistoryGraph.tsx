@@ -5,6 +5,7 @@ import { layoutGraph, topTouches, bottomTouches, type LaneCommit } from '../lib/
 import { formatShortcut } from '../shortcuts'
 import { dialogOps, useStore } from '../store'
 import BranchCombo from './BranchCombo'
+import EmptyMascot from './EmptyMascot'
 
 /** Largura por lane e altura da linha — espelham o CSS (.history-row height). */
 const LANE_W = 16
@@ -493,6 +494,15 @@ export default function HistoryGraph() {
         <div ref={spacerRef} style={{ height: 0 }} />
         {isEmpty && (
           <div className="welcome">
+            <EmptyMascot
+              key={filter ? 'noMatch' : dirtyCount > 0 ? 'dirty' : 'empty'}
+              mood={filter ? 'noMatch' : dirtyCount > 0 ? 'dirty' : 'empty'}
+              tr={tr}
+              onClearFilter={() => {
+                setFilter('')
+                searchRef.current?.focus()
+              }}
+            />
             <h1>{filter ? tr('hist.noMatch') : tr('hist.empty')}</h1>
             <p className="muted">{filter ? tr('hist.noMatchHint') : tr('hist.emptyHint')}</p>
           </div>
