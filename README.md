@@ -4,7 +4,7 @@
 
 **TreeLine is a SourceTree alternative for Linux**: a visual Git client (Git GUI) for Ubuntu/Debian with the familiar workflow of SourceTree on Windows/Mac. If you were looking for *SourceTree for Linux*, *SourceTree on Ubuntu* or a *Git client for Linux* — this is it.
 
-![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.6.9-green)
+![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.6.10-green)
 
 > 100% original implementation — not affiliated with Atlassian. Inspired by the SourceTree workflow, without copying brand, icons or texts.
 
@@ -39,7 +39,7 @@ Other alternatives people compare: GitKraken, GitHub Desktop (no official Linux 
 Download the `.deb` or `.AppImage` from the **Releases** page and install:
 
 ```bash
-sudo apt install ./treeline-git-gui_0.6.9_amd64.deb
+sudo apt install ./treeline-git-gui_0.6.10_amd64.deb
 ```
 
 Requirement: `git >= 2.40`. Optional: `git-lfs`, `git-flow`.
@@ -83,7 +83,7 @@ User manual (pt-BR, Git explained from scratch) in [`manual/`](manual/).
 - **0.5.0** — stage per hunk/line, split diff, revert/reset, `--force-with-lease`, blame/compare, command palette
 - **0.6.0 – 0.6.2** — watcher + auto-fetch, LFS, recursive submodules, custom actions, tabs with drag, remappable shortcuts, Flatpak/CI, 10k-commit virtualization, two-column Settings
 - **0.6.3** — package and binary renamed to `treeline-git-gui` (no clash with the Ubuntu `treeline` package)
-- **0.6.9** — 3-way conflict resolver with rerere, Unstaged/Staged panels expanding together, branch combo with search + remotes in the history
+- **0.6.10** — 3-way conflict resolver with rerere, Unstaged/Staged panels expanding together, branch combo with search + remotes in the history
 - **Next** — Flathub submission, `libsecret`/GNOME Keyring, auto-update, `--rpm`/AUR
 
 Detail and SourceTree parity in [`docs/02-roadmap.md`](docs/02-roadmap.md).
