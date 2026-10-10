@@ -75,6 +75,8 @@ ipcMain.handle('treeline:skipRebase', (_event, repo: string, lang?: unknown) =>
     const l = asLang(lang)
     // 3.10: pula o commit que travou e segue para o próximo do plano.
     try {
+      process.env.GIT_EDITOR = process.env.GIT_EDITOR || 'true'
+      process.env.GIT_SEQUENCE_EDITOR = process.env.GIT_SEQUENCE_EDITOR || 'true'
       await simpleGit(repo).raw(['rebase', '--skip'])
     } catch (e) {
       throw conflictErr('rebaseConflicts', e, l)
