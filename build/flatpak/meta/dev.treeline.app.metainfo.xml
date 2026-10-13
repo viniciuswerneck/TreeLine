@@ -53,6 +53,13 @@
   </screenshots>
 
   <releases>
+    <release version="0.6.11" date="2026-10-13">
+      <description>
+        <p>The opencode TUI opened from the toolbar or command palette now runs in the
+        current repository folder: the repo path is passed as a positional argument
+        (<code>opencode [project]</code>), no longer relying only on the shell cwd.</p>
+      </description>
+    </release>
     <release version="0.6.6" date="2026-10-06">
       <description>
         <p>Three-way conflict resolver: full-screen WinMerge-style overlay with A | Result | B

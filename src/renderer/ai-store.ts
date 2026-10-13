@@ -445,9 +445,14 @@ export function shouldSuggest(status: AiStatus | null, enabled: boolean, dismiss
 /**
  * Comando para abrir a TUI do `opencode` no Terminal integrado. Usa o caminho
  * absoluto detectado (o PATH do shell do pty pode não incluir ~/.opencode/bin);
- * cai para `opencode` quando não detectado.
+ * cai para `opencode` quando não detectado. Passa o diretório do repositório
+ * como argumento posicional (`opencode [project]`) para garantir que a TUI abra
+ * na pasta do projeto mesmo se o cwd do pty for alterado (ex.: `cd` no rc do
+ * shell).
  */
-export function opencodeCommand(): string {
+export function opencodeCommand(repo?: string | null): string {
   const p = useAiStore.getState().status?.path
-  return p ? `'${p.replace(/'/g, `'\\''`)}'` : 'opencode'
+  const bin = p ? `'${p.replace(/'/g, `'\\''`)}'` : 'opencode'
+  const dir = repo ? ` '${repo.replace(/'/g, `'\\''`)}'` : ''
+  return bin + dir
 }

@@ -85,7 +85,7 @@ export default function CommandPalette() {
         hint: 'ai',
         run: () => {
           useStore.getState().openTerminalDrawer()
-          useAiStore.getState().requestTerminalCommand(opencodeCommand())
+          useAiStore.getState().requestTerminalCommand(opencodeCommand(useStore.getState().current))
         }
       },
       { label: tr('pal.about'), hint: 'view', run: () => openDlg('about') },

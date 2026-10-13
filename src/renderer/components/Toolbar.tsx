@@ -193,7 +193,7 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
           disabled={!ready}
           onClick={() => {
             openTerminalDrawer()
-            useAiStore.getState().requestTerminalCommand(opencodeCommand())
+            useAiStore.getState().requestTerminalCommand(opencodeCommand(current))
           }}
         >
           <Bot size={16} />

@@ -10,6 +10,16 @@ não case com o `package.json`.
 
 ## [Unreleased]
 
+## [0.6.11] - 2026-10-13
+
+### Fixed
+
+- **opencode abre na pasta do projeto**: a TUI do `opencode` lançada pelo
+  ícone/paleta do TreeLine agora recebe o diretório do repositório como
+  argumento posicional (`opencode [project]`), em vez de depender apenas do
+  `cwd` do pty. Evita abrir na home/raiz quando o shell altera o diretório
+  durante a inicialização.
+
 ## [0.6.10] - 2026-10-12
 
 Endurecimento de confiabilidade e cadeia de suprimentos (sem mudança de
@@ -57,5 +67,6 @@ funcionalidade visível).
   [GHSA-v5rq-49vh-5v5c](https://github.com/advisories/GHSA-v5rq-49vh-5v5c).
   Dependências de runtime sem vulnerabilidades conhecidas no `npm audit`.
 
-[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.10...HEAD
+[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.11...HEAD
+[0.6.11]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.11
 [0.6.10]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.10

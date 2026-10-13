@@ -96,7 +96,7 @@ inteira, mesmo sem diff. `Esc` recolhe.
 | Arquivos em conflito | Abre o **resolvedor** (ou o Merge/Rebase em andamento) |
 | `n em staged · n em unstaged` | Informação de contexto |
 | `n commits` | Contagem do repositório |
-| Versão (`TreeLine 0.6.4`) | Crédito / versão |
+| Versão (`TreeLine 0.6.11`) | Crédito / versão |
 
 Abaixo à direita: **“Desenvolvido por Werneck Lab”**.
 
