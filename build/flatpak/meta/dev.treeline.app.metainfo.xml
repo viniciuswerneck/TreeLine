@@ -53,6 +53,13 @@
   </screenshots>
 
   <releases>
+    <release version="0.6.12" date="2026-10-13">
+      <description>
+        <p>Maintenance release — no code changes. Re-runs the release pipeline
+        (tag <code>v0.6.12</code>) to publish the <code>.deb</code>/AppImage
+        artifacts and the <code>SHA256SUMS</code> file.</p>
+      </description>
+    </release>
     <release version="0.6.11" date="2026-10-13">
       <description>
         <p>The opencode TUI opened from the toolbar or command palette now runs in the

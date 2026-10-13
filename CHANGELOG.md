@@ -10,6 +10,13 @@ não case com o `package.json`.
 
 ## [Unreleased]
 
+## [0.6.12] - 2026-10-13
+
+Release de manutenção — sem mudanças de código. Reemissão do pipeline de
+release (tag `v0.6.12`) para gerar `.deb`/AppImage e publicar o GitHub Release
+com os artefatos e o `SHA256SUMS`. Nenhuma alteração de funcionalidade em
+relação à 0.6.11.
+
 ## [0.6.11] - 2026-10-13
 
 ### Fixed
@@ -76,6 +83,7 @@ funcionalidade visível).
   [GHSA-v5rq-49vh-5v5c](https://github.com/advisories/GHSA-v5rq-49vh-5v5c).
   Dependências de runtime sem vulnerabilidades conhecidas no `npm audit`.
 
-[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.11...HEAD
+[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.12...HEAD
+[0.6.12]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.12
 [0.6.11]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.11
 [0.6.10]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.10
