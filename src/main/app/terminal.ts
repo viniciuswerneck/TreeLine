@@ -41,7 +41,6 @@ const terms = new Map<string, TermSession>()
 
 function loadPty(): typeof import('node-pty') {
   // require tardio: erro vira mensagem legível em vez de quebrar o main.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod = require('node-pty') as typeof import('node-pty')
   if (!mod?.spawn) throw new Error('node-pty unavailable')
   return mod

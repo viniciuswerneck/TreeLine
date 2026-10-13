@@ -3,7 +3,7 @@
 import { describe, expect, it, afterEach } from 'vitest'
 import { simpleGit } from 'simple-git'
 import { join } from 'node:path'
-import { handler, mkRepo, commitFile, write, call, cleanup } from './engine-helpers'
+import { handler, mkRepo, commitFile, call, cleanup } from './engine-helpers'
 
 const repos: string[] = []
 const keep = (r: string): string => {
@@ -105,11 +105,12 @@ describe('motor: submódulo e LFS', () => {
     const inner = keep(await mkRepo())
     await commitFile(inner, 'lib.txt', 'conteudo\n', 'inner base')
 
-    const git = simpleGit(outer)
+    const git = simpleGit(outer, { unsafe: { allowUnsafeProtocolOverride: true } })
     // Politica do git atual bloqueia transporte file: para clonar submódulo
     // de caminho local — a mesma proteção que o app mantém via assertCloneUrl.
-    await git.addConfig('protocol.file.allow', 'always')
-    await git.raw(['submodule', 'add', inner, 'sub'])
+    // Tem de ir via `-c` (não `config`): desde 2.38 o git recusa gravar
+    // protocol.file.allow no config do repo sem allowUnsafeProtocolOverride.
+    await git.raw(['-c', 'protocol.file.allow=always', 'submodule', 'add', inner, 'sub'])
     await git.commit('add submodule')
     const subs = await call<{ path: string; state: string }[]>('treeline:getSubmodules', outer)
     expect(subs.map((s) => s.path)).toContain('sub')

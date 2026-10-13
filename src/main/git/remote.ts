@@ -5,7 +5,7 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { ipcMain, BrowserWindow, dialog } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { asLang } from '../messages'
 import { enqueue, readOp, runGitCancellable, SYNC_TIMEOUT_MS } from './runner'
 import { assertCloneUrl } from './validate'

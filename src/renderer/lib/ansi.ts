@@ -6,7 +6,6 @@
 
 const ESC = '\u001b'
 const BEL = '\u0007'
-// eslint-disable-next-line no-control-regex
 const SGR_RE = new RegExp(`${ESC}\\[([0-9;]*)m`, 'g')
 // OSC (hyperlinks, títulos) é descartado: BEL ou ST finalizam a sequência.
 const OTHER_ESC_RE = new RegExp(`${ESC}\\][^${BEL}]*(?:${BEL}(?:${ESC}\\\\)?|${ESC}\\\\)`, 'g')

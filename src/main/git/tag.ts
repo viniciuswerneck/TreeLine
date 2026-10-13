@@ -2,7 +2,7 @@
 // origin e apagar (local + remoto). Push usa a mesma linha de cancelamento.
 
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { mx, asLang } from '../messages'
 import { enqueue, readOp, runGitCancellable } from './runner'
 import { assertRefName, assertSafeRef } from './validate'

@@ -335,7 +335,6 @@ export default function HistoryGraph() {
     (status?.unstaged.length ?? 0) + (status?.staged.length ?? 0) + (status?.untracked.length ?? 0)
 
   // Ao mudar a lista (repo, filtro, página), volta para o topo da janela.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => setWin([0, 40]), [rows.length, branchFilter, branchSel])
   // Recalcula o offset do spacer uma vez por mudança de lista.
   useEffect(() => {

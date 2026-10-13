@@ -5,7 +5,7 @@
 
 import { promises as fs } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { mx, type UILang } from '../messages'
 import { parseLsFilesU } from '../conflict-stages'
 

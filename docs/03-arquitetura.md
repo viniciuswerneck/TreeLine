@@ -35,7 +35,7 @@ treeline/
   electron-builder.yml
 ```
 
-> **Estrutura-alvo (Parte 10 do `docs/07-plano-de-acao.md`, a executar):** o `main/index.ts` (~3.1k linhas) vira bootstrap + domínios em `src/main/git/{runner,validate,status,history,branch,remote,commit,diff,stash,tag,merge,rebase,pick,revert,conflict,flow,reflog,lfs,submodule,worktree}.ts` + `messages.ts` e `app/{terminal,watchers,bookmarks,customActions,identity,settings,updates}.ts`; o `store.ts` (~1.55k) vira slices zustand em `src/renderer/store/{types,helpers}.ts` + `slices/{repos,worktree,sync,conflicts,ops,ui}.ts`. Guardrail no CI: zero ciclos (`madge`) e arquivos < 800 linhas. A API pública (`TreeLineAPI`, `useStore`, `TreeLineState`) permanece intacta.
+> **Estrutura-alvo (Parte 10 do `docs/07-plano-de-acao.md`):** os domínios do main (10.4/10.5) **já foram extraídos** — `main/index.ts` é um bootstrap de ~199 linhas sobre `src/main/git/{runner,validate,status,history,branch,remote,commit,diff,stash,tag,merge,rebase,pick,revert,conflict,flow,reflog,lfs,submodule,worktree,parsers}.ts` + `messages.ts` e `app/{terminal,watchers,bookmarks,customActions,identity,settings,updates}.ts`. **Falta 10.6:** o `store.ts` (~1.74k) vira slices zustand em `src/renderer/store/{types,helpers}.ts` + `slices/{repos,worktree,sync,conflicts,ops,ui}.ts`. Guardrail no CI (`check:structure`): zero ciclos (`madge`) e arquivos < 800 linhas (ratchet congela `store.ts`/`i18n.ts` até a quebra). A API pública (`TreeLineAPI`, `useStore`, `TreeLineState`) permanece intacta.
 
 ## 3. Main vs Renderer
 

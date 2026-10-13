@@ -4,6 +4,14 @@
 import { rmSync } from 'node:fs'
 import { vi } from 'vitest'
 
+// O app define GIT_EDITOR=true no bootstrap (src/main/index.ts): sem isso um
+// `git rebase --continue`/`revert` abriria um editor e penduraria o processo.
+// Os testes importam só `src/main/git/*` (não o index), então replicamos aqui
+// o ambiente que o main garante em produção.
+process.env.GIT_EDITOR ||= 'true'
+process.env.GIT_SEQUENCE_EDITOR ||= 'true'
+process.env.GIT_TERMINAL_PROMPT ||= '0'
+
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 
 vi.mock('electron', () => {

@@ -56,11 +56,11 @@ export async function mkRepo(): Promise<string> {
   return repo
 }
 
-/** Repo bare para servir de `origin` local. */
+/** Repo bare para servir de `origin` local (HEAD em main, coerente com o app). */
 export async function mkBare(name = 'tl-bare'): Promise<string> {
   const bare = join(tmpdir(), `${name}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`)
   mkdirSync(bare, { recursive: true })
-  await simpleGit(bare).init(['--bare'])
+  await simpleGit(bare).init(['--bare', '--initial-branch=main'])
   return bare
 }
 

@@ -32,7 +32,9 @@ jobs:
           fi
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run lint
+      - run: npm run check:structure
+      - run: npm run coverage
       - run: npm run build
       - name: Install Linux packaging deps
         run: |
@@ -41,6 +43,11 @@ jobs:
             libarchive-tools rpm fakeroot dpkg-dev
       - name: Build .deb and AppImage
         run: npx electron-builder --linux deb AppImage --publish never
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum ./*.deb ./*.AppImage > SHA256SUMS
+          cat SHA256SUMS
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -49,6 +56,7 @@ jobs:
           path: |
             dist/*.deb
             dist/*.AppImage
+            dist/SHA256SUMS
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -56,5 +64,6 @@ jobs:
           files: |
             dist/*.deb
             dist/*.AppImage
+            dist/SHA256SUMS
           generate_release_notes: true
           fail_on_unmatched_files: true

@@ -2,7 +2,7 @@
 // (`feature/x` a partir de develop/main). Só opera em fila do repo.
 
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { mx, asLang } from '../messages'
 import { enqueue, readOp } from './runner'
 import { assertRefName } from './validate'

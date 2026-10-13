@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Agrupa bumps de devDeps de baixo risco num único PR para reduzir ruído.
+      dev-minor-patch:
+        dependency-type: development
+        update-types: ['minor', 'patch']
+    ignore:
+      # Major de Electron muda ABI/chrome-sandbox: tratar manualmente.
+      - dependency-name: electron
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly

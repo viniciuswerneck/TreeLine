@@ -2,7 +2,7 @@
 // rastreados em HEAD.
 
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { readIndexOp, readOp } from './runner'
 
 ipcMain.handle('treeline:getStatus', (_event, repo: string) =>

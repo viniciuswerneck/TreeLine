@@ -35,8 +35,6 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
   const untrackedCount = useStore((s) => s.status?.untracked.length ?? 0)
   const unstagedCount = useStore((s) => s.status?.unstaged.length ?? 0)
   const toStageCount = unstagedCount + untrackedCount
-  const totalToCommit = stagedCount + toStageCount
-  const dirtyCount = totalToCommit
   const ahead = useStore((s) => s.status?.ahead ?? 0)
   const behind = useStore((s) => s.status?.behind ?? 0)
   const stashCount = useStore((s) => s.stashes.length)
@@ -48,7 +46,6 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
   const toggleTerminal = useStore((s) => s.toggleTerminal)
   const doPushForce = useStore((s) => s.doPushForce)
   const openMenu = useStore((s) => s.openMenu)
-  const terminalOpen = useStore((s) => s.terminalOpen)
   const current = useStore((s) => s.current)
   const tr = useStore((s) => s.tr)
   const ready = !!current && !busy

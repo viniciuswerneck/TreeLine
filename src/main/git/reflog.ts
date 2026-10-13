@@ -2,7 +2,7 @@
 // destrutivo: bundle antes (política de reset hard).
 
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { enqueue, readOp } from './runner'
 import { assertSafeRef } from './validate'
 import { backupBundle } from './backup'

@@ -114,7 +114,7 @@ function clean(lines: string[]): ConflictRegion {
  */
 export function parseRegions(text: string): ConflictRegion[] {
   const regions: ConflictRegion[] = []
-  let pending: string[] = []
+  const pending: string[] = []
   let phase: 'none' | 'ours' | 'base' | 'theirs' = 'none'
   let ours: string[] = []
   let base: string[] = []

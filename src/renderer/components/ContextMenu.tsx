@@ -1,14 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 
-export interface MenuItem {
-  label: string
-  danger?: boolean
-  disabled?: boolean
-  onClick?: () => void
-  sepBefore?: boolean
-}
-
 /**
  * Menu de botão direito próprio (temas via CSS): posiciona no cursor,
  * vira para dentro da janela perto das bordas, fecha em clique fora/Esc.

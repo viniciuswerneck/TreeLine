@@ -3,7 +3,7 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { readOp } from './runner'
 
 ipcMain.handle('treeline:getWorktreeInfo', (_event, repo: string) =>

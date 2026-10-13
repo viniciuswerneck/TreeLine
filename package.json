@@ -22,7 +22,10 @@
     "test:stress": "node scripts/make-stress-repo.js 10000 && node scripts/stress.cjs",
     "fixture:repos": "node scripts/make-fixture-repos.js",
     "shots": "node scripts/shots.cjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "check:structure": "madge --circular --extensions ts,tsx src && node scripts/check-file-size.mjs"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
@@ -41,10 +44,11 @@
     "node-pty": "^1.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "simple-git": "^3.30.0",
+    "simple-git": "^4.0.2",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/node": "^22.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
@@ -53,8 +57,13 @@
     "electron": "^44.0.0",
     "electron-builder": "^26.0.0",
     "electron-vite": "^5.0.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.13.0",
+    "madge": "^8.0.0",
     "playwright-core": "^1.63.0",
     "typescript": "^5.6.0",
+    "typescript-eslint": "^8.71.2",
     "vite": "^7.0.0",
     "vitest": "^5.0.3"
   }

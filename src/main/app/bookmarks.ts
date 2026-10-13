@@ -5,7 +5,7 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { app, dialog, BrowserWindow, ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from '../git/git'
 
 function bookmarksFile(): string {
   return join(app.getPath('userData'), 'bookmarks.json')

@@ -2,9 +2,9 @@
 // force-push com lease e cancelamento de operação de rede em andamento.
 
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { mx, asLang } from '../messages'
-import { enqueue, readOp, runGitCancellable, syncControllers, syncKey } from './runner'
+import { enqueue, runGitCancellable, syncControllers, syncKey } from './runner'
 import { assertSafeRef } from './validate'
 import { friendlySyncError } from './helpers'
 

@@ -2,7 +2,7 @@
 // http/https (esquema estranho não vira protocol handler do SO).
 
 import { ipcMain, shell } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { enqueue } from './runner'
 
 ipcMain.handle('treeline:openPR', (_event, repo: string) =>
@@ -11,7 +11,7 @@ ipcMain.handle('treeline:openPR', (_event, repo: string) =>
     const m = raw.split('\n').map((l) => /^\S+\t(\S+) \(fetch\)$/.exec(l)?.[1]).find(Boolean) ?? ''
     const url = (m ?? '').replace(/\.git$/, '')
     let web = ''
-    let gh = /github\.com[:/]([^/]+\/[^/]+)/.exec(url)
+    const gh = /github\.com[:/]([^/]+\/[^/]+)/.exec(url)
     if (gh?.[1]) web = `https://github.com/${gh[1]}/compare`
     const gl = /gitlab[^/]*[:/]([^/]+\/[^/]+)/.exec(url)
     if (!web && gl?.[1]) web = `https://${/gitlab[^/:]*/.exec(url)?.[0] ?? 'gitlab.com'}/${gl[1]}/-/merge_requests`

@@ -1,23 +1,4 @@
-import { useMemo } from 'react'
-
 export default function DiffViewerMock(): React.ReactElement {
-  const leftLines = [
-    { ln: 1, text: "console.log('v0')" },
-    { ln: 2, text: 'home()' },
-    { ln: 3, text: 'sobre()' },
-    { ln: 4, text: '' }, // hachurado/removed area marker context? represent as removed block
-    { ln: 5, text: '' },
-    { ln: 6, text: '' }
-  ]
-  const rightLines = [
-    { ln: 1, text: "console.log('v0')" },
-    { ln: 2, text: 'home()' },
-    { ln: 3, text: 'sobre()' },
-    { ln: 4, add: true, text: '' },
-    { ln: 5, add: true, text: '' },
-    { ln: 6, add: true, text: 'jlkej lkjr lwekjr lerj wlerj eljkt tl jeba', error: true },
-    { ln: 7, text: '// ajuste local não commitado' }
-  ]
   // simplified mock to match requested visual
   return (
     <div className="diff-mock" role="region" aria-label="Side-by-side diff mock">

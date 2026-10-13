@@ -38,7 +38,7 @@ describe('ipc handlers invocados', () => {
       // opener de IIFE: "(async" com ou sem espaço, exceto callbacks
       // legítimos (.then(async, new Promise(async) etc. — esses têm prefixo
       // diferente de início de expressão).
-      if (/^  \( ?async[ (]/.test(l)) {
+      if (/^ {2}\( ?async[ (]/.test(l)) {
         bad.push(`${i + 1}: ${l.trim().slice(0, 60)}`)
       }
     })

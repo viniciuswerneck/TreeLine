@@ -13,6 +13,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Audit (deps de runtime)
+        run: npm audit --omit=dev --audit-level=high
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run lint
+      - name: Estrutura (ciclos + tamanho de arquivo)
+        run: npm run check:structure
+      - name: Testes + piso de cobertura
+        run: npm run coverage
       - run: npm run build

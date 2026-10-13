@@ -1,0 +1,12 @@
+# Mantenedores por área. Ajuste os @handles conforme a equipe crescer.
+* @viniciuswerneck
+
+# Motor git (execução de comandos, validação, segurança de refs).
+/src/main/git/ @viniciuswerneck
+
+# IPC tipado e preload (fronteira main <-> renderer).
+/src/main/ipc.ts @viniciuswerneck
+/src/preload/ @viniciuswerneck
+
+# CI/CD e empacotamento.
+/.github/ @viniciuswerneck

@@ -2,7 +2,7 @@
 // blame, file-history e compare entre commits.
 
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { mx, asLang } from '../messages'
 import { readOp } from './runner'
 import { assertSafeRef, relPathSafe } from './validate'

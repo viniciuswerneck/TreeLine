@@ -1,8 +1,11 @@
 // Integração do motor: branches, tags, remotes, sync, flow, pr, backup.
 import { describe, expect, it, afterEach, vi } from 'vitest'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { simpleGit } from 'simple-git'
 import { dialog, shell } from 'electron'
-import { mkRepo, mkBare, commitFile, call, cleanup } from './engine-helpers'
+import { mkRepo, mkBare, commitFile, call, handler, cleanup } from './engine-helpers'
 
 const repos: string[] = []
 const keep = (r: string): string => {
@@ -109,9 +112,10 @@ describe('motor: remotes e sync', () => {
     remotes = await call('treeline:getRemotes', repo)
     expect(remotes[0]?.url).toBe(bare)
 
-    const f = keep(await mkRepo())
-    await simpleGit(f).addRemote('origin', bare)
-    await call('treeline:setUpstream', f, 'main', 'origin/main')
+    const f = keep(mkdtempSync(join(tmpdir(), 'tl-clone-')))
+    // Clone real: cria `main` já com commit (não um branch unborn, que o git
+    // recusa configurar como upstream de tracking).
+    await simpleGit().clone(bare, f)
     await call('treeline:pull', f)
     expect(await call('treeline:getTrackedFiles', f)).toContain('a.txt')
 
@@ -152,16 +156,19 @@ describe('motor: remotes e sync', () => {
     const src = keep(await mkRepo())
     await commitFile(src, 'a.txt', 'conteudo\n', 'base')
 
-    const parent = (await import('node:os')).tmpdir()
+    // Parent vazio e próprio do teste: destino = parent/basename(src) não pode
+    // colidir com o próprio src (que vive dentro de /tmp).
+    const parent = keep(mkdtempSync(join(tmpdir(), 'tl-dest-')))
     vi.mocked(dialog.showOpenDialog).mockResolvedValue({ canceled: false, filePaths: [parent] })
-    const target = await call<string>('treeline:cloneRepo', { sender: { isDestroyed: () => false } }, src)
+    const evt = { sender: { isDestroyed: () => false } }
+    const target = (await handler('treeline:cloneRepo')(evt, src)) as string | null
     expect(target).toContain(src.split('/').pop() ?? '')
     const cloned = await call<{ name: string; url: string }[]>('treeline:getRemotes', target ?? '')
     expect(cloned[0]?.name).toBe('origin')
 
     // initRepo: dialog cancelado devolve null.
     vi.mocked(dialog.showOpenDialog).mockResolvedValue({ canceled: true, filePaths: [] })
-    const none = await call('treeline:initRepo', { sender: { isDestroyed: () => false } })
+    const none = await handler('treeline:initRepo')(evt)
     expect(none).toBeNull()
   })
 

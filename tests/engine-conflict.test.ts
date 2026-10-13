@@ -129,7 +129,9 @@ describe('motor: rebase com conflito', () => {
     const git = simpleGit(repo)
     await git.checkoutBranch('feature', 'main')
     await commitFile(repo, 'a.txt', 'F1\n', 'f1')
-    await commitFile(repo, 'a.txt', 'F2\n', 'f2')
+    // f2 em OUTRO arquivo: após pular f1 (que conflita), f2 aplica limpo e o
+    // rebase termina — exercita o skip de verdade em vez de parar de novo.
+    await commitFile(repo, 'b.txt', 'novo\n', 'f2')
     await git.checkout('main')
     await commitFile(repo, 'a.txt', 'M\n', 'main move')
     await git.checkout('feature')

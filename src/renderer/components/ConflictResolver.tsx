@@ -270,7 +270,7 @@ export default function ConflictResolver() {
     }
   }, [file, regions, stages, edited, result, busy, saveResult, confirmAction, tr])
 
-  const useSide = useCallback(
+  const applySide = useCallback(
     async (side: Side) => {
       if (!file || busy) return
       setLocalBusy(true)
@@ -531,7 +531,7 @@ export default function ConflictResolver() {
           <div className="cr-spacer" />
 
           {isDelete && (
-            <button className="cr-btn danger" onClick={() => void useSide('both-deleted')} disabled={busy}>
+            <button className="cr-btn danger" onClick={() => void applySide('both-deleted')} disabled={busy}>
               {tr('cr.deleteBoth')}
             </button>
           )}
@@ -590,10 +590,10 @@ export default function ConflictResolver() {
                 <div className="cr-binary">
                   <p>{tr('cr.binary')}</p>
                   <div className="cr-binary-actions">
-                    <button className="cr-btn" onClick={() => void useSide('ours')}>
+                    <button className="cr-btn" onClick={() => void applySide('ours')}>
                       {tr('cr.binaryOurs')}
                     </button>
-                    <button className="cr-btn" onClick={() => void useSide('theirs')}>
+                    <button className="cr-btn" onClick={() => void applySide('theirs')}>
                       {tr('cr.binaryTheirs')}
                     </button>
                   </div>

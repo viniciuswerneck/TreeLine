@@ -2,7 +2,7 @@
 // branches remotas e upstream. Escritas sempre na fila do repo; leituras fora.
 
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { mx, asLang } from '../messages'
 import { enqueue, readOp } from './runner'
 import { assertRefName, assertSafeRef } from './validate'

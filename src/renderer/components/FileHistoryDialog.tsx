@@ -11,7 +11,6 @@ export default function FileHistoryDialog() {
   const selectCommit = useStore((s) => s.selectCommit)
   const loadCommitDiffFile = useStore((s) => s.loadCommitDiffFile)
   const closeDlg = useStore((s) => s.closeDlg)
-  const openDlg = useStore((s) => s.openDlg)
   const tr = useStore((s) => s.tr)
   const [showDiff, setShowDiff] = useState<string | null>(null)
   const [diffText, setDiffText] = useState('')

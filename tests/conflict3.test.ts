@@ -91,7 +91,7 @@ function fixture(file: string, base: string, ours: string, theirs: string): Fixt
     .split('\n')
     .filter(Boolean)
     .map((l) => {
-      const [meta, p] = l.split('\t')
+      const [meta] = l.split('\t')
       const [, sha, stage] = (meta as string).split(' ')
       return { sha: sha as string, stage: Number(stage) }
     })

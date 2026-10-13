@@ -1,7 +1,7 @@
 // Submódulos: listar (recursivo) com estado e atualizar (init + update).
 
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { mx, asLang } from '../messages'
 import { enqueue, readOp } from './runner'
 

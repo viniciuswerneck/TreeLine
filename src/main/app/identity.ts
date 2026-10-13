@@ -3,7 +3,7 @@
 import { ipcMain } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from '../git/git'
 import { mx, asLang } from '../messages'
 import { readOp } from '../git/runner'
 

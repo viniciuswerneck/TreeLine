@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Reportar vulnerabilidade (privado)
+    url: https://github.com/viniciuswerneck/TreeLine/security/advisories/new
+    about: Não abra issue pública para falhas de segurança. Veja SECURITY.md.
+  - name: Como contribuir
+    url: https://github.com/viniciuswerneck/TreeLine/blob/main/CONTRIBUTING.md
+    about: Ambiente, gates do CI e regras de código.

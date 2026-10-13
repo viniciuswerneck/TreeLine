@@ -1,8 +1,7 @@
 // Integração do motor: worktree + commit + diff/hunks (status, commit, diff).
 import { describe, expect, it, afterEach } from 'vitest'
 import { simpleGit } from 'simple-git'
-import { join } from 'node:path'
-import { mkRepo, commitFile, commitAll, write, read, call, cleanup } from './engine-helpers'
+import { mkRepo, commitFile, write, read, call, cleanup } from './engine-helpers'
 
 const repos: string[] = []
 const keep = (r: string): string => {
@@ -98,7 +97,7 @@ describe('motor: stage por hunk/linha', () => {
     expect(hunks.length).toBeGreaterThanOrEqual(2)
 
     await call('treeline:stageHunk', repo, 'f.txt', false, hunks[0].index)
-    let staged = await call('treeline:getStatus', repo)
+    const staged = await call('treeline:getStatus', repo)
     expect(staged.staged.map((x: { path: string }) => x.path)).toContain('f.txt')
 
     await call('treeline:commit', repo, 'hunk1', false)
@@ -108,7 +107,11 @@ describe('motor: stage por hunk/linha', () => {
     expect(d).not.toContain('+X')
 
     const hunks2 = await call<{ index: number; lines: string[] }[]>('treeline:getHunks', repo, 'f.txt', false)
-    await call('treeline:stageLines', repo, 'f.txt', false, hunks2[0].index, [0])
+    // Seleciona a linha ALTERADA ('+Z'), não a de contexto (' L59'): o índice da
+    // linha muda traria "No lines selected" por não haver +/- selecionado.
+    const changed = hunks2[0].lines.findIndex((l) => l.startsWith('+') || l.startsWith('-'))
+    expect(changed).toBeGreaterThanOrEqual(0)
+    await call('treeline:stageLines', repo, 'f.txt', false, hunks2[0].index, [changed])
     const d2 = await call<string>('treeline:getDiff', repo, 'f.txt', true)
     expect(d2.length).toBeGreaterThan(0)
   })

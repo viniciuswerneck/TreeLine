@@ -3,7 +3,7 @@
 
 import { join } from 'node:path'
 import { ipcMain, shell } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { mx, asLang } from '../messages'
 import { enqueue } from './runner'
 import { assertSafeRef, relPathSafe } from './validate'

@@ -2,7 +2,7 @@
 // escrita serializada; descarte de stash grava bundle antes (destrutivo).
 
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { asLang } from '../messages'
 import { enqueue, readOp } from './runner'
 import { conflictErr } from './helpers'

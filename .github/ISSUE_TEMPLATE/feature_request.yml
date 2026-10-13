@@ -1,0 +1,32 @@
+name: Sugestão
+description: Propor uma melhoria ou funcionalidade
+title: '[Sugestão] '
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema ou necessidade
+      description: Que fluxo do dia a dia isso resolve? Cite a paridade almejada (SourceTree/VS Code) se aplicável.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+    validations:
+      required: false
+  - type: input
+    id: roadmap
+    attributes:
+      label: Item do roadmap relacionado
+      description: Se constar em `docs/02-roadmap.md`, cite a fase/item.
+      placeholder: 'Fase 3 / ...'
+    validations:
+      required: false

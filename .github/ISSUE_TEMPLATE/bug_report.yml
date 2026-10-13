@@ -1,0 +1,62 @@
+name: Bug
+description: Reportar um comportamento incorreto
+title: '[Bug] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pelo relato. Antes, confira `docs/05-estado.md` e issues abertas.
+        Para falhas de segurança, **não** use este formulário — siga `SECURITY.md`.
+  - type: input
+    id: version
+    attributes:
+      label: Versão do TreeLine
+      description: Aparece na StatusBar ou em `treeline --version`.
+      placeholder: '0.6.10'
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribuição e sessão gráfica
+      placeholder: 'Ubuntu 24.04, Wayland/GNOME'
+    validations:
+      required: true
+  - type: input
+    id: git
+    attributes:
+      label: Versão do Git
+      description: Saída de `git --version`.
+      placeholder: 'git version 2.53.0'
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      placeholder: |
+        1. Abrir o repositório X
+        2. Clicar em Y
+        3. Observar Z
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento esperado
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamento observado
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: '`~/.config/TreeLine/logs` (remova dados sensíveis).'
+    validations:
+      required: false

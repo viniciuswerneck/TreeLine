@@ -3,7 +3,7 @@ import { SHORTCUT_DEFAULTS, eventShortcut, loadShortcuts, saveShortcuts, type Sh
 import type { BlameLine, BranchDetail, BranchInfo, CodeSearchChange, CodeSearchGroup, CodeSearchOptions, CodeSearchProgress, CodeSearchStats, CompareSummary, CommitDetail, CommitInfo, ConflictFile, ConflictOp, ConflictSide, CredentialHelperInfo, FileHistoryEntry, FlowType, GitIdentity, HunkInfo, LfsInfo, OpState, RebasePlanEntry, ReflogEntry, RemoteBranchInfo, RemoteInfo, RepoStatus, ResetMode, StashInfo, SubmoduleInfo, SyncOp, TagInfo, WorktreeInfo } from '../shared/types'
 import { applyTheme, loadTheme } from './themes'
 import { applyLang, loadLang, t, type DictKey, type Lang } from './i18n'
-import type { MenuItem } from './components/ContextMenu'
+import type { MenuItem } from './menu-types'
 
 export type DialogKind =
   | 'branch' | 'merge' | 'stash' | 'tag' | 'rebase'
@@ -948,7 +948,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
    * `conflictFiles` e pode destravar a operação.
    */
   advanceAfterResolve: async (path: string) => {
-    const { current, conflictFiles, conflictIndex } = get()
+    const { current, conflictIndex } = get()
     if (!current) return
     const remaining = await fail(window.treeline.getConflictFiles(current), (e) => set({ error: e }))
     if (!remaining || get().current !== current) return

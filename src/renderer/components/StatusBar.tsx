@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { dialogOps, useStore } from '../store'
 
@@ -17,6 +18,15 @@ export default function StatusBar() {
   const openResolver = useStore((s) => s.openResolver)
   const doFetch = useStore((s) => s.doFetch)
   const tr = useStore((s) => s.tr)
+  // Versão vem do runtime (package.json via app.getVersion): fonte única,
+  // sem string hardcoded que desatualiza a cada bump.
+  const [version, setVersion] = useState('')
+  useEffect(() => {
+    window.treeline
+      .getVersion()
+      .then(setVersion)
+      .catch(() => setVersion(''))
+  }, [])
 
   const conflicted = status?.conflicted.length ?? 0
   const attention = mergeBusy || rebaseBusy || pickBusy || revertBusy || conflicted > 0 || !!error
@@ -135,7 +145,7 @@ export default function StatusBar() {
       <span style={{ marginLeft: 'auto' }} title={tr('status.credit')}>
         {tr('status.developedBy')}
       </span>
-      <span>TreeLine 0.6.10</span>
+      <span>TreeLine {version || '…'}</span>
     </div>
   )
 }

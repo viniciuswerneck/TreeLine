@@ -5,7 +5,7 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { ipcMain } from 'electron'
-import { simpleGit } from 'simple-git'
+import { simpleGit } from './git'
 import { mx, asLang, type UILang } from '../messages'
 import { enqueue, readOp } from './runner'
 import { relPathSafe } from './validate'
