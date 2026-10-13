@@ -19,6 +19,15 @@ não case com o `package.json`.
   argumento posicional (`opencode [project]`), em vez de depender apenas do
   `cwd` do pty. Evita abrir na home/raiz quando o shell altera o diretório
   durante a inicialização.
+- **merge com conflito não vira erro fantasma**: `treeline:mergeBranch` só
+  relança o erro do `simple-git` quando não há `MERGE_HEAD` (ou seja, não era
+  um merge parado em conflito). O resolvedor segue abrindo via `getConflictOp`
+  em todas as versões de git (antes, dependendo da versão, o usuário via o
+  toast "Merge stopped on conflicts" além do resolvedor).
+- **CI no ubuntu-latest**: o teste de LFS passava no CI porque lá o `git-lfs`
+  já vem instalado (`expected true to be false`); agora o teste se adapta ao
+  ambiente (repository virgem sem tracking em qualquer caso; fluxo "sem
+  binário" só quando o binário não existe).
 
 ## [0.6.10] - 2026-10-12
 

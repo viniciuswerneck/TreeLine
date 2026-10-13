@@ -119,12 +119,21 @@ describe('motor: submódulo e LFS', () => {
     expect(await call('treeline:getTrackedFiles', outer)).toContain('sub')
   })
 
-  it('LFS sem binário: detecta ausência e falha com erro amigável', async () => {
+  // O teste flui diferente conforme o ambiente: o ubuntu-latest do CI já traz o
+  // git-lfs; nesta máquina não. Em ambos, um repo sem .gitattributes não tem
+  // tracking; só a falta do binário (with rejects) é testada onde ele não existe.
+  it('LFS: detecta binário e ausência de tracking; sem binário, opera falham com erro amigável', async () => {
     const repo = keep(await mkRepo())
     await commitFile(repo, 'a.txt', 'v\n', 'base')
     const info = await call<{ installed: boolean; tracked: boolean }>('treeline:getLfsInfo', repo)
-    expect(info.installed).toBe(false)
     expect(info.tracked).toBe(false)
+    if (info.installed) {
+      // Ambiente COM git-lfs: o fluxo real é coberto no E2E; aqui só garante
+      // que repo virgem não acusa tracking.
+      return
+    }
+    const absent = await call<{ installed: boolean }>('treeline:getLfsInfo', repo)
+    expect(absent.installed).toBe(false)
     await expect(call('treeline:lfsTrack', repo, '*.bin')).rejects.toThrow()
     await expect(call('treeline:lfsUntrack', repo, '*.bin')).rejects.toThrow()
     await expect(call('treeline:lfsPull', repo)).rejects.toThrow()

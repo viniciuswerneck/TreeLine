@@ -51,7 +51,12 @@ ipcMain.handle('treeline:mergeBranch', (_event, repo: string, ref: string, noFf:
     try {
       await simpleGit(repo).merge([ref, ...(noFf ? ['--no-ff'] : [])])
     } catch (e) {
-      throw conflictErr('mergeConflicts', e, l)
+      // Merge que PARA em conflito não é erro do app: o estado fica em
+      // MERGE_HEAD e a UI abre o resolvedor (getConflictOp). O simple-git
+      // às vezes resolve e às vezes rejeita com o MergeSummary, dependendo da
+      // versão do git — por isso só relançamos quando NÃO há merge em curso.
+      const mergeInProgress = await exists(join(await gitDirOf(repo), 'MERGE_HEAD'))
+      if (!mergeInProgress) throw conflictErr('mergeConflicts', e, l)
     }
   })
 )
