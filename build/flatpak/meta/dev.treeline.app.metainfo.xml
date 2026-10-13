@@ -53,6 +53,14 @@
   </screenshots>
 
   <releases>
+    <release version="0.6.15" date="2026-10-13">
+      <description>
+        <p>Fix: the code-search/blame date no longer shows raw ISO
+        (<code>2026-10-13</code>); it now follows the UI language
+        (<code>13/10/2026</code> in Portuguese/Spanish,
+        <code>10/13/2026</code> in English).</p>
+      </description>
+    </release>
     <release version="0.6.14" date="2026-10-13">
       <description>
         <p>Commit dates now follow the UI language: English shows month/day with

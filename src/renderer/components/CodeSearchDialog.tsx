@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CaseSensitive, Cloud, FileCode, GitBranch, LoaderCircle, Regex, Search, X } from 'lucide-react'
 import { useStore } from '../store'
+import { formatDate } from '../lib/date'
 import { useFocusTrap } from '../lib/a11y'
 import type { CodeSearchLine, CodeSearchProgress } from '../../shared/types'
 
@@ -49,6 +50,7 @@ export default function CodeSearchDialog() {
   const openCodeResult = useStore((s) => s.openCodeResult)
   const resetCodeSearch = useStore((s) => s.resetCodeSearch)
   const tr = useStore((s) => s.tr)
+  const lang = useStore((s) => s.lang)
   const [index, setIndex] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -206,7 +208,7 @@ export default function CodeSearchDialog() {
                       </button>
                       {ch && (
                         <span className="cs-change" title={ch.subject}>
-                          {ch.hash} · {ch.author} · {ch.date.slice(0, 10)}
+                          {ch.hash} · {ch.author} · {formatDate(ch.date, lang)}
                           {ch.ref ? ` · ${ch.ref}` : ''}
                         </span>
                       )}

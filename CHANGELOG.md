@@ -10,6 +10,14 @@ não case com o `package.json`.
 
 ## [Unreleased]
 
+## [0.6.15] - 2026-10-13
+
+### Fixed
+
+- **Data do blame/busca de código deixou de aparecer em ISO** (`2026-10-13`):
+  `CodeSearchDialog` agora usa `formatDate(iso, lang)` (`13/10/2026` em pt/es,
+  `10/13/2026` em en). Novo helper `formatDate` em `src/renderer/lib/date.ts`.
+
 ## [0.6.14] - 2026-10-13
 
 ### Changed
@@ -130,7 +138,8 @@ funcionalidade visível).
   [GHSA-v5rq-49vh-5v5c](https://github.com/advisories/GHSA-v5rq-49vh-5v5c).
   Dependências de runtime sem vulnerabilidades conhecidas no `npm audit`.
 
-[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.14...HEAD
+[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.15...HEAD
+[0.6.15]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.15
 [0.6.14]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.14
 [0.6.13]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.13
 [0.6.12]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.12
