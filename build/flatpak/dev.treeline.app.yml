@@ -32,7 +32,7 @@ modules:
       - desktop-file-edit --set-key=StartupWMClass --set-value=dev.treeline.app /app/share/applications/dev.treeline.app.desktop
     sources:
       - type: dir
-        path: ../dist/linux-unpacked
+        path: ../../dist/linux-unpacked
       - type: file
         path: ../icon.png
       - type: file

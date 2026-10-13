@@ -129,7 +129,19 @@ export function ensureServer(): Promise<AiServerStatus> {
     proc.once('exit', () => {
       running = null
     })
-    await new OpencodeClient(url).health()
+    try {
+      await new OpencodeClient(url).health()
+    } catch (e) {
+      // Health falhou (porta fechada, proxy quebrado…): não deixa `running`
+      // mentiroso nem o processo órfão inventando que o servidor está de pé.
+      running = null
+      try {
+        proc.kill()
+      } catch {
+        /* já morreu */
+      }
+      throw e
+    }
     return statusOf()
   })()
     .catch((e: unknown) => {

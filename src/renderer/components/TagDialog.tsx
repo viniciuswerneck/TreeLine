@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { dialogOps, useStore } from '../store'
+import { formatDateTime } from '../lib/date'
 import Dialog, { useDialogRunner } from './Dialog'
 
 /** Dialog Tag: criar (annotated se mensagem) + lista com push/delete. */
@@ -66,7 +67,7 @@ export default function TagDialog() {
         {tags.map((t) => (
           <div key={t.name} className="dlg-row">
             <span className="grow">
-              <span className="mono">{t.name}</span> <span className="sub">{t.date}</span>
+              <span className="mono">{t.name}</span> <span className="sub">{formatDateTime(t.date)}</span>
             </span>
             <span className="dlg-actions">
               <button className="mini-btn" disabled={busy} onClick={() => void run(() => dialogOps.pushTag(t.name))}>

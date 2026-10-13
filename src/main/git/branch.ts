@@ -14,6 +14,7 @@ ipcMain.handle('treeline:createBranch', (_event, repo: string, name: string, fro
     const n = name.trim()
     assertRefName(n, l)
     const start = from.trim() || 'HEAD'
+    assertSafeRef(start, l)
     if (checkout) await simpleGit(repo).checkoutBranch(n, start)
     else await simpleGit(repo).branch([n, start])
   })
@@ -22,6 +23,7 @@ ipcMain.handle('treeline:createBranch', (_event, repo: string, name: string, fro
 ipcMain.handle('treeline:checkoutBranch', (_event, repo: string, name: string, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
+    assertSafeRef(name.trim(), l)
     try {
       await simpleGit(repo).checkout(name)
     } catch (e) {
@@ -74,12 +76,15 @@ ipcMain.handle('treeline:renameBranch', (_event, repo: string, oldName: string, 
     const l = asLang(lang)
     const n = newName.trim()
     assertRefName(n, l)
+    assertSafeRef(oldName.trim(), l)
     await simpleGit(repo).branch(['-m', oldName, n])
   })
 )
 
 ipcMain.handle('treeline:deleteBranch', (_event, repo: string, name: string, force: boolean) =>
   enqueue(repo, async () => {
+    // nome de branch vindo do renderer: `-D --foo` viraria flag do `git branch`.
+    assertSafeRef(name.trim(), 'en')
     await backupBundle(repo)
     await simpleGit(repo).branch([force ? '-D' : '-d', name])
   })
@@ -134,7 +139,11 @@ ipcMain.handle('treeline:getRemoteBranches', (_event, repo: string) =>
 ipcMain.handle('treeline:setUpstream', (_event, repo: string, branch: string, upstream: string, lang?: unknown) =>
   enqueue(repo, async () => {
     const l = asLang(lang)
-    if (!upstream.trim()) throw new Error(mx(l, 'noUpstream', { b: branch }))
-    await simpleGit(repo).raw(['branch', `--set-upstream-to=${upstream.trim()}`, branch.trim()])
+    const up = upstream.trim()
+    const b = branch.trim()
+    if (!up) throw new Error(mx(l, 'noUpstream', { b }))
+    assertSafeRef(up, l, 'nameInvalid')
+    assertSafeRef(b, l, 'nameInvalid')
+    await simpleGit(repo).raw(['branch', `--set-upstream-to=${up}`, b])
   })
 )

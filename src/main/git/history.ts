@@ -53,6 +53,9 @@ ipcMain.handle('treeline:getLog', (_event, repo: string, limit?: number, skip?: 
     // --skip pagina: mesma ordem estável enquanto o repo não muda.
     // refs explícitos (branch atual ou seleção múltipla): ancestry real em
     // vez de heurística de refs; sem seleção, `--all`.
+    // Sem `assertSafeRef`, um ref com prefixo `-` vira flag do git (ex.:
+    // `--output=/etc/passwd` grava arquivo arbitrário).
+    onlyRefs.forEach((r) => assertSafeRef(r, 'en'))
     const raw = await simpleGit(repo).raw([
       'log', ...(onlyRefs.length ? onlyRefs : ['--all']), '--topo-order', `--max-count=${n}`, `--skip=${s}`, '--date=iso',
       '--pretty=format:%H%x00%P%x00%an%x00%ad%x00%D%x00%s%x1e'
@@ -69,6 +72,7 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async (): Promise<import('../../shared/types').CommitDetail> => {
     const l = asLang(lang)
+    assertSafeRef(hash, l)
     const out = await simpleGit(repo).raw([
       'show', '--name-only', '--date=iso',
       '--pretty=format:%H%x00%P%x00%an%x00%cn%x00%ad%x00%D%x00%s%x1e', hash
@@ -125,6 +129,9 @@ ipcMain.handle('treeline:getCommitDetail', (_event, repo: string, hash: string, 
 ipcMain.handle('treeline:getCommitDiff', (_event, repo: string, hash: string, file: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
   readOp(async () => {
+    // Mesmo `assertSafeRef` do detail: hash é a única entrada (arquivo já
+    // passa por relPathSafe no renderer); sem `-`/magic não vira flag.
+    assertSafeRef(hash, 'en')
     // Merge: `show -- <file>` sai vazio (diff combinado limpo não mostra
     // nada). Compara com o primeiro pai, igual aos arquivos/stats.
     const parents = (await simpleGit(repo).raw(['show', '-s', '--pretty=%P', hash])).trim().split(/\s+/).filter(Boolean)

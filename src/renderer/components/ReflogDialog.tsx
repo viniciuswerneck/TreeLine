@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { BackupInfo } from '../../shared/types'
+import { formatDateTime } from '../lib/date'
 import { dialogOps, useStore } from '../store'
 import Dialog, { useDialogRunner } from './Dialog'
 
@@ -16,7 +17,10 @@ export default function ReflogDialog() {
 
   useEffect(() => {
     if (!current) return
-    window.treeline.listBackups(current).then(setBackups).catch(() => setBackups([]))
+    // Resposta de uma lista antiga não pode vazar pra dentro do novo repo.
+    let alive = true
+    window.treeline.listBackups(current).then((b) => { if (alive) setBackups(b) }).catch(() => { if (alive) setBackups([]) })
+    return () => { alive = false }
   }, [current, reflog])
 
   const doUndo = (ref: string, hash: string): Promise<void> =>
@@ -99,7 +103,7 @@ export default function ReflogDialog() {
                   <span className="grow">
                     <span className="mono">{b.file}</span>{' '}
                     <span className="sub">
-                      {b.date.slice(0, 16).replace('T', ' ')} · {kb(b.size)}
+                      {formatDateTime(b.date)} · {kb(b.size)}
                     </span>
                   </span>
                   <span className="dlg-actions">

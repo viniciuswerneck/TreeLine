@@ -73,7 +73,7 @@ export default function RebaseInteractiveDialog() {
     <Dialog title={tr('rebaseI.title')} wide>
       <div className="field-row">
         <label className="field">
-          <span>Base</span>
+          <span>{tr('cr.base')}</span>
           <input value={base} onChange={(e) => setBase(e.target.value)} placeholder={tr('rebaseI.basePh')} />
         </label>
         <button className="mini-btn" disabled={loadingPlan || !current || !base.trim()} onClick={() => void load()}>

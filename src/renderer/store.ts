@@ -9,7 +9,7 @@ export type DialogKind =
   | 'branch' | 'merge' | 'stash' | 'tag' | 'rebase'
   | 'pick' | 'flow' | 'reflog' | 'remotes'
   | 'reset' | 'rebaseInteractive' | 'blame' | 'fileHistory' | 'compare'
-  | 'about' | 'custom' | 'lfs' | 'codeSearch'
+  | 'about' | 'custom' | 'lfs' | 'codeSearch' | 'upstream'
 
 export interface ContextMenuState {
   x: number
@@ -229,9 +229,12 @@ interface TreeLineState {
   dialog: DialogKind | null
   openDlg: (kind: DialogKind) => void
   closeDlg: () => void
-  /** Preset de ref (branch/hash) que o próximo dialog consome e limpa. */
+  /** Branch que o próximo dialog consome e limpa. */
   refPreset: string | null
   setRefPreset: (p: string | null) => void
+  /** Branch alvo do dialog "Set upstream" (sem prompt(), não existe no Electron). */
+  upstreamBranch: string | null
+  setUpstreamPrompt: (branch: string) => void
   stashes: StashInfo[]
   tags: TagInfo[]
   remotes: RemoteInfo[]
@@ -417,11 +420,7 @@ moveTab: (from, to) => {
       const base = get().commits
       const seen = new Set(base.map((c) => c.hash))
       const fresh = next.filter((c) => !seen.has(c.hash))
-      set({
-        commits: [...base, ...fresh],
-        logPage: get().logPage + 1,
-        hasMoreCommits: next.length >= PAGE
-      })
+      set({ commits: [...base, ...fresh], logPage: get().logPage + 1, hasMoreCommits: next.length >= PAGE })
     }
     // Se trocou de repo, a lista nova suplantou esta — não mexe em nada.
     set({ loadingMore: false })
@@ -595,8 +594,9 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
       fail(window.treeline.getDiff(repo, f.path, f.staged, get().lang), (e) => set({ error: e })),
       fail(window.treeline.getHunks(repo, f.path, f.staged), (e) => set({ error: e }))
     ])
-    // 3.1: diff demorado não pinta na tela se trocou de repo/arquivo no meio.
-    if (get().current !== repo || get().selectedFile?.path !== f.path) return
+    // 3.1: diff demorado não pinta se trocou de repo/arquivo/staged no meio.
+    const sel = get().selectedFile
+    if (get().current !== repo || !sel || sel.path !== f.path || sel.staged !== f.staged) return
     set({ diff: diff ?? '', hunks: hunks ?? [] })
   },
 
@@ -947,7 +947,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
    * A lista é recarregada porque o `git add` remove o arquivo de
    * `conflictFiles` e pode destravar a operação.
    */
-  advanceAfterResolve: async (path: string) => {
+  advanceAfterResolve: async (_path: string) => {
     const { current, conflictIndex } = get()
     if (!current) return
     const remaining = await fail(window.treeline.getConflictFiles(current), (e) => set({ error: e }))
@@ -958,9 +958,10 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
       await get().refresh()
       return
     }
-    // Mantém o cursor na posição atual: a lista só encolhe à frente dele.
+    // Mantém o cursor onde está: o `git add` REMOVEU o arquivo resolvido,
+    // então `remaining[next]` é o que ocupou o lugar dele.
     const next = Math.min(conflictIndex, remaining.length - 1)
-    set({ conflictFiles: remaining, conflictIndex: path && remaining[next]?.path === path ? next : Math.min(next + 1, remaining.length - 1) })
+    set({ conflictFiles: remaining, conflictIndex: next })
     if (remaining[next]) await fail(window.treeline.getConflictStages(current, remaining[next].path), (e) => set({ error: e }))
     if (get().current !== current) return
     await get().refresh()
@@ -998,12 +999,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     // tudo staged. Concluir é só sair do overlay; a entrada do stash continua
     // existindo e o drop (ou commit do resultado) é decisão do usuário.
     if (op === 'stash') {
-      set({
-        resolverOpen: false,
-        conflictFiles: [],
-        conflictIndex: 0,
-        message: get().tr('cr.stashDone')
-      })
+      set({ resolverOpen: false, conflictFiles: [], conflictIndex: 0, message: get().tr('cr.stashDone') })
       await get().refresh()
       return
     }
@@ -1155,11 +1151,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
       if (get().current !== current) return
       if (rerere !== null) set({ rerere })
       if (eff !== null) {
-        set({
-          identity: { name: eff.name, email: eff.email },
-          identityScope: eff.scope === 'local' ? 'local' : 'global',
-          identityEffectiveScope: eff.scope
-        })
+        set({ identity: { name: eff.name, email: eff.email }, identityScope: eff.scope === 'local' ? 'local' : 'global', identityEffectiveScope: eff.scope })
         return
       }
     }
@@ -1275,14 +1267,19 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
 
   dialog: null,
   openDlg: (kind) => {
-    set({ dialog: kind })
-    // Dialogs mostram estado (listas, conflito, reflog): recarrega ao abrir
-    // para nunca exibir dado velho. Leituras bypassam a fila (rápido).
+    // Erro global é contexto antigo: não pode pintar dentro do dialog que abre.
+    set({ dialog: kind, error: null })
+    // Dialogs mostram estado (listas, conflito, reflog): recarrega ao abrir.
     void get().refresh()
   },
-  closeDlg: () => set({ dialog: null }),
+  closeDlg: () => set({ dialog: null, upstreamBranch: null }),
   refPreset: null,
   setRefPreset: (p) => set({ refPreset: p }),
+  upstreamBranch: null,
+  setUpstreamPrompt: (branch) => {
+    set({ upstreamBranch: branch, dialog: 'upstream' })
+    void get().refresh()
+  },
   blame: [],
   blameFile: null,
   blameLoading: false,
@@ -1394,10 +1391,7 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
       if (get().csToken === token) set({ csLoading: false, csStats: stats })
     } catch (e) {
       if (get().csToken === token) {
-        set({
-          csLoading: false,
-          csStats: { totalHits: 0, branches: 0, truncated: false, durationMs: 0, cancelled: false, error: cleanErr(e) }
-        })
+        set({ csLoading: false, csStats: { totalHits: 0, branches: 0, truncated: false, durationMs: 0, cancelled: false, error: cleanErr(e) } })
       }
     }
   },
@@ -1409,7 +1403,9 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
   },
   cancelCodeSearch: async () => {
     const { csToken } = get()
-    set({ csLoading: false })
+    // Invalida o token: eventos de progresso que ainda estão voando do main
+    // não pintam em cima da nova busca.
+    set((st) => ({ csLoading: false, csToken: st.csToken + 1 }))
     if (csToken > 0) await window.treeline.cancelSearch(csToken).catch(() => undefined)
   },
   openCodeResult: async (path, ref, current) => {
@@ -1423,7 +1419,8 @@ sync: { op: null, phase: null, message: '', retryLease: false, retryPublish: fal
     if (csToken > 0) void window.treeline.cancelSearch(csToken).catch(() => undefined)
     set({ dialog: get().dialog === 'codeSearch' ? null : get().dialog })
   },
-  resetCodeSearch: () => set({ csGroups: [], csChanges: {}, csLoading: false, csStats: null, csQuery: '' }),
+  resetCodeSearch: () =>
+    set((st) => ({ csGroups: [], csChanges: {}, csLoading: false, csStats: null, csQuery: '', csToken: st.csToken + 1 })),
   autoFetchMin: (() => {
     try {
       const v = Number(localStorage.getItem('treeline-autofetch'))

@@ -71,15 +71,25 @@ ipcMain.handle('treeline:rebaseContinue', (_event, repo: string, lang?: unknown)
 )
 
 ipcMain.handle('treeline:skipRebase', (_event, repo: string, lang?: unknown) =>
-  enqueue(repo, async () => {
+  // Env do processo = global a todos os repos: muta `GIT_SEQUENCE_EDITOR` só
+  // dentro do mutex (enqueueGlobal), senão colide com um rebase -i
+  // concorrente de outro repo.
+  enqueueGlobal(async () => {
     const l = asLang(lang)
     // 3.10: pula o commit que travou e segue para o próximo do plano.
+    const prevEd = process.env['GIT_EDITOR']
+    const prevSeq = process.env['GIT_SEQUENCE_EDITOR']
+    process.env['GIT_EDITOR'] = prevEd || 'true'
+    process.env['GIT_SEQUENCE_EDITOR'] = prevSeq || 'true'
     try {
-      process.env.GIT_EDITOR = process.env.GIT_EDITOR || 'true'
-      process.env.GIT_SEQUENCE_EDITOR = process.env.GIT_SEQUENCE_EDITOR || 'true'
       await simpleGit(repo).raw(['rebase', '--skip'])
     } catch (e) {
       throw conflictErr('rebaseConflicts', e, l)
+    } finally {
+      if (prevEd === undefined) delete process.env['GIT_EDITOR']
+      else process.env['GIT_EDITOR'] = prevEd
+      if (prevSeq === undefined) delete process.env['GIT_SEQUENCE_EDITOR']
+      else process.env['GIT_SEQUENCE_EDITOR'] = prevSeq
     }
   })
 )

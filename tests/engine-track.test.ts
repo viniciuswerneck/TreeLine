@@ -63,7 +63,7 @@ describe('motor: status/commit', () => {
 
     write(repo, 'u.txt', 'lixo\n')
     await call('treeline:discard', repo, 'u.txt', false)
-    expect(await call('treeline:getStatus', repo).then((s: { untracked: string[] }) => s.untracked)).not.toContain('u.txt')
+    expect((await call<{ untracked: string[] }>('treeline:getStatus', repo)).untracked).not.toContain('u.txt')
   })
 
   it('resetTo hard grava bundle e volta', async () => {
@@ -97,8 +97,8 @@ describe('motor: stage por hunk/linha', () => {
     expect(hunks.length).toBeGreaterThanOrEqual(2)
 
     await call('treeline:stageHunk', repo, 'f.txt', false, hunks[0].index)
-    const staged = await call('treeline:getStatus', repo)
-    expect(staged.staged.map((x: { path: string }) => x.path)).toContain('f.txt')
+    const staged = await call<{ staged: Array<{ path: string }> }>('treeline:getStatus', repo)
+    expect(staged.staged.map((x) => x.path)).toContain('f.txt')
 
     await call('treeline:commit', repo, 'hunk1', false)
     // Hunk 1 (X,Y) foi para o commit; hunk 2 (Z) segue na worktree.
@@ -149,8 +149,8 @@ describe('motor: commit amend e stage por path', () => {
     const first = await commitFile(repo, 'a.txt', 'v1\n', 'msg')
     write(repo, 'a.txt', 'v2\n')
     await call('treeline:stage', repo, 'a.txt')
-    const staged = await call('treeline:getStatus', repo)
-    expect(staged.staged.map((x: { path: string }) => x.path)).toContain('a.txt')
+    const staged = await call<{ staged: Array<{ path: string }> }>('treeline:getStatus', repo)
+    expect(staged.staged.map((x) => x.path)).toContain('a.txt')
     await call('treeline:commit', repo, 'msg2', true)
     const detail = await call<{ hash: string; message: string }>('treeline:getCommitDetail', repo, 'HEAD')
     expect(detail.message).toBe('msg2')

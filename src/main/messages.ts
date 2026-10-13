@@ -119,7 +119,9 @@ export const STR: Record<string, Record<UILang, string>> = {
 export function mx(lang: UILang, key: string, vars?: Record<string, string | number>): string {
   let s: string = STR[key]?.[lang] ?? STR[key]?.['en'] ?? key
   if (vars) {
-    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v))
+    // Replacer como função: um valor com `$&`/`$'` seria interpretado como
+    // padrão de substituição do replaceAll se fosse string.
+    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, () => String(v))
   }
   return s
 }

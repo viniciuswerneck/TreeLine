@@ -119,6 +119,8 @@ export interface AiState {
   newSession: (directory: string) => Promise<void>
   selectSession: (id: string, directory: string) => Promise<void>
   deleteSession: (id: string, directory: string) => Promise<void>
+  /** Sessões são por repo: limpa o estado de conversa ao trocar de repositório. */
+  resetConversation: () => void
   send: (directory: string, text: string) => Promise<void>
   abort: () => Promise<void>
   replyPermission: (request: AiPermissionRequest, response: 'once' | 'always' | 'reject') => Promise<void>
@@ -301,8 +303,13 @@ export const useAiStore = create<AiState>((set, get) => ({
   selectSession: async (id, directory) => {
     set({ sessionID: id, messages: [], error: null })
     try {
-      set({ messages: await window.treeline.aiMessages(id, directory) })
+      const msgs = await window.treeline.aiMessages(id, directory)
+      // Corrida: usuário trocou de sessão/repo enquanto carregávamos as
+      // mensagens — resposta velha não pode pintar sobre a sessão nova.
+      if (get().sessionID !== id) return
+      set({ messages: msgs })
     } catch (e) {
+      if (get().sessionID !== id) return
       set({ error: e instanceof Error ? e.message : String(e) })
     }
     void get().refreshServer()
@@ -320,6 +327,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     }))
     void get().loadSessions(directory)
   },
+  resetConversation: () => set({ sessionID: null, messages: [], error: null, permissions: [], busy: false }),
   send: async (directory, text) => {
     const sid = get().sessionID
     if (!sid) return

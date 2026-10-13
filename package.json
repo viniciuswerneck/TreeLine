@@ -1,7 +1,7 @@
 {
   "name": "treeline-git-gui",
   "productName": "TreeLine",
-  "version": "0.6.12",
+  "version": "0.6.13",
   "description": "Git GUI for Linux with a familiar SourceTree-like workflow. Original implementation, not affiliated with Atlassian.",
   "author": {
     "name": "TreeLine Contributors",
@@ -15,7 +15,7 @@
     "dev": "ELECTRON_DISABLE_SANDBOX=1 electron-vite dev",
     "build": "electron-vite build",
     "dist": "npm run build && electron-builder",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json",
     "test:ui": "node scripts/uitest.cjs",
     "test:ui:new": "node scripts/uitest-new.cjs",
     "test:ui:search": "node scripts/codesearch-uitest.cjs",
@@ -28,6 +28,11 @@
     "check:structure": "madge --circular --extensions ts,tsx src && node scripts/check-file-size.mjs"
   },
   "dependencies": {
+    "chokidar": "^5.0.0",
+    "node-pty": "^1.1.0",
+    "simple-git": "^4.0.2"
+  },
+  "devDependencies": {
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.12",
     "@codemirror/lang-javascript": "^6.2.5",
@@ -38,16 +43,11 @@
     "@lezer/highlight": "^1.2.5",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
-    "chokidar": "^5.0.0",
     "codemirror": "^6.0.2",
     "lucide-react": "^1.50.0",
-    "node-pty": "^1.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "simple-git": "^4.0.2",
-    "zustand": "^5.0.0"
-  },
-  "devDependencies": {
+    "zustand": "^5.0.0",
     "@eslint/js": "^9.39.5",
     "@types/node": "^22.0.0",
     "@types/react": "^19.1.0",

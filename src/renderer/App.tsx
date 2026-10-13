@@ -35,6 +35,7 @@ import TagDialog from './components/TagDialog'
 import TerminalPanel from './components/TerminalPanel'
 import Toolbar from './components/Toolbar'
 import GoToFile from './components/GoToFile'
+import UpstreamDialog from './components/UpstreamDialog'
 import { useStore } from './store'
 import { useAiStore } from './ai-store'
 import { applyLang } from './i18n'
@@ -241,6 +242,7 @@ export default function App() {
       {dialog === 'custom' && <CustomActionsDialog />}
       {dialog === 'lfs' && <LfsDialog />}
       {dialog === 'codeSearch' && <CodeSearchDialog />}
+      {dialog === 'upstream' && <UpstreamDialog />}
       <AiAssistDialog />
       <CommandPalette />
       <GoToFile />

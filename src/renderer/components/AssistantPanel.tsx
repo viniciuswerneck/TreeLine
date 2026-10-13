@@ -8,7 +8,7 @@ import { useStore } from '../store'
 type Tr = (k: DictKey, vars?: Record<string, string | number>) => string
 
 /** Bloco de uma parte da mensagem (texto, raciocínio ou chamada de ferramenta). */
-function PartView({ part }: { part: AiPart }) {
+function PartView({ part, tr }: { part: AiPart; tr: Tr }) {
   if (part.kind === 'text') {
     if (!part.text.trim()) return null
     return <div className="ai-text">{part.text}</div>
@@ -17,7 +17,7 @@ function PartView({ part }: { part: AiPart }) {
     if (!part.text.trim()) return null
     return (
       <details className="ai-reasoning">
-        <summary>raciocínio</summary>
+        <summary>{tr('ai.reasoning')}</summary>
         <div>{part.text}</div>
       </details>
     )
@@ -42,7 +42,7 @@ function MessageView({ msg, tr }: { msg: AiMessage; tr: Tr }) {
       <div className="ai-msg-role">{isUser ? tr('ai.roleYou') : tr('ai.roleAssistant')}</div>
       {msg.error && <div className="ai-msg-error">{msg.error}</div>}
       {msg.parts.map((p, i) => (
-        <PartView key={p.id || `${msg.id}-${i}`} part={p} />
+        <PartView key={p.id || `${msg.id}-${i}`} part={p} tr={tr} />
       ))}
     </div>
   )
@@ -90,6 +90,14 @@ export default function AssistantPanel() {
     if (!enabled || !current) return
     void loadSessions(current)
   }, [enabled, current, loadSessions])
+
+  // Sessões são por repo: trocou de repositório, zera a conversa (e reabilita
+  // o auto-select, que é "uma vez" por repo — daí resetar a flag aqui).
+  const resetConversation = useAiStore((s) => s.resetConversation)
+  useEffect(() => {
+    autoRef.current = false
+    resetConversation()
+  }, [current, resetConversation])
 
   // Sem sessão selecionada: escolhe a mais recente ou cria uma nova (uma vez).
   const autoRef = useRef(false)

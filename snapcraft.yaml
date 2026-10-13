@@ -14,7 +14,7 @@
 # (o anterior mais novo) para em GLIBC_2.39 — o Terminal integrado não abriria.
 name: treeline-git-gui
 base: core26
-version: "0.6.4"
+version: "0.6.13"
 title: TreeLine — Git GUI for Linux
 summary: Visual Git client with the familiar SourceTree workflow
 license: MIT

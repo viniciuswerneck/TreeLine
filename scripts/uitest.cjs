@@ -212,6 +212,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\n===== ERROS JS =====');
   console.log(errors.length ? errors.join('\n') : '(nenhum)');
   await browser.close();
+  // Erro JS no console ou FAIL no roteiro derruba o CI (exit != 0).
+  const failed = results.filter((r) => r.startsWith('FAIL')).length;
+  process.exit(failed > 0 || errors.length > 0 ? 1 : 0);
 })().catch((e) => {
   console.error('HARNESS-FAIL', e);
   process.exit(1);

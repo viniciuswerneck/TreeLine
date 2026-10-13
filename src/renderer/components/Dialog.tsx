@@ -53,12 +53,17 @@ export default function Dialog({ title, wide, children }: { title: string; wide?
 export function useDialogRunner(): { busy: boolean; run: (fn: () => Promise<boolean>) => Promise<void> } {
   const closeDlg = useStore((s) => s.closeDlg)
   const [busy, setBusy] = useState(false)
+  // Ref além do state: um duplo clique no "mesmo tick" vê busy=false no state
+  // (setState é assíncrono) e dispararia a op duas vezes.
+  const busyRef = useRef(false)
   const run = async (fn: () => Promise<boolean>): Promise<void> => {
-    if (busy) return
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     try {
       if (await fn()) closeDlg()
     } finally {
+      busyRef.current = false
       setBusy(false)
     }
   }

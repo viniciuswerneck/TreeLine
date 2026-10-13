@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config'
  *  - include: integração em `tests/**` E unitários colocados ao lado do código
  *    em `src` (search/ansi/shortcuts) — antes os testes em `src` existiam
  *    mas nunca eram executados.
- *  - coverage: motor git (`src/main/git/**`) com piso 60% (Camada 0, item C0/2).
+ *  - coverage: motor git (`src/main/git/**`) com piso 70% (Camada 0, item C0/2).
  *    `branches` fica mais baixo de propósito: cobre ramos de erro/defensivos
  *    difíceis de atingir sem inflar o harness.
  */

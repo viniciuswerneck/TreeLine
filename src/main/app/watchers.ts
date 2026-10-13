@@ -3,7 +3,7 @@
 // não estourar inotify (ENOSPC) e mantém watches explícitos de HEAD/index.
 
 import { join } from 'node:path'
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
 import { readOp } from '../git/runner'
 import { gitDirOf } from '../git/helpers'
 
@@ -74,4 +74,9 @@ ipcMain.handle('treeline:watchRepo', (event, repo: string) =>
 
 ipcMain.handle('treeline:unwatchRepo', (_event, repo: string) => {
   unwatchRepo(repo)
+})
+
+// Fecha todos os watches no quit (senão o inotify segura o exit do app).
+app.on('will-quit', () => {
+  for (const repo of [...watches.keys()]) unwatchRepo(repo)
 })

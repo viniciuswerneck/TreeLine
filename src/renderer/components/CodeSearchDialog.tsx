@@ -80,7 +80,11 @@ export default function CodeSearchDialog() {
       groups.flatMap((g) => g.files.flatMap((f) => f.lines.map((l) => ({ path: l.path, line: l.line, ref: g.ref, current: g.current })))),
     [groups]
   )
-  useEffect(() => setIndex(0), [groups])
+  // Nova busca (grupos zerados) volta o cursor pro 1º hit; os grupos que CHEGAM
+// no streaming não podem resetar a navegação do usuário a cada evento.
+  useEffect(() => {
+    if (groups.length === 0) setIndex(0)
+  }, [groups, setIndex])
 
   const active = flat.length > 0 ? flat[Math.min(index, flat.length - 1)] : undefined
 

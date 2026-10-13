@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CommitInfo } from '../src/renderer/lib/graph'
+import type { CommitInfo } from '../src/shared/types'
 import { layoutGraph } from '../src/renderer/lib/graph'
 
 function c(hash: string, parents: string[] = [], refs: string[] = []): CommitInfo {

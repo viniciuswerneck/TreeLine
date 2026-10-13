@@ -3,6 +3,7 @@ import { forwardRef, useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { useAiStore } from '../ai-store'
 import type { DictKey } from '../i18n'
+import { formatDateTime } from '../lib/date'
 import DiffViewer, { loadDiffMode, saveDiffMode, type DiffMode } from './DiffViewer'
 import { RefBadge, visibleRefs } from './HistoryGraph'
 
@@ -397,7 +398,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
                 <span className="muted">{tr('det.committer')}</span>
                 <span>{commitDetail.committer}</span>
                 <span className="muted">{tr('det.date')}</span>
-                <span>{commitDetail.date.slice(0, 16).replace('T', ' ')}</span>
+                <span>{commitDetail.date ? formatDateTime(commitDetail.date) : ''}</span>
                 <span className="muted">Commit</span>
                 <span className="mono">{commitDetail.hash}</span>
                 {commitDetail.parents.length > 0 && (

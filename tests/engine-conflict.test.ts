@@ -198,7 +198,7 @@ describe('motor: cherry-pick e revert', () => {
     const hash = (await git.revparse(['HEAD'])).trim()
     await git.checkout('main')
     await call('treeline:cherryPick', repo, hash)
-    expect((await call('treeline:getTrackedFiles', repo)).filter((f) => f.includes('b.txt'))).toHaveLength(1)
+    expect((await call<string[]>('treeline:getTrackedFiles', repo)).filter((f) => f.includes('b.txt'))).toHaveLength(1)
   })
 
   it('revert vazio/existente: rejeita sem commit e reverte limpo', async () => {

@@ -5,6 +5,7 @@ import { ipcMain } from 'electron'
 import { simpleGit } from './git'
 import { mx, asLang } from '../messages'
 import { enqueue, readOp, runGitCancellable } from './runner'
+import { defaultRemote } from './sync'
 import { assertRefName, assertSafeRef } from './validate'
 import { friendlySyncError } from './helpers'
 
@@ -49,7 +50,8 @@ ipcMain.handle('treeline:pushTag', (_event, repo: string, name: string, lang?: u
     assertSafeRef(name, l)
     assertRefName(name, l)
     try {
-      await runGitCancellable(repo, 'Push', ['push', 'origin', name], l)
+      const remote = await defaultRemote(repo, l)
+      await runGitCancellable(repo, 'Push', ['push', remote, name], l)
     } catch (e) {
       throw friendlySyncError('Push', e, l)
     }
@@ -65,7 +67,8 @@ ipcMain.handle('treeline:deleteTag', (_event, repo: string, name: string, remote
       const l = asLang(lang)
       assertRefName(name, l)
       try {
-        await simpleGit(repo).raw(['push', 'origin', `:refs/tags/${name}`])
+        const remote = await defaultRemote(repo, l)
+        await simpleGit(repo).raw(['push', remote, `:refs/tags/${name}`])
       } catch (e) {
         throw friendlySyncError('Push', e, l)
       }

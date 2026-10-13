@@ -1,6 +1,7 @@
 import { Archive, Bookmark, Cloud, FolderOpen, GitBranch, Globe, History, Package, PanelLeftClose, PanelLeftOpen, RefreshCw, Search, Tag } from 'lucide-react'
 import { useState } from 'react'
 import { dialogOps, useStore } from '../store'
+import { formatDateTime } from '../lib/date'
 
 const SECTIONS_KEY = 'treeline-side-sections'
 
@@ -77,6 +78,7 @@ export default function Sidebar() {
   const setFilter = useStore((s) => s.setFilter)
   const openDialog = useStore((s) => s.openDialog)
   const openDlg = useStore((s) => s.openDlg)
+  const setUpstreamPrompt = useStore((s) => s.setUpstreamPrompt)
   const openMenu = useStore((s) => s.openMenu)
   const copyText = useStore((s) => s.copyText)
   const revealFullPath = useStore((s) => s.revealFullPath)
@@ -105,10 +107,7 @@ export default function Sidebar() {
           { label: tr('menu.copyBranch'), onClick: () => void copyText(name) },
           {
             label: tr('side.setUpstream'),
-            onClick: () => {
-              const up = window.prompt('upstream (ex: origin/main):', 'origin/')
-              if (up?.trim()) void dialogOps.setUpstream(name, up.trim())
-            }
+            onClick: () => setUpstreamPrompt(name)
           }
         ]
       : [
@@ -337,7 +336,7 @@ export default function Sidebar() {
               key={t.name}
               className={`sidebar-row${isHere ? ' current-branch' : ''}`}
               aria-selected={isHere}
-              title={t.date}
+              title={formatDateTime(t.date)}
               onClick={() => openDlg('tag')}
               onContextMenu={(e) => {
                 e.preventDefault()

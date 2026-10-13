@@ -17,6 +17,29 @@ export interface SyncController {
 export const SYNC_TIMEOUT_MS = 120_000
 const SIGKILL_GRACE_MS = 5_000
 
+/**
+ * SIGTERM → SIGKILL na ÁRVORE: o filho roda em grupo próprio (`detached`),
+ * então `-pid` também alcança os helpers que o git spawna (ssh,
+ * git-remote-*, git-credential-*, lfs…). Se o grupo já não existe, cai para
+ * o kill do filho.
+ */
+function killTree(proc: ChildProcess, sig: NodeJS.Signals): void {
+  const pid = proc.pid
+  if (pid) {
+    try {
+      process.kill(-pid, sig)
+      return
+    } catch {
+      /* grupo já morreu: cai para o kill individual */
+    }
+  }
+  try {
+    proc.kill(sig)
+  } catch {
+    /* já morreu */
+  }
+}
+
 export class GitQueue {
   q: Array<() => void> = []
   running = false
@@ -117,6 +140,8 @@ export function runGitCancellable(
   return new Promise((resolve, reject) => {
     const proc = spawn('git', args, {
       cwd: repo,
+      // Grupo próprio: killTree atinge a árvore inteira (helpers de rede/lfs).
+      detached: true,
       env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C', ...extraEnv }
     })
     let out = ''
@@ -126,18 +151,10 @@ export function runGitCancellable(
 
     let killTimer: NodeJS.Timeout | null = null
     const term = (): void => {
-      try {
-        proc.kill('SIGTERM')
-      } catch {
-        /* já morreu */
-      }
+      killTree(proc, 'SIGTERM')
       if (!killTimer) {
         killTimer = setTimeout(() => {
-          try {
-            proc.kill('SIGKILL')
-          } catch {
-            /* já morreu */
-          }
+          killTree(proc, 'SIGKILL')
         }, SIGKILL_GRACE_MS)
         killTimer.unref?.()
       }

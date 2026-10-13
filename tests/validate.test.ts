@@ -12,7 +12,7 @@ afterAll(() => {
 const lang = 'en'
 
 describe('assertSafeRef', () => {
-  const ok = (n: string): string => { const v = assertSafeRef(n, lang); return v }
+  const ok = (n: string): void => { assertSafeRef(n, lang) }
   it('aceita nomes normais', () => {
     expect(ok('feature/x-1')).toBeUndefined()
     expect(ok('fix(ui)')).toBeUndefined()

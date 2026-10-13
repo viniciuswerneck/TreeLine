@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
+import { formatDateTime } from '../lib/date'
 import Dialog from './Dialog'
 
 /** Dialog FileHistory: commits que tocaram o arquivo; timeline com datas (recent→antigo). */
@@ -61,7 +62,7 @@ export default function FileHistoryDialog() {
               >
                 <span className="grow">{h.message}</span>
                 <span className="muted">
-                  {h.author} · {h.date}
+                  {h.author} · {formatDateTime(h.date)}
                   {h.refs ? ` · ${h.refs}` : ''}
                 </span>
                 <span className="mono">{h.hash.slice(0, 7)}</span>

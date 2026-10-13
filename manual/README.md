@@ -1,6 +1,6 @@
 # Manual do TreeLine — Git explicado para iniciantes
 
-**TreeLine 0.6.12** · Git GUI para Ubuntu/Debian · prints em português
+**TreeLine 0.6.13** · Git GUI para Ubuntu/Debian · prints em português
 
 Este manual ensina **duas coisas ao mesmo tempo**: o que é o Git (do zero, sem
 jargão solto) e como fazer cada coisa no TreeLine. Cada capítulo mostra o

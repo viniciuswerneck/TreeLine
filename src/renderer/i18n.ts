@@ -40,9 +40,6 @@ export function applyLang(lang: Lang): void {
   }
 }
 
-/** Locale para datas relativas (Intl.RelativeTimeFormat). */
-export const DATE_LOCALE: Record<Lang, string> = { en: 'en', pt: 'pt-BR', es: 'es' }
-
 export type { DictKey }
 
 const DICTS: Record<Lang, Record<DictKey, string>> = { en, pt, es }

@@ -104,6 +104,10 @@ function joinSides(a: string, b: string): string {
 async function resolveSideRaw(repo: string, file: string, side: ConflictSide, l: UILang): Promise<void> {
   const rel = relPathSafe(repo, file, l)
   if (!rel) throw new Error(mx(l, 'unsafeRef', { x: file }))
+  // `side` vira `--<side>` em argv e a union do TS não vale sobre IPC.
+  if (!(side === 'ours' || side === 'theirs' || side === 'both' || side === 'both-deleted')) {
+    throw new Error(mx(l, 'nameInvalid', { x: side }))
+  }
   await backupBundle(repo)
   const git = simpleGit(repo)
   if (side === 'both-deleted') {

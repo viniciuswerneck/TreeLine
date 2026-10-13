@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, ChevronDown, ChevronUp, GitMerge, RefreshCw, SkipForward, Sparkles, X } from 'lucide-react'
 import { useStore } from '../store'
 import { useAiStore } from '../ai-store'
+import type { DictKey } from '../i18n'
 import type { ConflictSide as Side, ConflictStages } from '../../shared/types'
 import {
   applyChoices,
@@ -19,23 +20,23 @@ import {
 import CodeMirrorPane from './CodeMirrorPane'
 import { useFocusTrap } from '../lib/a11y'
 
-/** Rótulo da operação em pt/en/es para o subtítulo do header. */
-const OP_LABEL: Record<string, string> = {
-  merge: 'merge',
-  rebase: 'rebase',
-  'cherry-pick': 'cherry-pick',
-  revert: 'revert',
-  stash: 'stash'
+/** Chave do rótulo da operação (subtítulo do header), por id do git. */
+const OP_KEY: Record<string, DictKey> = {
+  merge: 'cr.op.merge',
+  rebase: 'cr.op.rebase',
+  'cherry-pick': 'cr.op.cherry-pick',
+  revert: 'cr.op.revert',
+  stash: 'cr.op.stash'
 }
 
-/** Tipo de conflito como o Git descreve, para o subtítulo do arquivo. */
-const KIND_LABEL: Record<string, string> = {
-  'both-modified': 'both modified',
-  'both-added': 'added on both sides',
-  'deleted-by-them': 'deleted by them, modified by us',
-  'deleted-by-us': 'deleted by us, modified by them',
-  'both-deleted': 'deleted on both sides',
-  binary: 'binary'
+/** Chave do rótulo do tipo de conflito (subtítulo do arquivo), por id do git. */
+const KIND_KEY: Record<string, DictKey> = {
+  'both-modified': 'cr.kind.bothModified',
+  'both-added': 'cr.kind.bothAdded',
+  'deleted-by-them': 'cr.kind.deletedByThem',
+  'deleted-by-us': 'cr.kind.deletedByUs',
+  'both-deleted': 'cr.kind.bothDeleted',
+  binary: 'cr.kind.binary'
 }
 
 /** Checkbox A ligado: a escolha inclui o lado A. */
@@ -444,7 +445,7 @@ export default function ConflictResolver() {
         <GitMerge size={18} />
         <h2>{tr('cr.title')}</h2>
         <span className="cr-sub">
-          {tr('cr.subtitle', { n: files.length, op: OP_LABEL[op ?? 'merge'] ?? op ?? 'merge' })}
+          {tr('cr.subtitle', { n: files.length, op: tr(OP_KEY[op ?? 'merge'] ?? 'cr.op.merge') })}
         </span>
         <div className="cr-spacer" />
         <label className="cr-rerere" title={tr('cr.rerereHint')}>
@@ -473,7 +474,7 @@ export default function ConflictResolver() {
         {files.map((f, i) => (
           <button key={f.path} className={`cr-file${i === index ? ' active' : ''}`} onClick={() => void gotoFile(i)} title={f.path}>
             <span className="cr-file-path">{f.path}</span>
-            <span className="cr-file-kind">{KIND_LABEL[f.kind] ?? f.xy}</span>
+            <span className="cr-file-kind">{tr(KIND_KEY[f.kind] ?? 'cr.kind.bothModified')}</span>
           </button>
         ))}
         {files.length === 0 && <span className="cr-none">{tr('cr.noFiles')}</span>}

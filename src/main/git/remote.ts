@@ -8,9 +8,28 @@ import { ipcMain, BrowserWindow, dialog } from 'electron'
 import { simpleGit } from './git'
 import { asLang } from '../messages'
 import { enqueue, readOp, runGitCancellable, SYNC_TIMEOUT_MS } from './runner'
-import { assertCloneUrl } from './validate'
+import { assertCloneUrl, assertSafeRef } from './validate'
 import { friendlySyncError } from './helpers'
 import { readBookmarks, writeBookmarks } from '../app/bookmarks'
+
+/**
+ * Remove a senha da URL antes de gravar no `.git/config` (o `remote add/edit`
+ * guardaria `https://user:token@host` em texto plano). Mesma regra do clone:
+ * se tinha só senha, assume usuário `oauth2` para o credential helper.
+ */
+function stripCredential(raw: string): string {
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return raw
+  try {
+    const u = new URL(raw)
+    if (u.password) {
+      u.username = u.username ? u.username : 'oauth2'
+      u.password = ''
+    }
+    return u.toString()
+  } catch {
+    return raw
+  }
+}
 
 ipcMain.handle('treeline:getRemotes', (_event, repo: string) =>
   // READ: fora da fila de escrita (refresh não trava em sync longa).
@@ -29,19 +48,26 @@ ipcMain.handle('treeline:addRemote', (_event, repo: string, name: string, url: s
   // Mesma validação do clone: URL `ext::`/`file://`/loopback não entra no
   // config (era executada num fetch/pull posterior).
   enqueue(repo, async () => {
-    assertCloneUrl(url, asLang(lang))
-    await simpleGit(repo).addRemote(name.trim(), url.trim())
+    const l = asLang(lang)
+    assertSafeRef(name.trim(), l, 'nameInvalid')
+    assertCloneUrl(url, l)
+    await simpleGit(repo).addRemote(name.trim(), stripCredential(url.trim()))
   })
 )
 
 ipcMain.handle('treeline:removeRemote', (_event, repo: string, name: string) =>
-  enqueue(repo, () => simpleGit(repo).removeRemote(name).then(() => undefined))
+  enqueue(repo, async () => {
+    assertSafeRef(name.trim(), 'en')
+    return simpleGit(repo).removeRemote(name.trim())
+  })
 )
 
 ipcMain.handle('treeline:editRemote', (_event, repo: string, name: string, url: string, lang?: unknown) =>
   enqueue(repo, async () => {
-    assertCloneUrl(url, asLang(lang))
-    await simpleGit(repo).raw(['remote', 'set-url', name.trim(), url.trim()])
+    const l = asLang(lang)
+    assertSafeRef(name.trim(), l, 'nameInvalid')
+    assertCloneUrl(url, l)
+    await simpleGit(repo).raw(['remote', 'set-url', name.trim(), stripCredential(url.trim())])
   })
 )
 
@@ -80,7 +106,9 @@ ipcMain.handle('treeline:cloneRepo', async (event, url: string, lang?: unknown) 
   }
   const base = cloneUrl.replace(/\/$/, '').split('/').pop() ?? 'repo'
   const name = base.replace(/\.git$/, '') || 'repo'
-  const target = join(parent, name)
+  // `https://host/repo/..` faria o clone escapar do diretório escolhido.
+  const safeName = name === '.' || name === '..' || name.includes('/') ? 'repo' : name
+  const target = join(parent, safeName)
   // GIT_ASKPASS vai SÓ no processo do clone (env do filho): não polui o
   // process.env global nem pode vazar para um fetch/pull concorrente.
   try {

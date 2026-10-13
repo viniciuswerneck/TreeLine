@@ -1,7 +1,7 @@
 // Terminal: abre emulador externo na pasta do repo (detecção de instalados)
 // e terminal integrado (node-pty, uma sessão por repo).
 
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
 import { mx, asLang } from '../messages'
 import { readOp } from '../git/runner'
 
@@ -101,3 +101,8 @@ ipcMain.handle('treeline:termStop', (_event, repo: string) => {
 })
 
 ipcMain.handle('treeline:termAlive', (_event, repo: string) => terms.has(repo))
+
+// Encerra as sessões PTY no quit (processo filho dos shells não sobrevive ao app).
+app.on('will-quit', () => {
+  for (const repo of [...terms.keys()]) termStopRepo(repo)
+})

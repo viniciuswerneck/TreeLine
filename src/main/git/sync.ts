@@ -25,12 +25,34 @@ async function refHash(repo: string, ref: string): Promise<string> {
   }
 }
 
+/** Remoto do upstream (`origin/main` → `origin`; sem slash, `origin`). */
+function remoteOfUpstream(up: string): string {
+  const slash = up.indexOf('/')
+  return slash > 0 ? up.slice(0, slash) : 'origin'
+}
+
+/** Remoto default para publicar: `origin` se existir, senão o primeiro. */
+export async function defaultRemote(repo: string, l: ReturnType<typeof asLang>): Promise<string> {
+  const raw = await simpleGit(repo).raw(['remote'])
+  const remotes = raw.split('\n').map((r) => r.trim()).filter(Boolean)
+  if (remotes.includes('origin')) return 'origin'
+  const first = remotes[0]
+  if (!first) throw new Error(mx(l, 'noUpstream', { b: 'HEAD' }))
+  return first
+}
+
 ipcMain.handle('treeline:cancelSync', (_event, repo: string, op: string) => {
   // Chave exata `${repo}:${op}` (mesma gravada em runGitCancellable); o
   // fallback por `op` cobre o clone, que roda no diretório PAI — o renderer
-  // não conhece o destino e manda repo=''.
+  // não conhece o destino e manda repo=''. Clone é o único com chave colidível
+  // (dois destinos no MESMO pai): nesse caso cancela todos os clones.
   const exact = syncControllers.get(syncKey(repo, op))
-  const targets = exact ? [exact] : [...syncControllers.values()].filter((c) => c.op === op)
+  const targets =
+    op === 'Clone'
+      ? [...syncControllers.values()].filter((c) => c.op === op)
+      : exact
+        ? [exact]
+        : [...syncControllers.values()].filter((c) => c.op === op)
   for (const c of targets) {
     // Marca o cancel ANTES do term(): o 'close' decide a mensagem por flag,
     // e sem cancelled=true o kill vira "falhou (exit -1)" genérico.
@@ -59,9 +81,11 @@ ipcMain.handle('treeline:push', (_event, repo: string, lang?: unknown) =>
     assertSafeRef(cur, l)
     const before = await refHash(repo, '@{u}')
     // Push com refspec explícito `local:upstream`: nunca "empurra tudo" nem
-    // entrega hash no lugar de branch (protege detached HEAD).
+    // entrega hash no lugar de branch (protege detached HEAD). Empurra para o
+    // REMOTO do upstream (pode ser `fork/main`), não `origin` fixo.
     try {
-      await runGitCancellable(repo, 'Push', ['push', 'origin', `${cur}:${upBranch}`], l)
+      const remote = remoteOfUpstream(up)
+      await runGitCancellable(repo, 'Push', ['push', remote, `${cur}:${upBranch}`], l)
     } catch (e) {
       throw friendlySyncError('Push', e, l)
     }
@@ -141,12 +165,14 @@ ipcMain.handle('treeline:pushPublish', (_event, repo: string, lang?: unknown) =>
     const l = asLang(lang)
     const cur = (await simpleGit(repo).revparse(['--abbrev-ref', 'HEAD'])).trim()
     if (!cur || cur === 'HEAD') throw new Error(mx(l, 'nameInvalid', { x: cur }))
+    // Sem upstream: publica no `origin` (ou primeiro remoto), não no fixo.
+    const remote = await defaultRemote(repo, l)
     try {
-      await runGitCancellable(repo, 'Push', ['push', '-u', 'origin', cur], l)
+      await runGitCancellable(repo, 'Push', ['push', '-u', remote, cur], l)
     } catch (e) {
       throw friendlySyncError('Push', e, l)
     }
-    return { summary: mx(l, 'pushDone', { x: `${cur} → origin/${cur}` }) }
+    return { summary: mx(l, 'pushDone', { x: `${cur} → ${remote}/${cur}` }) }
   })
 )
 
@@ -162,9 +188,10 @@ ipcMain.handle('treeline:pushForce', (_event, repo: string, forceLease: boolean,
     assertSafeRef(cur, l)
     // Refpec explícito + `--force-with-lease` (nunca `--force` sem proteção):
     // só reescreve o branch atual no upstream atual.
+    const remote = remoteOfUpstream(up)
     const args = forceLease
-      ? ['push', '--force-with-lease', 'origin', `${cur}:${upBranch}`]
-      : ['push', 'origin', `${cur}:${upBranch}`]
+      ? ['push', '--force-with-lease', remote, `${cur}:${upBranch}`]
+      : ['push', remote, `${cur}:${upBranch}`]
     try {
       await runGitCancellable(repo, 'Push', args, l)
     } catch (e) {

@@ -10,6 +10,43 @@ não case com o `package.json`.
 
 ## [Unreleased]
 
+## [0.6.13] - 2026-10-13
+
+### Changed
+
+- **Datas de commit em `dd/MM/yyyy HH:mm`**: o grafo, o detalhe do commit, o
+  histórico de arquivo, o dialog de tag, os backups do reflog e o tooltip da
+  sidebar agora exibem a data absoluta no formato `01/01/2026 08:23` (helper
+  `src/renderer/lib/date.ts::formatDateTime`), no lugar do formato por extenso.
+
+### Fixed
+
+- **Segurança no motor Git**: `assertSafeRef` em todos os refs/hashes lidos
+  (`history.ts`), validação de nomes/refs em `branch.ts`, `stripCredential()` +
+  validação de URL/nome e guarda do destino do clone em `remote.ts`, allowlist
+  de tipos de flow em `flow.ts` e validação do lado em `conflict.ts`.
+- **Push ciente do upstream**: `push`/`--force-with-lease` usam o remoto do
+  branch (não `origin` fixo) e `pushPublish`/tags usam `defaultRemote()`;
+  cancelar um clone aborta todos os clones em voo.
+- **Processos órfãos**: `killTree` (spawn `detached` + `process.kill(-pid)`)
+  em `runner.ts`/`search.ts`; `ensureServer` zera o estado e mata o filho se o
+  health-check falhar; `will-quit` fecha watchers e PTYs.
+- **Renderer**: `advanceAfterResolve` (índice/stages consistentes),
+  `selectFile` compara `path` **e** `staged`, cancelamento de busca de código
+  invalida o token, `selectSession` com guarda de corrida, guardas `alive`
+  nos efeitos de merge/reflog e `busyRef` no `useDialogRunner` (duplo clique);
+  `UpstreamDialog` substitui o `window.prompt` (inexistente no Electron).
+- **i18n**: rótulos do resolvedor de conflito, `ai.reasoning` e `Base` do
+  rebase-interativo traduzidos (en/pt/es).
+
+### Tooling
+
+- `tsconfig.test.json` incluído no `typecheck` (os testes de `tests/` agora
+  são verificados; 7 erros de tipo corrigidos), harnesses CDP com exit code
+  correto, deps só-de-renderer movidas para `devDependencies` (pacote menor),
+  Actions dos workflows pinadas por commit SHA e `tests/e2e-conflict.mjs`
+  (órfão) removido.
+
 ## [0.6.12] - 2026-10-13
 
 Release de manutenção — sem mudanças de código. Reemissão do pipeline de
@@ -83,7 +120,8 @@ funcionalidade visível).
   [GHSA-v5rq-49vh-5v5c](https://github.com/advisories/GHSA-v5rq-49vh-5v5c).
   Dependências de runtime sem vulnerabilidades conhecidas no `npm audit`.
 
-[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.12...HEAD
+[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.13...HEAD
+[0.6.13]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.13
 [0.6.12]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.12
 [0.6.11]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.11
 [0.6.10]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.10

@@ -31,12 +31,15 @@ export default function MergeDialog() {
       setPreview(null)
       return
     }
+    // Trocar de ref no meio do fetch não pode pintar preview do ref antigo.
+    let alive = true
     setPreviewBusy(true)
     window.treeline
       .mergePreview(current, ref)
-      .then(setPreview)
-      .catch(() => setPreview(null))
-      .finally(() => setPreviewBusy(false))
+      .then((p) => { if (alive) setPreview(p) })
+      .catch(() => { if (alive) setPreview(null) })
+      .finally(() => { if (alive) setPreviewBusy(false) })
+    return () => { alive = false }
   }, [ref, mergeState.inProgress])
 
   if (mergeState.inProgress) {

@@ -48,11 +48,29 @@ interface RunResult {
 
 const active = new Map<number, SearchCtx>()
 
+/** SIGTERM na árvore do filho: pede para o grupo (`detached`) incluir helpers. */
+function killTree(proc: ChildProcess): void {
+  const pid = proc.pid
+  if (pid) {
+    try {
+      process.kill(-pid, 'SIGTERM')
+      return
+    } catch {
+      /* grupo já morreu: cai para o kill individual */
+    }
+  }
+  try {
+    proc.kill('SIGTERM')
+  } catch {
+    /* já morreu */
+  }
+}
+
 function cancelCtx(ctx: SearchCtx): void {
   ctx.cancelled = true
   for (const p of ctx.procs) {
     try {
-      p.kill('SIGTERM')
+      killTree(p)
     } catch {
       /* já morreu */
     }
@@ -71,13 +89,14 @@ function run(ctx: SearchCtx, repo: string, args: string[], timeoutMs: number): P
     let settled = false
     const proc = spawn('git', args, {
       cwd: repo,
+      detached: true,
       env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' }
     })
     ctx.procs.add(proc)
     const timer = setTimeout(() => {
       timedOut = true
       try {
-        proc.kill('SIGTERM')
+        killTree(proc)
       } catch {
         /* já morreu */
       }

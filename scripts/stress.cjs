@@ -89,10 +89,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('linhas no DOM (fim):', domRows, `(antes: ${rowsLoaded})`);
   console.log('FPS scroll:', fps);
   if (errors.length) console.log('erros:', errors.slice(0, 3));
-  console.log(domRows > 0 && domRows < 400 && fps >= 45 ? 'RESULTADO: OK' : 'RESULTADO: ATENÇÃO');
+  const ok = domRows > 0 && domRows < 400 && fps >= 45 && errors.length === 0;
+  console.log(ok ? 'RESULTADO: OK' : 'RESULTADO: ATENÇÃO');
 
   await browser.close().catch(() => undefined);
-  process.exit(0);
+  process.exit(ok ? 0 : 1);
 })().catch((e) => {
   console.error('FALHOU:', e && e.message ? e.message : e);
   process.exit(1);

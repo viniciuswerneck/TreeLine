@@ -29,7 +29,7 @@ function parseDiff(text: string): DiffLine[] {
         newNo = Number(m[2])
       }
       out.push({ kind: 'hunk', text: raw, oldNo: null, newNo: null })
-    } else if (raw.startsWith('+++') || raw.startsWith('---') || raw.startsWith('diff --git')) {
+    } else if (/^(\+\+\+|---|diff --git) /.test(raw)) {
       out.push({ kind: 'file', text: raw, oldNo: null, newNo: null })
     } else if (raw.startsWith('\\')) {
       out.push({ kind: 'note', text: raw, oldNo: null, newNo: null })
