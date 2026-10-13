@@ -10,6 +10,16 @@ não case com o `package.json`.
 
 ## [Unreleased]
 
+## [0.6.14] - 2026-10-13
+
+### Changed
+
+- **Datas de commit seguem o idioma da UI**: `formatDateTime(iso, lang)` usa o
+  `Intl` do locale (en → mês/dia + relógio de 12h, ex. `03/04/2026 08:23 AM`;
+  pt/es → dia/mês + 24h, ex. `04/03/2026 08:23`). Antes o formato era fixo em
+  `dd/MM/yyyy HH:mm` em todas as línguas. Vale para o grafo, detalhe do commit,
+  file-history, tag, reflog e tooltip da sidebar.
+
 ## [0.6.13] - 2026-10-13
 
 ### Changed
@@ -120,7 +130,8 @@ funcionalidade visível).
   [GHSA-v5rq-49vh-5v5c](https://github.com/advisories/GHSA-v5rq-49vh-5v5c).
   Dependências de runtime sem vulnerabilidades conhecidas no `npm audit`.
 
-[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.13...HEAD
+[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.14...HEAD
+[0.6.14]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.14
 [0.6.13]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.13
 [0.6.12]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.12
 [0.6.11]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.11

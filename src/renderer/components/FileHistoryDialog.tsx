@@ -13,6 +13,7 @@ export default function FileHistoryDialog() {
   const loadCommitDiffFile = useStore((s) => s.loadCommitDiffFile)
   const closeDlg = useStore((s) => s.closeDlg)
   const tr = useStore((s) => s.tr)
+  const lang = useStore((s) => s.lang)
   const [showDiff, setShowDiff] = useState<string | null>(null)
   const [diffText, setDiffText] = useState('')
 
@@ -62,7 +63,7 @@ export default function FileHistoryDialog() {
               >
                 <span className="grow">{h.message}</span>
                 <span className="muted">
-                  {h.author} · {formatDateTime(h.date)}
+                  {h.author} · {formatDateTime(h.date, lang)}
                   {h.refs ? ` · ${h.refs}` : ''}
                 </span>
                 <span className="mono">{h.hash.slice(0, 7)}</span>

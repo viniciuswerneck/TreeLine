@@ -53,6 +53,14 @@
   </screenshots>
 
   <releases>
+    <release version="0.6.14" date="2026-10-13">
+      <description>
+        <p>Commit dates now follow the UI language: English shows month/day with
+        a 12-hour clock (<code>03/04/2026 08:23 AM</code>) while Portuguese and
+        Spanish show day/month with a 24-hour clock
+        (<code>04/03/2026 08:23</code>).</p>
+      </description>
+    </release>
     <release version="0.6.13" date="2026-10-13">
       <description>
         <p>Commit dates are now shown as <code>dd/MM/yyyy HH:mm</code> (e.g.

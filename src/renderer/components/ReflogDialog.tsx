@@ -10,6 +10,7 @@ export default function ReflogDialog() {
   const current = useStore((s) => s.current)
   const confirmAction = useStore((s) => s.confirmAction)
   const tr = useStore((s) => s.tr)
+  const lang = useStore((s) => s.lang)
   const { busy, run } = useDialogRunner()
 
   const [backups, setBackups] = useState<BackupInfo[]>([])
@@ -103,7 +104,7 @@ export default function ReflogDialog() {
                   <span className="grow">
                     <span className="mono">{b.file}</span>{' '}
                     <span className="sub">
-                      {formatDateTime(b.date)} · {kb(b.size)}
+                      {formatDateTime(b.date, lang)} · {kb(b.size)}
                     </span>
                   </span>
                   <span className="dlg-actions">

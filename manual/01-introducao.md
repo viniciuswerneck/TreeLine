@@ -35,14 +35,14 @@ Ele não inventa uma linguagem própria: usa o `git` do sistema, então
 git --version
 
 # 2. baixe o .deb na página de Releases e instale
-sudo apt install ./treeline-git-gui_0.6.13_amd64.deb
+sudo apt install ./treeline-git-gui_0.6.14_amd64.deb
 ```
 
-Também existe o **AppImage** (`TreeLine-0.6.13.AppImage`) — para usá-lo:
+Também existe o **AppImage** (`TreeLine-0.6.14.AppImage`) — para usá-lo:
 
 ```bash
-chmod +x TreeLine-0.6.13.AppImage
-./TreeLine-0.6.13.AppImage
+chmod +x TreeLine-0.6.14.AppImage
+./TreeLine-0.6.14.AppImage
 ```
 
 > Nome do pacote: `treeline-git-gui` (não confunda com o pacote `treeline`

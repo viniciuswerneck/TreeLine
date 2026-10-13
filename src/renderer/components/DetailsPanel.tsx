@@ -398,7 +398,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
                 <span className="muted">{tr('det.committer')}</span>
                 <span>{commitDetail.committer}</span>
                 <span className="muted">{tr('det.date')}</span>
-                <span>{commitDetail.date ? formatDateTime(commitDetail.date) : ''}</span>
+                <span>{commitDetail.date ? formatDateTime(commitDetail.date, lang) : ''}</span>
                 <span className="muted">Commit</span>
                 <span className="mono">{commitDetail.hash}</span>
                 {commitDetail.parents.length > 0 && (

@@ -109,6 +109,6 @@ git restore arquivo               # voltar ao último commit
 
 **Fim do manual.** Volte ao [índice](README.md).
 
-TreeLine 0.6.13 — Werneck Lab · MIT ·
+TreeLine 0.6.14 — Werneck Lab · MIT ·
 [Releases](https://github.com/viniciuswerneck/TreeLine/releases) ·
 [Documentação do projeto](../docs/)

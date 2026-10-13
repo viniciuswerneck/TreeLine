@@ -88,6 +88,7 @@ export default function Sidebar() {
   const branchFilter = useStore((s) => s.branchFilter)
   const setBranchFilter = useStore((s) => s.setBranchFilter)
   const tr = useStore((s) => s.tr)
+  const lang = useStore((s) => s.lang)
   const checkoutBranch = useStore((s) => s.checkoutBranch)
   const checkoutRemote = useStore((s) => s.checkoutRemote)
   const checkoutTag = useStore((s) => s.checkoutTag)
@@ -336,7 +337,7 @@ export default function Sidebar() {
               key={t.name}
               className={`sidebar-row${isHere ? ' current-branch' : ''}`}
               aria-selected={isHere}
-              title={formatDateTime(t.date)}
+              title={formatDateTime(t.date, lang)}
               onClick={() => openDlg('tag')}
               onContextMenu={(e) => {
                 e.preventDefault()

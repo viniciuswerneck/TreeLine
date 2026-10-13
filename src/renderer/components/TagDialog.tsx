@@ -11,6 +11,7 @@ export default function TagDialog() {
   const setRefPreset = useStore((s) => s.setRefPreset)
   const confirmAction = useStore((s) => s.confirmAction)
   const tr = useStore((s) => s.tr)
+  const lang = useStore((s) => s.lang)
   const { busy, run } = useDialogRunner()
 
   const [name, setName] = useState('')
@@ -67,7 +68,7 @@ export default function TagDialog() {
         {tags.map((t) => (
           <div key={t.name} className="dlg-row">
             <span className="grow">
-              <span className="mono">{t.name}</span> <span className="sub">{formatDateTime(t.date)}</span>
+              <span className="mono">{t.name}</span> <span className="sub">{formatDateTime(t.date, lang)}</span>
             </span>
             <span className="dlg-actions">
               <button className="mini-btn" disabled={busy} onClick={() => void run(() => dialogOps.pushTag(t.name))}>

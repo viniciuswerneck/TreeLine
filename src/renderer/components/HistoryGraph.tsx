@@ -1,6 +1,7 @@
 import { Cloud, GitBranch, RefreshCw, Search, Tag } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatDateTime } from '../lib/date'
+import type { Lang } from '../i18n'
 import { layoutGraph, topTouches, bottomTouches, type LaneCommit } from '../lib/graph'
 import { formatShortcut } from '../shortcuts'
 import { dialogOps, useStore } from '../store'
@@ -32,19 +33,9 @@ function shortHash(h: string): string {
   return h.slice(0, 7)
 }
 
-// A lista virtualizada re-renderiza as mesmas linhas o tempo todo durante o
-// scroll: memoriza o texto final por ISO.
-const dateTextCache = new Map<string, string>()
-const DATE_CACHE_MAX = 4000
-
-/** Data absoluta `dd/MM/yyyy HH:mm` (ex.: "01/01/2026 08:23"). Cai para ISO se inválida. */
-function absDate(iso: string): string {
-  const cached = dateTextCache.get(iso)
-  if (cached !== undefined) return cached
-  const out = formatDateTime(iso)
-  if (dateTextCache.size >= DATE_CACHE_MAX) dateTextCache.clear()
-  dateTextCache.set(iso, out)
-  return out
+/** Data absoluta no formato do idioma (cache fica no `lib/date`, por idioma+ISO). */
+function absDate(iso: string, lang: Lang): string {
+  return formatDateTime(iso, lang)
 }
 
 /** Cor estável por branch (hash do nome → paleta), como no Git Graph. */
@@ -177,6 +168,7 @@ export default function HistoryGraph() {
   const refresh = useStore((s) => s.refresh)
   const loading = useStore((s) => s.loading)
   const tr = useStore((s) => s.tr)
+  const lang = useStore((s) => s.lang)
   const currentBranch = status?.branch ?? ''
   const compareA = useStore((s) => s.compareA)
   const compareB = useStore((s) => s.compareB)
@@ -526,8 +518,8 @@ export default function HistoryGraph() {
               )}
               {c.message}
             </span>
-            <span className="muted" title={absDate(c.date)}>
-              {absDate(c.date)}
+            <span className="muted" title={absDate(c.date, lang)}>
+              {absDate(c.date, lang)}
             </span>
             <span className="muted author-cell" title={c.author}>
               <Avatar name={c.author} />
