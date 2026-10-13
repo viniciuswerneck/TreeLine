@@ -134,7 +134,7 @@
 
 | # | O que fazer | Por que importa | Onde | Esforço | Feito |
 |---|---|---|---|---|---|
-| 6.1 | Traduzir a paleta de comandos (ctrl+K) | Toda a lista está em inglês fixo | `CommandPalette.tsx:59-84` | 🟢 | [ ] |
+| 6.1 | Traduzir a paleta de comandos (ctrl+K) | Toda a lista está em inglês fixo | `CommandPalette.tsx:59-84` | 🟢 | [x] |
 | 6.2 | Traduzir rótulos do resolvedor de conflito | Inglês fixo visível | `ConflictResolver.tsx:21-37` | 🟢 | [x] |
 | 6.3 | Traduzir rebase interativo ("Base", "Load", "main") | Mistura de idiomas | `RebaseInteractiveDialog.tsx:73-77` | 🟢 | [x] |
 | 6.4 | Traduzir Histórico de arquivo e "Ver alteração" | Português fixo quebra EN/ES | `FileHistoryDialog.tsx:74-77` | 🟢 | [x] |
@@ -224,10 +224,10 @@
 | 10.1 | Extrair `STR`/`mx`/`asLang` + erros amigáveis para `main/messages.ts` (módulo puro, ganha Vitest) | i18n do main hoje misturado com handlers | `main/index.ts:26-315` | 🟢 | [x] |
 | 10.2 | Extrair validação (`assertSafeRef`, `assertRefName`, `relPathSafe`, `assertRebasePlan`, `assertCloneUrl`) para `main/git/validate.ts` | segurança isolada e sem dependência | `main/index.ts:523-600` | 🟢 | [x] |
 | 10.3 | Extrair fila/lock/cancel (`enqueue`, `readOp`, `readIndexOp`, `runGitCancellable`, `syncControllers`) para `main/git/runner.ts` | núcleo do "motor Git" isolado e testável | `main/index.ts:361-485` | 🟢 | [x] |
-| 10.4 | Dividir ~90 `ipcMain.handle` do Git por domínio em `src/main/git/*.ts` (mapa abaixo) — cada arquivo registra seus próprios handlers | hoje tudo num arquivo; cada domínio evolui sozinho | `main/index.ts` (todo) | 🔴 | [ ] |
-| 10.5 | `main/index.ts` vira bootstrap (~40 linhas): janela/splash + `import './git/*'` (registro por efeito, como já funciona); infra não-git para `app/{terminal,watchers,bookmarks,customActions,identity,settings,updates}.ts` | separar infra de janela × operação git | `main/index.ts:1324-2160` | 🟡 | [ ] |
+| 10.4 | Dividir ~90 `ipcMain.handle` do Git por domínio em `src/main/git/*.ts` (mapa abaixo) — cada arquivo registra seus próprios handlers | hoje tudo num arquivo; cada domínio evolui sozinho | `main/index.ts` (todo) | 🔴 | [x] |
+| 10.5 | `main/index.ts` vira bootstrap (~40 linhas): janela/splash + `import './git/*'` (registro por efeito, como já funciona); infra não-git para `app/{terminal,watchers,bookmarks,customActions,identity,settings,updates}.ts` | separar infra de janela × operação git | `main/index.ts:1324-2160` | 🟡 | [x] |
 | 10.6 | Quebrar `store.ts` em slices zustand (`store/{types,helpers}.ts` + `slices/{repos,worktree,sync,conflicts,ops,ui}.ts`): `type Slice = (set, get) => Partial<TreeLineState>` e `create<TreeLineState>()((set,get) => ({...slices}))` | store gigante de ~100 props; slices preservam `set/get` e chamadas cruzadas, comportamento idêntico | `store.ts` (todo) | 🔴 | [ ] |
-| 10.7 | Guardrail no CI contra re-crescimento: `npm run check:structure` = `madge --circular src` + `scripts/check-sizes.mjs` (arquivo novo em `src/` > 800 linhas falha); regra de casa: handler/ação novo nasce no módulo de domínio | sem o guardrail o monólito volta em 2 features | CI + `package.json` | 🟢 | [ ] |
+| 10.7 | Guardrail no CI contra re-crescimento: `npm run check:structure` = `madge --circular src` + `scripts/check-sizes.mjs` (arquivo novo em `src/` > 800 linhas falha); regra de casa: handler/ação novo nasce no módulo de domínio | sem o guardrail o monólito volta em 2 features | CI + `package.json` | 🟢 | [x] |
 | 10.8 | Atualizar `docs/03-arquitetura.md` com o mapa de módulos REAL; registrar a conclusão em `docs/05`/`docs/02` | docs são a fonte da verdade | docs | 🟢 | [ ] |
 
 **Mapa-alvo do main (Fase B):**
@@ -263,7 +263,7 @@
 | 2 | Estabilidade | Parte 3 ✅ | Trocar de repo e sincronizar sem sustos |
 | 3 | Feedback e clareza | Parte 4 ✅ + Parte 6 ◐ (falta 6.1, 6.7) | Sem "travou?" e sem texto errado |
 | 4 | Acessibilidade e visual | Parte 5 ✅ + Parte 7 ◐ (falta 7.3, 7.6, 7.8) | Usável por teclado, cara de premium |
-| 5 | Manutenção estrutural | Parte 10 ◐ (só 10.1–10.3) | Monolitos quebrados (arquivos < 800 linhas, domínios isolados, zero ciclos) |
+| 5 | Manutenção estrutural | Parte 10 ◐ (10.1–10.5 + 10.7 ✅; falta 10.6 store slices e 10.8 docs) | Monolitos quebrados (arquivos < 800 linhas, domínios isolados, zero ciclos) |
 | 6 | Paridade | Parte 8 ◐ (só 8.1, 8.13) | Recursos avançados |
 | 7 | Diferencial | Parte 9 ◐ (só 9.1, 9.3, 9.4, 9.6) | Marca própria |
 
@@ -275,6 +275,14 @@
 > vazio, 22 chaves mortas no `i18n.ts`, paleta com labels em inglês).
 > Itens **não** auditados individualmente seguem como estavam — conferir antes de
 > assumir `[x]`.
+
+> **Auditoria 2026-10-13:** conferência contra o código marcou `[x]` em itens que
+> já estão prontos mas seguiam abertos: **6.1** (paleta `Ctrl+K` usa `tr('pal.*')`
+> há tempos), **10.4** (`~98` handlers distribuídos em `src/main/git/*` + `app/*` +
+> `ai/*`), **10.5** (`main/index.ts` = **202 linhas** de bootstrap) e **10.7**
+> (`npm run check:structure` = madge + teto 800 linhas, rodando no CI). Da Parte 10
+> seguem abertos apenas **10.6** (`store.ts` = 1743 linhas, único no ratchet) e
+> **10.8** (mapa de módulos em `03-arquitetura.md`).
 
 ---
 

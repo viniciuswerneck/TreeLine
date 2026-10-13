@@ -28,7 +28,6 @@ export default function CommandPalette() {
   const toggleTerminal = useStore((s) => s.toggleTerminal)
   const toggleSidebar = useStore((s) => s.toggleSidebar)
   const tr = useStore((s) => s.tr)
-  const lang = useStore((s) => s.lang)
 
   const [filter, setFilter] = useState('')
   const [index, setIndex] = useState(0)
@@ -96,7 +95,7 @@ export default function CommandPalette() {
       { label: tr('pal.settings'), hint: 'view', run: openSettings },
       { label: tr('common.refresh'), hint: 'view', run: refresh },
     ],
-    [custom, doFetch, doPull, doPush, doPushForce, lang, openDlg, openSettings, refresh, stageAll, toggleSidebar, toggleTerminal, tr, unstageAll]
+    [custom, doFetch, doPull, doPush, doPushForce, openDlg, openSettings, refresh, stageAll, toggleSidebar, toggleTerminal, tr, unstageAll]
   )
 
   const filtered = useMemo(() => {

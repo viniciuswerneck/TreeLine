@@ -236,7 +236,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
       setCommitFile(first)
       void selectCommitFile(first)
     }
-  }, [commitPairOpen, commitFile, commitDetail])
+  }, [commitPairOpen, commitFile, commitDetail, selectCommitFile])
 
   useEffect(() => {
     if (!expanded) return
@@ -368,7 +368,7 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
     if (f) void selectFile({ path: f.path, staged: false })
     else if (u) void selectFile({ path: u, staged: false })
     else if (s) void selectFile({ path: s.path, staged: true })
-  }, [pairOpen, selectedFile, selectedCommit, status])
+  }, [pairOpen, selectedFile, selectedCommit, status, selectFile])
 
   // Vista de commit selecionado no histórico: meta + arquivos + diff.
   if (selectedCommit) {
