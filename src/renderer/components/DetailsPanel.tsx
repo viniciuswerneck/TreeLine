@@ -1,6 +1,7 @@
-import { ArrowLeft, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Maximize2, Minimize2, RefreshCw, Sparkles } from 'lucide-react'
 import { forwardRef, useEffect, useState } from 'react'
 import { useStore } from '../store'
+import { useAiStore } from '../ai-store'
 import type { DictKey } from '../i18n'
 import DiffViewer, { loadDiffMode, saveDiffMode, type DiffMode } from './DiffViewer'
 import { RefBadge, visibleRefs } from './HistoryGraph'
@@ -124,6 +125,11 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
   const hunks = useStore((s) => s.hunks)
   const message = useStore((s) => s.message)
   const amend = useStore((s) => s.amend)
+  const lang = useStore((s) => s.lang)
+  const current = useStore((s) => s.current)
+  const aiEnabled = useAiStore((s) => s.enabled)
+  const aiInstalled = useAiStore((s) => s.status?.installed ?? false)
+  const generateAssist = useAiStore((s) => s.generateAssist)
   const error = useStore((s) => s.error)
   const selectFile = useStore((s) => s.selectFile)
   const stageSelected = useStore((s) => s.stageSelected)
@@ -701,6 +707,24 @@ const DetailsPanel = forwardRef<HTMLTextAreaElement>(function DetailsPanel(_, co
           <label>
             <input type="checkbox" checked={amend} onChange={(e) => setAmend(e.target.checked)} /> {tr('det.amend')}
           </label>
+          {aiInstalled && aiEnabled && current && allStaged.length > 0 && (
+            <>
+              <button
+                className="mini-btn"
+                title={tr('ai.genCommit')}
+                onClick={() => void generateAssist(current, 'commit', lang)}
+              >
+                <Sparkles size={13} /> {tr('ai.assistCommit')}
+              </button>
+              <button
+                className="mini-btn"
+                title={tr('ai.reviewBtn')}
+                onClick={() => void generateAssist(current, 'review', lang)}
+              >
+                {tr('ai.assistReview')}
+              </button>
+            </>
+          )}
           <button
             className="tool-btn primary"
             onClick={() => void doCommit()}

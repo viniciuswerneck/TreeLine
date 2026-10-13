@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { dialogOps, useStore } from '../store'
+import { useAiStore } from '../ai-store'
 
 export default function StatusBar() {
   const current = useStore((s) => s.current)
@@ -18,6 +19,9 @@ export default function StatusBar() {
   const openResolver = useStore((s) => s.openResolver)
   const doFetch = useStore((s) => s.doFetch)
   const tr = useStore((s) => s.tr)
+  const openSettings = useStore((s) => s.openSettings)
+  const aiStatus = useAiStore((s) => s.status)
+  const aiEnabled = useAiStore((s) => s.enabled)
   // Versão vem do runtime (package.json via app.getVersion): fonte única,
   // sem string hardcoded que desatualiza a cada bump.
   const [version, setVersion] = useState('')
@@ -136,6 +140,15 @@ export default function StatusBar() {
         <span title={tr('status.loaded')}>
           {tr('hist.commits', { n: commits.length })}
         </span>
+      )}
+      {aiStatus?.installed && (
+        <button
+          className={`status-link${aiEnabled ? '' : ' muted'}`}
+          title={aiEnabled ? tr('ai.badgeOnTitle') : tr('ai.badgeTitle')}
+          onClick={() => (aiEnabled ? useAiStore.getState().toggle() : void openSettings())}
+        >
+          {aiEnabled ? tr('ai.badgeOn') : tr('ai.badge')}
+        </button>
       )}
       {error && (
         <span className="error status-error" aria-live="polite" title={error}>

@@ -1,7 +1,7 @@
 // Gate estrutural: nenhum arquivo novo em `src` pode passar de 800 linhas.
-// Os dois monólitos legados abaixo ficam "congelados" no tamanho atual
-// (ratchet): não podem crescer, mas podem encolher. Ao dividi-los, remova a
-// entrada correspondente desta lista.
+// Os monólitos legados abaixo ficam "congelados" no tamanho atual (ratchet):
+// não podem crescer, mas podem encolher. Ao dividi-los, remova a entrada
+// correspondente desta lista.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 
@@ -9,7 +9,6 @@ const LIMIT = 800
 
 /** Tamanho máximo tolerado por arquivo legado (dívida técnica congelada). */
 const GRANDFATHERED = new Map([
-  ['src/renderer/i18n.ts', 1808],
   ['src/renderer/store.ts', 1743]
 ])
 

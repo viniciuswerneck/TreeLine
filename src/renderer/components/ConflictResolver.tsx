@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, ChevronUp, GitMerge, RefreshCw, SkipForward, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronUp, GitMerge, RefreshCw, SkipForward, Sparkles, X } from 'lucide-react'
 import { useStore } from '../store'
+import { useAiStore } from '../ai-store'
 import type { ConflictSide as Side, ConflictStages } from '../../shared/types'
 import {
   applyChoices,
@@ -51,7 +52,11 @@ export default function ConflictResolver() {
   const epoch = useStore((s) => s.conflictEpoch)
   const rerere = useStore((s) => s.rerere)
   const repo = useStore((s) => s.current)
+  const lang = useStore((s) => s.lang)
   const tr = useStore((s) => s.tr)
+  const aiEnabled = useAiStore((s) => s.enabled)
+  const aiInstalled = useAiStore((s) => s.status?.installed ?? false)
+  const generateAssist = useAiStore((s) => s.generateAssist)
   const gotoFile = useStore((s) => s.gotoConflictFile)
   const close = useStore((s) => s.closeResolver)
   const resolveBySide = useStore((s) => s.resolveConflictBySide)
@@ -450,6 +455,15 @@ export default function ConflictResolver() {
         <button className="cr-icon" title={tr('common.refresh')} onClick={() => file && void load(file.path)}>
           <RefreshCw size={15} />
         </button>
+        {aiInstalled && aiEnabled && repo && (
+          <button
+            className="cr-icon"
+            title={tr('ai.explainConflict')}
+            onClick={() => void generateAssist(repo, 'conflict', lang, file?.path)}
+          >
+            <Sparkles size={15} />
+          </button>
+        )}
         <button className="cr-icon" title={tr('dlg.close')} onClick={close}>
           <X size={16} />
         </button>

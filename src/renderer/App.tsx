@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { GitBranch } from 'lucide-react'
 import AboutDialog from './components/AboutDialog'
+import AiSuggestion from './components/AiSuggestion'
+import AiAssistDialog from './components/AiAssistDialog'
+import AssistantPanel from './components/AssistantPanel'
 import BlameDialog from './components/BlameDialog'
 import BranchDialog from './components/BranchDialog'
 import CommandPalette from './components/CommandPalette'
@@ -33,6 +36,7 @@ import TerminalPanel from './components/TerminalPanel'
 import Toolbar from './components/Toolbar'
 import GoToFile from './components/GoToFile'
 import { useStore } from './store'
+import { useAiStore } from './ai-store'
 import { applyLang } from './i18n'
 import { applyTheme } from './themes'
 
@@ -46,6 +50,7 @@ export default function App() {
   const settingsOpen = useStore((s) => s.settingsOpen)
   const dialog = useStore((s) => s.dialog)
   const terminalOpen = useStore((s) => s.terminalOpen)
+  const assistantOpen = useAiStore((s) => s.open)
   const commitRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -59,6 +64,19 @@ export default function App() {
     void loadRepos()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Detecção do opencode (opcional): 1x no boot. Sem ele, nada aparece.
+  const detectAi = useAiStore((s) => s.detect)
+  useEffect(() => {
+    void detectAi()
+  }, [detectAi])
+
+  // Eventos do servidor opencode (streaming do chat/permissões): assinatura
+  // única no boot; o painel só desenha o que chega.
+  const onAiEvent = useAiStore((s) => s.onEvent)
+  useEffect(() => {
+    return window.treeline.onAiEvent((ev) => onAiEvent(ev))
+  }, [onAiEvent])
 
   // Mudanças feitas fora do app (terminal, outro GUI): atualiza ao voltar
   // o foco para a janela + F5 manual + watcher (chokidar no main).
@@ -115,6 +133,16 @@ export default function App() {
           e.preventDefault()
           st.toggleTerminal()
         }
+        return
+      }
+      if (st0.matchShortcut('assistant', e)) {
+        const st = useStore.getState()
+        const t = e.target as HTMLElement | null
+        // Não rouba o atalho quando o foco está no chat/terminal (digitação).
+        if (st.current && !(t && t.closest && (t.closest('.xterm') || t.closest('.assistant-drawer')))) {
+          e.preventDefault()
+          useAiStore.getState().toggle()
+        }
       }
     }
     window.addEventListener('focus', onFocus)
@@ -161,6 +189,7 @@ export default function App() {
           <button className="tool-btn primary" onClick={() => void openDialog()}>
             {tr('app.openRepo')}
           </button>
+          <AiSuggestion />
         </div>
         <StatusBar />
         <SyncToast />
@@ -184,7 +213,12 @@ export default function App() {
           <DetailsPanel ref={commitRef} />
         </div>
       </div>
-      {terminalOpen && <TerminalPanel />}
+      {(terminalOpen || assistantOpen) && (
+        <div className="bottom-drawers">
+          {terminalOpen && <TerminalPanel />}
+          {assistantOpen && <AssistantPanel />}
+        </div>
+      )}
       <StatusBar />
       <SyncToast />
       {settingsOpen && <SettingsDialog />}
@@ -207,6 +241,7 @@ export default function App() {
       {dialog === 'custom' && <CustomActionsDialog />}
       {dialog === 'lfs' && <LfsDialog />}
       {dialog === 'codeSearch' && <CodeSearchDialog />}
+      <AiAssistDialog />
       <CommandPalette />
       <GoToFile />
       <ConfirmDialog />

@@ -1,6 +1,7 @@
 import {
   Archive,
   ArrowDownUp,
+  Bot,
   Cherry,
   Check,
   Download,
@@ -18,6 +19,7 @@ import {
   Workflow
 } from 'lucide-react'
 import { dialogOps, useStore } from '../store'
+import { opencodeCommand, useAiStore } from '../ai-store'
 
 // Barra superior padrão SourceTree moderno: mesma ordem e terminologia da
 // visão (`01-visao.md` §4.2), arte própria TreeLine com ícones Lucide.
@@ -44,6 +46,7 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
   const openSettings = useStore((s) => s.openSettings)
   const openDlg = useStore((s) => s.openDlg)
   const toggleTerminal = useStore((s) => s.toggleTerminal)
+  const openTerminalDrawer = useStore((s) => s.openTerminalDrawer)
   const doPushForce = useStore((s) => s.doPushForce)
   const openMenu = useStore((s) => s.openMenu)
   const current = useStore((s) => s.current)
@@ -185,6 +188,16 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
       <IconButton title={tr('toolbar.terminal')} disabled={!ready} onClick={toggleTerminal}>
         <Terminal size={16} />
       </IconButton>
+        <IconButton
+          title={tr('toolbar.opencode')}
+          disabled={!ready}
+          onClick={() => {
+            openTerminalDrawer()
+            useAiStore.getState().requestTerminalCommand(opencodeCommand())
+          }}
+        >
+          <Bot size={16} />
+        </IconButton>
         <IconButton title={tr('about.title')} onClick={() => openDlg('about')}>
           <Info size={16} />
         </IconButton>

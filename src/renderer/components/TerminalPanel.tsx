@@ -4,6 +4,7 @@ import '@xterm/xterm/css/xterm.css'
 import { ExternalLink, Minimize2, Maximize2, RotateCcw, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { dialogOps, useStore } from '../store'
+import { useAiStore } from '../ai-store'
 
 /**
  * Terminal integrado (drawer inferior): shell real via node-pty na pasta
@@ -14,6 +15,8 @@ export default function TerminalPanel() {
   const current = useStore((s) => s.current)
   const closeTerminalDrawer = useStore((s) => s.closeTerminalDrawer)
   const tr = useStore((s) => s.tr)
+  const termCommand = useAiStore((s) => s.terminalCommand)
+  const consumeTermCommand = useAiStore((s) => s.consumeTerminalCommand)
   const boxRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -124,6 +127,35 @@ export default function TerminalPanel() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [expanded])
+
+  // Comando externo (ex.: botão "opencode" da toolbar): digita no pty assim que
+  // a sessão estiver viva; desiste após ~4s (sessão não subiu).
+  useEffect(() => {
+    if (!termCommand || !current) return
+    let cancelled = false
+    let tries = 0
+    const run = (): void => {
+      window.treeline
+        .termAlive(current)
+        .then((alive) => {
+          if (cancelled) return
+          if (alive) {
+            void window.treeline.termWrite(current, `${termCommand}\r`).catch(() => undefined)
+            consumeTermCommand()
+            termRef.current?.focus()
+          } else if (tries++ < 40) {
+            window.setTimeout(run, 100)
+          } else {
+            consumeTermCommand()
+          }
+        })
+        .catch(() => consumeTermCommand())
+    }
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [termCommand, current, consumeTermCommand])
 
   const restart = (): void => {
     const term = termRef.current

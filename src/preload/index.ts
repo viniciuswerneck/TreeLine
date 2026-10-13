@@ -95,6 +95,33 @@ const api: TreeLineAPI = {
     ipcRenderer.invoke('treeline:setRepoIdentity', repo, id, lang),
   getVersion: () => ipcRenderer.invoke('treeline:getVersion'),
   checkUpdates: () => ipcRenderer.invoke('treeline:checkUpdates'),
+  aiDetect: () => ipcRenderer.invoke('treeline:aiDetect'),
+  aiServerStart: () => ipcRenderer.invoke('treeline:aiServerStart'),
+  aiServerStop: () => ipcRenderer.invoke('treeline:aiServerStop'),
+  aiServerStatus: () => ipcRenderer.invoke('treeline:aiServerStatus'),
+  aiServerRestart: () => ipcRenderer.invoke('treeline:aiServerRestart'),
+  aiAgents: () => ipcRenderer.invoke('treeline:aiAgents'),
+  aiModels: () => ipcRenderer.invoke('treeline:aiModels'),
+  aiSessions: (directory?: string) => ipcRenderer.invoke('treeline:aiSessions', directory),
+  aiSessionCreate: (directory: string, opts?: { title?: string; agent?: string; model?: { providerID: string; modelID: string } }) =>
+    ipcRenderer.invoke('treeline:aiSessionCreate', directory, opts),
+  aiSessionDelete: (sessionID: string) => ipcRenderer.invoke('treeline:aiSessionDelete', sessionID),
+  aiMessages: (sessionID: string, directory?: string) =>
+    ipcRenderer.invoke('treeline:aiMessages', sessionID, directory),
+  aiSend: (sessionID: string, directory: string, text: string, opts?: { agent?: string; model?: { providerID: string; modelID: string } }) =>
+    ipcRenderer.invoke('treeline:aiSend', sessionID, directory, text, opts),
+  aiAbort: (sessionID: string) => ipcRenderer.invoke('treeline:aiAbort', sessionID),
+  aiPermissionReply: (sessionID: string, requestID: string, response: 'once' | 'always' | 'reject') =>
+    ipcRenderer.invoke('treeline:aiPermissionReply', sessionID, requestID, response),
+  onAiEvent: (cb: (ev: import('../shared/types').AiEvent) => void): (() => void) => {
+    const fn = (_e: unknown, ev: import('../shared/types').AiEvent): void => cb(ev)
+    ipcRenderer.on('treeline:aiEvent', fn)
+    return () => ipcRenderer.removeListener('treeline:aiEvent', fn)
+  },
+  aiCommitMessage: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:aiCommitMessage', repo, lang),
+  aiReviewStaged: (repo: string, lang?: string) => ipcRenderer.invoke('treeline:aiReviewStaged', repo, lang),
+  aiExplainConflict: (repo: string, file: string, lang?: string) =>
+    ipcRenderer.invoke('treeline:aiExplainConflict', repo, file, lang),
   getCommitDetail: (repo: string, hash: string) => ipcRenderer.invoke('treeline:getCommitDetail', repo, hash),
   getCommitDiff: (repo: string, hash: string, file: string) =>
     ipcRenderer.invoke('treeline:getCommitDiff', repo, hash, file),

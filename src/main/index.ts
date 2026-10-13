@@ -66,6 +66,9 @@ import './app/updates'
 import './app/customActions'
 import './app/identity'
 import './app/sys'
+import './ai/detect'
+import './ai/server'
+import './ai/gitassist'
 
 const APP_TITLE: Record<SplashLang, string> = {
   en: 'TreeLine — Where the Git maze becomes a straight path - WerneckLab',

@@ -1,7 +1,7 @@
 // Atalhos remapeáveis do TreeLine (persistidos em localStorage).
 // Formato: "ctrl+k", "ctrl+shift+enter", "f5". Modificadores: ctrl/meta (+shift+alt).
 
-export type ShortcutAction = 'palette' | 'sidebar' | 'search' | 'refresh' | 'commit' | 'terminal' | 'gotoFile' | 'codeSearch'
+export type ShortcutAction = 'palette' | 'sidebar' | 'search' | 'refresh' | 'commit' | 'terminal' | 'gotoFile' | 'codeSearch' | 'assistant'
 
 export const SHORTCUT_DEFAULTS: Record<ShortcutAction, string> = {
   palette: 'ctrl+k',
@@ -11,7 +11,8 @@ export const SHORTCUT_DEFAULTS: Record<ShortcutAction, string> = {
   search: 'ctrl+f',
   refresh: 'f5',
   commit: 'ctrl+enter',
-  terminal: 'ctrl+`'
+  terminal: 'ctrl+`',
+  assistant: 'ctrl+shift+a'
 }
 
 const STORAGE_KEY = 'treeline-shortcuts'

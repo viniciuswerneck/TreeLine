@@ -356,6 +356,106 @@ export interface CodeSearchProgress {
   stats?: CodeSearchStats
 }
 
+/**
+ * Estado da integração opcional com o opencode (agente CLI). O TreeLine
+ * funciona sem ele; quando instalado, sugerimos ativar o assistente.
+ */
+export interface AiStatus {
+  /** `opencode` encontrado no PATH. */
+  installed: boolean
+  /** Caminho absoluto do binário, ou null. */
+  path: string | null
+  /** Versão de `opencode --version` (ex.: "1.18.35"), ou null. */
+  version: string | null
+  /** Config encontrado (opencode.jsonc/json), ou null. */
+  configPath: string | null
+  /** Modelo padrão do config, se definido (ex.: "anthropic/claude…"). */
+  model: string | null
+}
+
+/** Estado do servidor embutido `opencode serve` (loopback). */
+export interface AiServerStatus {
+  running: boolean
+  /** Base URL quando rodando (ex.: "http://127.0.0.1:4096"), senão null. */
+  url: string | null
+  /** PID do processo filho, ou null. */
+  pid: number | null
+  /** Último erro de start/health, ou null. */
+  error: string | null
+}
+
+/** Agente do opencode (ex.: `plan` read-only, `build` com escrita). */
+export interface AiAgent {
+  name: string
+  description: string
+  /** `primary` (selecionável) ou `subagent`. */
+  mode: string
+}
+
+/** Um modelo disponível, achatado (provider + modelo). */
+export interface AiModel {
+  providerID: string
+  providerName: string
+  modelID: string
+  name: string
+}
+
+/** Sessão de conversa do opencode. */
+export interface AiSessionInfo {
+  id: string
+  title: string
+  directory: string
+  created: number
+  updated: number
+  cost: number
+}
+
+/** Parte normalizada de uma mensagem (só o que a UI desenha). */
+export type AiPart =
+  | { kind: 'text'; id: string; text: string; synthetic?: boolean }
+  | { kind: 'reasoning'; id: string; text: string }
+  | {
+      kind: 'tool'
+      id: string
+      tool: string
+      status: 'pending' | 'running' | 'completed' | 'error'
+      title?: string
+      detail?: string
+    }
+  | { kind: 'other'; id: string; type: string }
+
+/** Mensagem normalizada (user/assistant) com partes na ordem de emissão. */
+export interface AiMessage {
+  id: string
+  role: 'user' | 'assistant'
+  created: number
+  agent?: string
+  modelID?: string
+  providerID?: string
+  cost?: number
+  error?: string
+  parts: AiPart[]
+}
+
+/** Evento do servidor repassado cru ao renderer (campo `type` discrimina). */
+export interface AiEvent {
+  type: string
+  sessionID?: string
+  [k: string]: unknown
+}
+
+/** Pedido de permissão do agente (gate por modal no renderer). */
+export interface AiPermissionRequest {
+  id: string
+  sessionID: string
+  /** Descrição legível da ação pedida (comando/arquivo). */
+  title: string
+  /** Tipo do pedido (ex.: `bash`, `edit`, `webfetch`). */
+  kind: string
+  /** Qual endpoint responde o pedido (`permission.asked` vs `permission.v2.asked`). */
+  scheme: 'classic' | 'v2'
+}
+
 /** Contrato exposto no renderer como `window.treeline`. */
 export interface TreeLineAPI {
   listRepos(): Promise<string[]>
@@ -512,6 +612,43 @@ export interface TreeLineAPI {
   runCustomAction(repo: string, id: string, ctx?: ActionContext, lang?: string): Promise<ActionResult>
   // Updates (GitHub Releases, sem auth)
   checkUpdates(): Promise<{ current: string; latest: string | null; url: string }>
+  // Assistente (opencode) — detecção opcional; o app funciona sem ele
+  aiDetect(): Promise<AiStatus>
+  /** Sobe o servidor embutido (idempotente) e devolve o estado. */
+  aiServerStart(): Promise<AiServerStatus>
+  /** Derruba o servidor embutido. */
+  aiServerStop(): Promise<AiServerStatus>
+  /** Estado atual do servidor (sem subir). */
+  aiServerStatus(): Promise<AiServerStatus>
+  /** Reinicia o servidor (stop + start). */
+  aiServerRestart(): Promise<AiServerStatus>
+  /** Agentes disponíveis (primários e subagentes). */
+  aiAgents(): Promise<AiAgent[]>
+  /** Modelos disponíveis (achatados de todos os providers). */
+  aiModels(): Promise<AiModel[]>
+  /** Sessões do opencode (todas ou de um diretório). */
+  aiSessions(directory?: string): Promise<AiSessionInfo[]>
+  /** Cria uma sessão (título/agente/modelo opcionais). */
+  aiSessionCreate(directory: string, opts?: { title?: string; agent?: string; model?: { providerID: string; modelID: string } }): Promise<AiSessionInfo>
+  /** Remove (aborta) uma sessão. */
+  aiSessionDelete(sessionID: string): Promise<void>
+  /** Mensagens completas de uma sessão (normalizadas). */
+  aiMessages(sessionID: string, directory?: string): Promise<AiMessage[]>
+  /** Envia um prompt (assíncrono; a resposta chega por onAiEvent). */
+  aiSend(sessionID: string, directory: string, text: string, opts?: { agent?: string; model?: { providerID: string; modelID: string } }): Promise<void>
+  /** Interrompe a geração atual. */
+  aiAbort(sessionID: string): Promise<void>
+  /** Responde um pedido de permissão (gate). */
+  aiPermissionReply(sessionID: string, requestID: string, response: 'once' | 'always' | 'reject'): Promise<void>
+  /** Assina os eventos do servidor (message.updated, permission.asked, ...). */
+  onAiEvent(cb: (ev: AiEvent) => void): () => void
+  /** Gera sugestão de mensagem de commit (propose-only; não commita). */
+  aiCommitMessage(repo: string, lang?: string): Promise<string>
+  /** Revisa as mudanças staged e devolve sugestões (propose-only). */
+  aiReviewStaged(repo: string, lang?: string): Promise<string>
+
+  /** Explica um conflito de merge/rebase (propose-only; não escreve no Git). */
+  aiExplainConflict(repo: string, file: string, lang?: string): Promise<string>
   termStart(repo: string, cols: number, rows: number): Promise<void>
   termWrite(repo: string, data: string): Promise<void>
   termResize(repo: string, cols: number, rows: number): Promise<void>

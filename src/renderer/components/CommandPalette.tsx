@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CustomAction } from '../../shared/types'
 import { dialogOps, useStore } from '../store'
+import { opencodeCommand, useAiStore } from '../ai-store'
 import { useFocusTrap } from '../lib/a11y'
 
 interface PalCmd {
@@ -79,6 +80,14 @@ export default function CommandPalette() {
       { label: tr('pal.codeSearch'), hint: 'dialog', run: () => openDlg('codeSearch') },
       { label: tr('pal.openPR'), hint: 'remote', run: dialogOps.openPR },
       { label: tr('pal.terminal'), hint: 'view', run: toggleTerminal },
+      {
+        label: tr('pal.opencode'),
+        hint: 'ai',
+        run: () => {
+          useStore.getState().openTerminalDrawer()
+          useAiStore.getState().requestTerminalCommand(opencodeCommand())
+        }
+      },
       { label: tr('pal.about'), hint: 'view', run: () => openDlg('about') },
       { label: tr('pal.toggleSidebar'), hint: 'view', run: toggleSidebar },
       { label: tr('pal.customActions'), hint: 'view', run: () => openDlg('custom') },

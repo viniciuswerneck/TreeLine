@@ -4,6 +4,7 @@ import { useStore } from '../store'
 import { useFocusTrap } from '../lib/a11y'
 import { LANGS, type DictKey, type Lang } from '../i18n'
 import { THEMES } from '../themes'
+import { useAiStore } from '../ai-store'
 import { SHORTCUT_DEFAULTS, eventShortcut, findShortcutConflicts, formatShortcut, isCustomShortcut, type ShortcutAction } from '../shortcuts'
 
 const SHORTCUT_LABELS: Record<ShortcutAction, DictKey> = {
@@ -14,7 +15,8 @@ const SHORTCUT_LABELS: Record<ShortcutAction, DictKey> = {
   search: 'side.search',
   refresh: 'common.refresh',
   commit: 'toolbar.commit',
-  terminal: 'toolbar.terminal'
+  terminal: 'toolbar.terminal',
+  assistant: 'ai.toolbarAssistant'
 }
 
 /** Editor de atalhos: filtro, captura de teclas, conflitos e reset por linha. */
@@ -133,6 +135,22 @@ export default function SettingsDialog() {
   const credHelper = useStore((s) => s.credHelper)
   const setCredHelper = useStore((s) => s.setCredHelper)
   const tr = useStore((s) => s.tr)
+  const aiStatus = useAiStore((s) => s.status)
+  const aiEnabled = useAiStore((s) => s.enabled)
+  const aiSetEnabled = useAiStore((s) => s.setEnabled)
+  const aiServer = useAiStore((s) => s.server)
+  const aiAgents = useAiStore((s) => s.agents)
+  const aiModels = useAiStore((s) => s.models)
+  const aiAgent = useAiStore((s) => s.agent)
+  const aiModel = useAiStore((s) => s.model)
+  const aiAutoApprove = useAiStore((s) => s.autoApprove)
+  const aiSetAgent = useAiStore((s) => s.setAgent)
+  const aiSetModel = useAiStore((s) => s.setModel)
+  const aiSetAuto = useAiStore((s) => s.setAutoApprove)
+  const aiStart = useAiStore((s) => s.startServer)
+  const aiStop = useAiStore((s) => s.stopServer)
+  const aiRestart = useAiStore((s) => s.restartServer)
+  const aiLoadMeta = useAiStore((s) => s.loadMeta)
 
   const [name, setName] = useState(identity.name)
   const [email, setEmail] = useState(identity.email)
@@ -352,6 +370,109 @@ export default function SettingsDialog() {
             </p>
             {credHelper && !credHelper.libsecretAvailable && (
               <p className="muted" style={{ fontSize: '11px' }}>{tr('settings.credUnavailable')}</p>
+            )}
+          </div>
+          <div className="two-col-col">
+            <div className="dlg-section">{tr('ai.title')}</div>
+            <p className="muted" style={{ fontSize: '11px' }}>{tr('ai.hint')}</p>
+            {aiStatus?.installed ? (
+              <>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={aiEnabled}
+                    onChange={(e) => aiSetEnabled(e.target.checked)}
+                  />
+                  <span className="grow">{tr('ai.enable')}</span>
+                </label>
+                <p className="muted" style={{ fontSize: '11px' }}>
+                  {tr('ai.detected', { v: aiStatus.version ?? '—' })}
+                </p>
+                <p className="muted" style={{ fontSize: '11px', wordBreak: 'break-all' }}>
+                  {tr('ai.binary')}: {aiStatus.path}
+                </p>
+                {aiStatus.configPath && (
+                  <p className="muted" style={{ fontSize: '11px', wordBreak: 'break-all' }}>
+                    {tr('ai.config')}: {aiStatus.configPath}
+                  </p>
+                )}
+                <p className="muted" style={{ fontSize: '11px' }}>
+                  {tr('ai.model')}: {aiStatus.model ?? tr('ai.modelNone')}
+                </p>
+                <div className="ai-serv">
+                  <span className="grow">
+                    {tr('ai.serverStatus')}:{' '}
+                    {aiServer.running ? tr('ai.running') : tr('ai.stopped')}
+                  </span>
+                  {aiServer.running ? (
+                    <>
+                      <button className="tool-btn" onClick={() => void aiRestart()}>
+                        {tr('ai.restartServer')}
+                      </button>
+                      <button className="tool-btn" onClick={() => void aiStop()}>
+                        {tr('ai.stopServer')}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="tool-btn"
+                      onClick={() => {
+                        void aiStart().then(() => aiLoadMeta())
+                      }}
+                    >
+                      {tr('ai.startServer')}
+                    </button>
+                  )}
+                </div>
+                {aiServer.running && (
+                  <>
+                    <label className="check-row">
+                      <span className="grow">{tr('ai.agentLabel')}</span>
+                      <select
+                        className="ai-select"
+                        value={aiAgent}
+                        onChange={(e) => aiSetAgent(e.target.value)}
+                      >
+                        {aiAgents.map((a) => (
+                          <option key={a.name} value={a.name}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="check-row">
+                      <span className="grow">{tr('ai.modelLabel')}</span>
+                      <select
+                        className="ai-select"
+                        value={aiModel ? `${aiModel.providerID}/${aiModel.modelID}` : ''}
+                        onChange={(e) => {
+                          if (!e.target.value) return aiSetModel(null)
+                          const [providerID, ...rest] = e.target.value.split('/')
+                          aiSetModel({ providerID, modelID: rest.join('/') })
+                        }}
+                      >
+                        <option value="">{tr('ai.modelDefault')}</option>
+                        {aiModels.map((m) => (
+                          <option key={`${m.providerID}/${m.modelID}`} value={`${m.providerID}/${m.modelID}`}>
+                            {m.providerID}/{m.modelID}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="check-row" title={tr('ai.autoHint')}>
+                      <input
+                        type="checkbox"
+                        checked={aiAutoApprove}
+                        onChange={(e) => aiSetAuto(e.target.checked)}
+                      />
+                      <span className="grow">{tr('ai.autoLabel')}</span>
+                    </label>
+                    <p className="muted" style={{ fontSize: '11px' }}>{tr('ai.autoHint')}</p>
+                  </>
+                )}
+              </>
+            ) : (
+              <p className="muted" style={{ fontSize: '11px' }}>{tr('ai.notInstalled')}</p>
             )}
           </div>
         </div>
