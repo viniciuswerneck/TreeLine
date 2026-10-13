@@ -34,7 +34,7 @@
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language": "^6.12.4",
-    "@codemirror/legacy-modes": "^6.5.4",
+    "@codemirror/legacy-modes": "^6.5.5",
     "@lezer/highlight": "^1.2.5",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
