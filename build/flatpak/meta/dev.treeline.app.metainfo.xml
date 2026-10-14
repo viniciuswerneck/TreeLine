@@ -6,7 +6,7 @@
   <project_license>MIT</project_license>
 
   <name>TreeLine</name>
-  <summary>Git GUI for Linux with a familiar SourceTree-like workflow</summary>
+  <summary>Git GUI for Linux with a familiar classic desktop Git workflow</summary>
 
   <developer id="dev.treeline">
     <name>TreeLine contributors</name>
@@ -14,9 +14,9 @@
 
   <description>
     <p>
-      TreeLine is a Git GUI for Linux built for people coming from SourceTree. It keeps the
-      same mental model — fetch, pull, push, stage, commit, branches, stashes and remotes in a
-      fixed layout — without copying Atlassian assets or branding.
+      TreeLine is a Git GUI for Linux built for people coming from the classic desktop Git
+      clients. It keeps the same mental model — fetch, pull, push, stage, commit, branches,
+      stashes and remotes in a fixed layout — without copying third-party assets or branding.
     </p>
     <p>Highlights:</p>
     <ul>

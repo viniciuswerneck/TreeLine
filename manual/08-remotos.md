@@ -48,7 +48,7 @@ A statusbar mostra `↑ 2 ↓ 0`:
   **Pull** (ou clique na contagem, que dispara um fetch).
 
 Na **sidebar**, cada branch mostra os próprios `↑↓` — dá para ver de longe
-que `develop` está 3 commits atrás sem abrir nada.
+que um branch está à frente ou atrás do seu remoto sem abrir nada.
 
 O **upstream** (`main` ↔ `origin/main`) é o que permite `git push` sem
 argumento. **Push** cria o rastro automaticamente na primeira vez.

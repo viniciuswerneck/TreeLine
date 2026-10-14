@@ -1,30 +1,30 @@
-# TreeLine — SourceTree Alternative for Linux (Git GUI)
+# TreeLine — Git GUI for Linux
 
 **English** | [Português](README.pt-BR.md) | [Español](README.es.md)
 
-**TreeLine is a SourceTree alternative for Linux**: a visual Git client (Git GUI) for Ubuntu/Debian with the familiar workflow of SourceTree on Windows/Mac. If you were looking for *SourceTree for Linux*, *SourceTree on Ubuntu* or a *Git client for Linux* — this is it.
+**TreeLine is a visual Git client (Git GUI) for Linux**: an app for Ubuntu/Debian with the familiar workflow of the classic desktop Git clients from Windows/Mac. If you were looking for a *Git GUI for Linux* or a *Git client for Linux* — this is it.
 
 ![Linux](https://img.shields.io/badge/platform-Ubuntu%2FDebian-blue) ![Electron](https://img.shields.io/badge/Electron-44-47848F) ![Status](https://img.shields.io/badge/status-0.6.16-green)
 
-> 100% original implementation — not affiliated with Atlassian. Inspired by the SourceTree workflow, without copying brand, icons or texts.
+> 100% original implementation — an independent project. Follows the workflow of the classic desktop Git clients, without copying brand, icons or texts.
 
-## Looking for SourceTree on Linux?
+## A classic Git GUI for Linux
 
-There is no official SourceTree for Linux. TreeLine fills that gap:
+The classic desktop Git clients have no official Linux build. TreeLine fills that gap:
 
-| SourceTree user | In TreeLine |
+| Classic Git GUI user | In TreeLine |
 |---|---|
 | Toolbar Commit, Push, Pull, Fetch, Branch, Merge, Stash, Tag | Same order, same names, original icons |
 | Sidebar with bookmarks, branches, remotes, stashes | Same, with ahead/behind badges |
-| Commit graph + file status + diff | Git Graph-style colored graph, stage per file/hunk/line, unified/split diff |
+| Commit graph + file status + diff | Colored commit graph, stage per file/hunk/line, unified/split diff |
 | Credentials and SSH | Reuses the system credential helper and ssh-agent |
 
-Other alternatives people compare: GitKraken, GitHub Desktop (no official Linux build), Sublime Merge, Gitg, Git Cola. TreeLine focuses on **usage parity with SourceTree** and easy install (`.deb`/AppImage).
+Other alternatives people compare: GitKraken, GitHub Desktop (no official Linux build), Sublime Merge, Gitg, Git Cola. TreeLine focuses on **the same usage flow as the classic desktop Git GUIs** and easy install (`.deb`/AppImage).
 
 ## Features
 
 - **4 regions**: toolbar, sidebar (Bookmarks, Workspace, Branches, Remotes, Tags, Stashes), history with graph and File Status + diff panel (Unstaged/Staged expand together, side by side)
-- **Git Graph-style graph**: colored lanes, merge curves, badges per ref type, absolute dates, avatars, branch combo with type-to-filter selection and optional remotes, compare between 2 commits (Ctrl+click)
+- **Colored commit graph**: colored lanes, merge curves, badges per ref type, absolute dates, avatars, branch combo with type-to-filter selection and optional remotes, compare between 2 commits (Ctrl+click)
 - **Full flow**: Stage/Unstage (per file, hunk and line + Stage All), side-by-side diff with arrows per block, Commit with Amend (Ctrl+Enter), **Push (`--force-with-lease` on demand) / Pull (`--ff-only`) / Fetch** with progress toast
 - **Commit search**, current-branch filter, click a commit to see files + diff, Blame and file history
 - **Branch/Merge/Stash/Tag/Rebase (simple + interactive)/Cherry-Pick/Revert/Reset/Git-flow/Reflog+Undo** with bundle backup before destructive ops
@@ -34,7 +34,7 @@ Other alternatives people compare: GitKraken, GitHub Desktop (no official Linux 
 - **3 languages**: English, Português and Español (detects the system, switch in Settings)
 - Always via **system git** (hooks, LFS, flow and credential helpers work like in the terminal)
 
-## Install on Ubuntu/Debian (SourceTree Linux download alternative)
+## Install on Ubuntu/Debian
 
 Download the `.deb` or `.AppImage` from the **Releases** page and install:
 
@@ -87,12 +87,12 @@ User manual (pt-BR, Git explained from scratch) in [`manual/`](manual/).
 - **0.6.11** — the opencode TUI opens in the project folder (repo passed as positional argument)
 - **Next** — Flathub submission, `libsecret`/GNOME Keyring, auto-update, `--rpm`/AUR
 
-Detail and SourceTree parity in [`docs/02-roadmap.md`](docs/02-roadmap.md).
+Detail and parity notes in [`docs/02-roadmap.md`](docs/02-roadmap.md).
 
 ## FAQ
 
-**Is TreeLine the SourceTree for Linux?**
-No — it is an independent *alternative* with a similar flow. SourceTree (Atlassian) has no Linux version.
+**Does TreeLine replace a classic desktop Git GUI?**
+Yes — it is an independent app with a similar flow. Classic desktop Git GUIs have no official Linux version.
 
 **Which distros does it run on?**
 Ubuntu/Debian first (`.deb` + AppImage). Flatpak and other distros are on the roadmap.
@@ -109,7 +109,7 @@ as long as credits are kept (Werneck Lab copyright notice).
 
 Pull requests are welcome. When contributing, keep the MIT copyright
 notice in `LICENSE` and don't include third-party assets with incompatible
-licenses (nothing from Atlassian/SourceTree: icons and texts must be original).
+licenses (nothing copied from other Git GUI products: icons and texts must be original).
 
 ---
 *Developed by **Werneck Lab** — TreeLine: where the Git maze becomes a straight path.*

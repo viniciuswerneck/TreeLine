@@ -33,7 +33,7 @@ Detalhes que importam:
 
 | Seção | Conteúdo |
 |---|---|
-| **Bookmarks** | Projetos favoritos + “Abrir repositório…”. Duplo clique troca de repo. |
+| **Bookmarks** | Projetos favoritos + “Abrir repositório…”. Duplo clique troca de repo. *(seção oculta neste print)* |
 | **Workspace** | Working Copy (voltar para o painel de arquivos), Histórico, Busca |
 | **Branches** | Locais + remotas. A atual tem barra de destaque e badge `HEAD`; badges `↑↓` mostram ahead/behind. Duplo clique = checkout. Toggle **“Só o branch atual”** filtra o grafo. |
 | **Remotos** | `origin` e outros, com botão para o gerenciador |

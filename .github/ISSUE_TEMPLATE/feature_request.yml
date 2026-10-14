@@ -7,7 +7,7 @@ body:
     id: problem
     attributes:
       label: Problema ou necessidade
-      description: Que fluxo do dia a dia isso resolve? Cite a paridade almejada (SourceTree/VS Code) se aplicável.
+      description: Que fluxo do dia a dia isso resolve? Cite a paridade almejada (GUIs Git tradicionais) se aplicável.
     validations:
       required: true
   - type: textarea

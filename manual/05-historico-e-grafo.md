@@ -10,8 +10,8 @@ O painel de histórico mostra **quem fez o quê, em que linha do tempo**.
   aparece na cor do branch que “atravessa”.
 - **Badges** à esquerda da mensagem dizem quem aponta para aquele commit:
   `HEAD -> main`, `develop`, `v1.0.0`, `origin/main`.
-- **Colunas**: Grafo · Mensagem · Data (absoluta, ex.: `6 de out. de 2026
-  00:45`) · Autor (com avatar de iniciais) · Hash (7 dígitos, clique copia).
+- **Colunas**: Grafo · Mensagem · Data (absoluta, ex.: `29/09/2026
+  10:05`) · Autor (com avatar de iniciais) · Hash (7 dígitos, clique copia).
 - A primeira linha é sempre **Working Copy** — clique para voltar ao painel
   de arquivos.
 

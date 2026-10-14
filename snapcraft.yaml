@@ -16,7 +16,7 @@ name: treeline-git-gui
 base: core26
 version: "0.6.16"
 title: TreeLine — Git GUI for Linux
-summary: Visual Git client with the familiar SourceTree workflow
+summary: Visual Git client with the familiar classic desktop Git workflow
 license: MIT
 icon: snap/gui/treeline-git-gui.png
 

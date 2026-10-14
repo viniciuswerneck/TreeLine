@@ -7,10 +7,11 @@ jargão solto) e como fazer cada coisa no TreeLine. Cada capítulo mostra o
 passo a passo na tela **e** o comando equivalente no terminal, para que você
 entenda o que a ferramenta está fazendo por baixo.
 
-> Os prints foram tirados de um repositório de demonstração chamado
-> `meu-projeto` (11 commits, branches `main`/`develop`/`feature/novo-layout`,
-> tag `v1.0.0`, um stash e alterações pendentes). O seu projeto vai ter a
-> mesma cara, com os seus arquivos.
+> Os prints foram tirados de repositórios de demonstração (`aurora` — e
+> `aurora-conflito` no capítulo de conflitos) com **autores fictícios**, em
+> **tema escuro**: 21 commits, branches `main`/`develop`/`feature/novo-layout`,
+> tag `v1.0.0`, um stash, um remoto `origin` e alterações pendentes. O seu
+> projeto vai ter a mesma cara, com os seus arquivos.
 
 ## Capítulos
 

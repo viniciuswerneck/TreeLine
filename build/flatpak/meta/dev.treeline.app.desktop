@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=TreeLine
-Comment=Git GUI for Linux with a familiar SourceTree-like workflow
+Comment=Git GUI for Linux with a familiar classic desktop Git workflow
 Exec=treeline-git-gui %F
 Icon=dev.treeline.app
 Type=Application

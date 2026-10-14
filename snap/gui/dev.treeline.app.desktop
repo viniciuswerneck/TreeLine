@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=TreeLine
 GenericName=Git GUI
-Comment=Visual Git client with the familiar SourceTree workflow
+Comment=Visual Git client with the familiar classic desktop Git workflow
 Exec=treeline-git-gui %F
 Icon=treeline-git-gui
 Terminal=false

@@ -2,7 +2,7 @@
   "name": "treeline-git-gui",
   "productName": "TreeLine",
   "version": "0.6.16",
-  "description": "Git GUI for Linux with a familiar SourceTree-like workflow. Original implementation, not affiliated with Atlassian.",
+  "description": "Git GUI for Linux with a familiar classic desktop workflow. Original implementation, independent.",
   "author": {
     "name": "TreeLine Contributors",
     "email": "contact@treeline.dev"
@@ -21,7 +21,9 @@
     "test:ui:search": "node scripts/codesearch-uitest.cjs",
     "test:stress": "node scripts/make-stress-repo.js 10000 && node scripts/stress.cjs",
     "fixture:repos": "node scripts/make-fixture-repos.js",
+    "fixture:demo": "node scripts/make-demo-repo.js",
     "shots": "node scripts/shots.cjs",
+    "shots:manual": "bash scripts/shots-run.sh",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "lint": "eslint .",
