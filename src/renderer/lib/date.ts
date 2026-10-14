@@ -34,6 +34,10 @@ function parseIso(iso: string): Date | null {
   return Number.isNaN(t.getTime()) ? null : t
 }
 
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n)
+}
+
 function render(iso: string, lang: Lang, withTime: boolean): string {
   const key = `${withTime ? 'dt' : 'd'}\u0000${lang}\u0000${iso}`
   const cached = textCache.get(key)
@@ -42,6 +46,9 @@ function render(iso: string, lang: Lang, withTime: boolean): string {
   let out: string
   if (!t) {
     out = withTime ? iso.slice(0, 16).replace('T', ' ') : iso.slice(0, 10)
+  } else if (lang === 'en') {
+    const date = `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`
+    out = withTime ? `${date} ${pad2(t.getHours())}:${pad2(t.getMinutes())}` : date
   } else {
     const f = fmt(lang)
     out = withTime ? `${f.date.format(t)} ${f.time.format(t)}` : f.date.format(t)
@@ -52,16 +59,16 @@ function render(iso: string, lang: Lang, withTime: boolean): string {
 }
 
 /**
- * Data/hora local no formato do idioma da UI (ex.: `01/01/2026 08:23` em
- * pt/es, `01/01/2026 08:23 AM` em en). O `Intl` decide ordem (dia/mês vs
- * mês/dia) e relógio (24h vs 12h) a partir do locale. Cai para o pedaço ISO
- * se a data for inválida.
+ * Data/hora local no formato do idioma da UI. `pt`/`es` usam `Intl`
+ * (dia/mês, relógio de 24h → `01/01/2026 08:23`); `en` usa o formato ISO
+ * (ano-mês-dia, 24h → `2026-01-01 08:23`). Cai para o pedaço ISO se a data
+ * for inválida.
  */
 export function formatDateTime(iso: string, lang: Lang): string {
   return render(iso, lang, true)
 }
 
-/** Só a data, no formato do idioma da UI (`01/01/2026` em pt/es, `01/01/2026` em en). */
+/** Só a data, no formato do idioma da UI (`01/01/2026` em pt/es, `2026-01-01` em en). */
 export function formatDate(iso: string, lang: Lang): string {
   return render(iso, lang, false)
 }

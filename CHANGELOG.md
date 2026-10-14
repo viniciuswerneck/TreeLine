@@ -10,6 +10,16 @@ não case com o `package.json`.
 
 ## [Unreleased]
 
+## [0.6.16] - 2026-10-13
+
+### Changed
+
+- **Datas no idioma inglês passam a usar o formato ISO** (`2026-10-13 17:38`):
+  `formatDateTime`/`formatDate` deixam de usar o `Intl` `en-US` (mês/dia + 12h,
+  ex. `03/04/2026 08:23 AM`) e emitem ano-mês-dia com relógio de 24h. `pt`/`es`
+  seguem em `dd/MM/yyyy HH:mm` (`04/03/2026 08:23`). Vale para o grafo, detalhe
+  do commit, file-history, tag, reflog, tooltip da sidebar e busca de código.
+
 ## [0.6.15] - 2026-10-13
 
 ### Fixed
@@ -138,7 +148,8 @@ funcionalidade visível).
   [GHSA-v5rq-49vh-5v5c](https://github.com/advisories/GHSA-v5rq-49vh-5v5c).
   Dependências de runtime sem vulnerabilidades conhecidas no `npm audit`.
 
-[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.15...HEAD
+[Unreleased]: https://github.com/viniciuswerneck/TreeLine/compare/v0.6.16...HEAD
+[0.6.16]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.16
 [0.6.15]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.15
 [0.6.14]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.14
 [0.6.13]: https://github.com/viniciuswerneck/TreeLine/releases/tag/v0.6.13

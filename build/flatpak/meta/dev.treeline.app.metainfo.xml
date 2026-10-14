@@ -53,6 +53,14 @@
   </screenshots>
 
   <releases>
+    <release version="0.6.16" date="2026-10-13">
+      <description>
+        <p>Dates in English now use the ISO format
+        (<code>2026-10-13 17:38</code>), year-month-day with a 24-hour clock,
+        instead of the month/day 12-hour format. Portuguese and Spanish keep
+        <code>dd/MM/yyyy HH:mm</code>.</p>
+      </description>
+    </release>
     <release version="0.6.15" date="2026-10-13">
       <description>
         <p>Fix: the code-search/blame date no longer shows raw ISO

@@ -11,8 +11,8 @@ describe('formatDateTime', () => {
     expect(formatDateTime(iso, 'es')).toBe('04/03/2026 08:23')
   })
 
-  it('en usa mês/dia e relógio de 12h', () => {
-    expect(formatDateTime(iso, 'en')).toBe('03/04/2026 08:23 AM')
+  it('en usa formato ISO (ano-mês-dia) e relógio de 24h', () => {
+    expect(formatDateTime(iso, 'en')).toBe('2026-03-04 08:23')
   })
 
   it('cai para o pedaço ISO quando a data é inválida', () => {
@@ -23,11 +23,11 @@ describe('formatDateTime', () => {
 describe('formatDate', () => {
   it('mostra só a data no formato do idioma', () => {
     expect(formatDate('2026-03-04T08:23:00', 'pt')).toBe('04/03/2026')
-    expect(formatDate('2026-03-04T08:23:00', 'en')).toBe('03/04/2026')
+    expect(formatDate('2026-03-04T08:23:00', 'en')).toBe('2026-03-04')
   })
 
   it('data pura (YYYY-MM-DD) não pula de dia por causa do fuso', () => {
     expect(formatDate('2026-03-04', 'pt')).toBe('04/03/2026')
-    expect(formatDate('2026-03-04', 'en')).toBe('03/04/2026')
+    expect(formatDate('2026-03-04', 'en')).toBe('2026-03-04')
   })
 })
