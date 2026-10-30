@@ -31,7 +31,7 @@
     "check:structure": "madge --circular --extensions ts,tsx src && node scripts/check-file-size.mjs"
   },
   "dependencies": {
-    "chokidar": "^5.0.0",
+    "chokidar": "^6.0.0",
     "node-pty": "^1.1.0",
     "simple-git": "^4.0.2"
   },
