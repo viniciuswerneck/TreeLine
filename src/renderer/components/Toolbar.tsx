@@ -86,7 +86,7 @@ export default function Toolbar({ onCommitFocus }: { onCommitFocus: () => void }
   }
 
   return (
-    <div className="toolbar" role="toolbar" aria-label="TreeLine">
+    <div className="toolbar" role="toolbar" aria-label="TreeLine" tabIndex={0}>
       <div className="toolbar-group">
         <ActionButton
           title={stagedCount > 0 ? tr('toolbar.commitStaged') : tr('toolbar.commitEmpty')}

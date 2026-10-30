@@ -191,6 +191,9 @@ async function createSplash(): Promise<{ win: BrowserWindow; at: number }> {
 void app.whenReady().then(async () => {
   const { win: splash, at } = await createSplash()
   await createWindow(splash, at)
+
+  // Ctrl+K/Cmd+K é tratado no renderer (CommandPalette): atalho LOCAL da janela.
+  // `globalShortcut` seria system-wide e `app.globalShortcut` nem existe.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       void createSplash().then((s) => createWindow(s.win, s.at))

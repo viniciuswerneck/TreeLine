@@ -54,6 +54,21 @@ export const STR: Record<string, Record<UILang, string>> = {
     pt: '{op} falhou: local e remoto divergiram ({d}). Faça merge ou rebase antes e puxe de novo.',
     es: '{op} falló: local y remoto divergieron ({d}). Haz merge o rebase antes y vuelve a tirar.'
   },
+  gitConflict: {
+    en: '{op} stopped on conflicts ({d}). Resolve them and try again.',
+    pt: '{op} parou em conflitos ({d}). Resolva e tente de novo.',
+    es: '{op} se detuvo en conflictos ({d}). Resuélvelos y vuelve a intentarlo.'
+  },
+  gitNotARepo: {
+    en: '{op} failed: not a Git repository (or git is not installed).',
+    pt: '{op} falhou: não é um repositório Git (ou o git não está instalado).',
+    es: '{op} falló: no es un repositorio Git (o git no está instalado).'
+  },
+  gitTimeout: {
+    en: '{op} timed out. Check network/remote and try again.',
+    pt: '{op} estourou o tempo. Verifique a rede/remoto e tente de novo.',
+    es: '{op} superó el tiempo. Revisa la red/remoto e inténtalo de nuevo.'
+  },
   fetchUpdated: { en: ' ({n} ref(s) updated)', pt: ' ({n} ref(s) atualizadas)', es: ' ({n} ref(s) actualizadas)' },
   lfsPullDone: { en: 'LFS pull done.', pt: 'LFS pull concluído.', es: 'LFS pull completado.' },
   lfsPushDone: { en: 'LFS push done.', pt: 'LFS push concluído.', es: 'LFS push completado.' },

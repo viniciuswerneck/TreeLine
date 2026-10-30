@@ -29,7 +29,7 @@ export default function ConfirmDialog() {
     <div className="modal-backdrop confirm-backdrop" onClick={() => resolveConfirm(false)}>
       <div
         ref={modalRef}
-        className="modal"
+        className="modal" tabIndex={0}
         role="alertdialog"
         aria-modal="true"
         aria-label={confirmState.title}

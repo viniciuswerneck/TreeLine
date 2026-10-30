@@ -9,7 +9,7 @@ import { simpleGit } from './git'
 import { mx, asLang, type UILang } from '../messages'
 import { enqueue, readOp } from './runner'
 import { relPathSafe } from './validate'
-import { exists, gitDirOf, unmergedPaths, conflictErr } from './helpers'
+import { exists, gitDirOf, unmergedPaths, gitOpError } from './helpers'
 import { backupBundle } from './backup'
 import {
   isGitlink,
@@ -22,8 +22,7 @@ import {
 } from '../conflict-stages'
 import type { ConflictFile, ConflictOp, ConflictSide, ConflictStages } from '../../shared/types'
 
-/**
- * `simple-git` só transforma em erro quando o git escreve no STDERR.
+/** `simple-git` só transforma em erro quando o git escreve no STDERR.
  * `git commit --no-edit` / `--continue` recusados por "nada a commitar"
  * escrevem em STDOUT e saem com 1 — o promise RESOLVE e a UI reporta
  * sucesso enquanto a operação continua parada (revert vazio, merge vazio,
@@ -36,7 +35,7 @@ export async function runContinue(repo: string, args: string[], l: UILang, confl
     out = (await simpleGit(repo).raw(args)).trim()
   } catch (e) {
     // stderr real: falha genuína (ex.: rebase não consegue aplicar o patch)
-    throw conflictErr(conflictKey, e, l)
+    throw gitOpError(conflictKey, e, l)
   }
   if ((await conflictLabels(repo)).op === null) return
   const rest = await unmergedPaths(repo)
@@ -44,8 +43,7 @@ export async function runContinue(repo: string, args: string[], l: UILang, confl
   throw new Error(mx(l, 'continueEmpty', { cmd: `git ${args.join(' ')}`, out: out.slice(0, 400) || '—' }))
 }
 
-/**
- * Operação interrompida e rótulos dos dois lados, para a UI dizer
+/** Operação interrompida e rótulos dos dois lados, para a UI dizer
  * "ours: main" / "theirs: develop" em vez de "ours/theirs" genéricos.
  */
 export async function conflictLabels(repo: string): Promise<{ op: ConflictOp; ours: string; theirs: string }> {
@@ -97,8 +95,7 @@ function joinSides(a: string, b: string): string {
   return (a.endsWith('\n') || a === '' ? a : `${a}\n`) + (b.endsWith('\n') || b === '' ? b : `${b}\n`)
 }
 
-/**
- * Resolve o arquivo inteiro por um lado. É destrutivo, então grava bundle
+/** Resolve o arquivo inteiro por um lado. É destrutivo, então grava bundle
  * antes (mesma política de reset hard/rebase).
  */
 async function resolveSideRaw(repo: string, file: string, side: ConflictSide, l: UILang): Promise<void> {
@@ -153,8 +150,7 @@ ipcMain.handle('treeline:getConflictFiles', (_event, repo: string) =>
       })
     }
     return out
-  })
-)
+  }))
 
 ipcMain.handle('treeline:getConflictOp', (_event, repo: string) =>
   // READ: os rótulos mudam com a operação; fora da fila.
@@ -166,8 +162,7 @@ ipcMain.handle('treeline:getConflictOp', (_event, repo: string) =>
     // `restore --merge` caem no mesmo balde e também não têm `--continue`,
     // então o tratamento (concluir sem comando git) é o mesmo para os três.
     return (await unmergedPaths(repo)).length > 0 ? 'stash' : null
-  })
-)
+  }))
 
 ipcMain.handle('treeline:getConflictStages', (_event, repo: string, file: string) =>
   // READ: 3 `cat-file` + 1 `merge-file`, sem tocar no index.
@@ -251,12 +246,9 @@ ipcMain.handle('treeline:getConflictStages', (_event, repo: string, file: string
         '-p',
         '--object-id',
         '--zdiff3',
-        '-L',
-        'ours',
-        '-L',
-        'base',
-        '-L',
-        'theirs',
+        '-L', 'ours',
+        '-L', 'base',
+        '-L', 'theirs',
         byStage.get(2)!.sha,
         baseSha,
         byStage.get(3)!.sha
@@ -279,20 +271,16 @@ ipcMain.handle('treeline:getConflictStages', (_event, repo: string, file: string
       theirsLabel,
       binary: false
     }
-  })
-)
+  }))
 
 ipcMain.handle('treeline:resolveOurs', (_event, repo: string, file: string, lang?: unknown) =>
-  enqueue(repo, () => resolveSideRaw(repo, file, 'ours', asLang(lang)))
-)
+  enqueue(repo, () => resolveSideRaw(repo, file, 'ours', asLang(lang))))
 
 ipcMain.handle('treeline:resolveTheirs', (_event, repo: string, file: string, lang?: unknown) =>
-  enqueue(repo, () => resolveSideRaw(repo, file, 'theirs', asLang(lang)))
-)
+  enqueue(repo, () => resolveSideRaw(repo, file, 'theirs', asLang(lang))))
 
 ipcMain.handle('treeline:resolveConflictSide', (_event, repo: string, file: string, side: ConflictSide, lang?: unknown) =>
-  enqueue(repo, () => resolveSideRaw(repo, file, side, asLang(lang)))
-)
+  enqueue(repo, () => resolveSideRaw(repo, file, side, asLang(lang))))
 
 ipcMain.handle('treeline:applyConflictResult', (_event, repo: string, file: string, content: string, del: boolean, lang?: unknown) =>
   enqueue(repo, async () => {
@@ -309,8 +297,7 @@ ipcMain.handle('treeline:applyConflictResult', (_event, repo: string, file: stri
     }
     await fs.writeFile(join(repo, rel), content)
     await git.raw(['add', '--', rel])
-  })
-)
+  }))
 
 ipcMain.handle('treeline:getRerere', (_event, repo: string) =>
   // READ: só lê config do repo.
@@ -319,12 +306,10 @@ ipcMain.handle('treeline:getRerere', (_event, repo: string) =>
       .raw(['config', '--get', 'rerere.enabled'])
       .catch(() => '')
     return v.trim() === 'true'
-  })
-)
+  }))
 
 ipcMain.handle('treeline:setRerere', (_event, repo: string, on: boolean) =>
   enqueue(repo, async () => {
     // Opt-in explícito: mexe só no repo aberto, nunca no global.
     await simpleGit(repo).raw(on ? ['config', 'rerere.enabled', 'true'] : ['config', '--unset', 'rerere.enabled'])
-  })
-)
+  }))

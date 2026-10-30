@@ -10,6 +10,33 @@ não case com o `package.json`.
 
 ## [Unreleased]
 
+## [0.6.17] - 2026-10-29
+
+### Added
+
+- **Erros do git traduzidos em orientação acionável**: novo `gitOpError` em
+  `src/main/git/helpers.ts` classifica a mensagem do git (credenciais,
+  divergência local/remoto, conflito, repo inválido, timeout) e devolve texto
+  i18n em vez do stderr cru. `treeline:getStatus` passa a usá-lo. Novas chaves
+  `gitConflict` / `gitNotARepo` / `gitTimeout` em `src/main/messages.ts`.
+- **Acessibilidade por teclado**: `tabIndex` em toolbar, statusbar e no modal de
+  confirmação, com `:focus-visible` no título colapsável da sidebar.
+- `scripts/launch.sh` e `scripts/make-dist.sh` (atalhos de execução/build) e
+  `SKILL.md` (plano de melhoria).
+
+### Fixed
+
+- **`Ctrl+K` da paleta voltou a alternar (abrir/fechar)**: o handler duplicado
+  em `CommandPalette.tsx` abria a paleta de novo depois do toggle central de
+  `App.tsx`, então ela nunca fechava. Ficou só o caminho central
+  (`matchShortcut('palette')`), que é remapeável.
+- **`app.globalShortcut` não existe** (é `globalShortcut` no módulo `electron`):
+  o registro no main quebrava o `typecheck` e gerava `UnhandledPromiseRejection`
+  no boot. Removido — o atalho é local da janela, não system-wide.
+- `release.yml` restaurado: o passo `npx electron-builder --linux deb AppImage`
+  tinha sido removido, e sem ele `dist/*.deb`/`*.AppImage` não existem para o
+  `SHA256SUMS` nem para o upload do release.
+
 ## [0.6.16] - 2026-10-13
 
 ### Changed

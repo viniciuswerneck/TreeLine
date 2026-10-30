@@ -1,7 +1,7 @@
 {
   "name": "treeline-git-gui",
   "productName": "TreeLine",
-  "version": "0.6.16",
+  "version": "0.6.17",
   "description": "Git GUI for Linux with a familiar classic desktop workflow. Original implementation, independent.",
   "author": {
     "name": "TreeLine Contributors",
@@ -13,6 +13,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "ELECTRON_DISABLE_SANDBOX=1 electron-vite dev",
+    "dev:sandbox": "ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT=auto electron-vite dev",
     "build": "electron-vite build",
     "dist": "npm run build && electron-builder",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json",

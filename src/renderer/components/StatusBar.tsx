@@ -36,7 +36,7 @@ export default function StatusBar() {
   const attention = mergeBusy || rebaseBusy || pickBusy || revertBusy || conflicted > 0 || !!error
 
   return (
-    <div className="statusbar">
+    <div className="statusbar" tabIndex={0}>
       {attention ? (
         <span className="status-alert-wrap" title={tr('status.attention')}>
           <AlertTriangle

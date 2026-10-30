@@ -43,10 +43,13 @@ export default function CommandPalette() {
     }
   }, [paletteOpen])
 
+  // Ctrl+K/Cmd+K vem do handler central em `App.tsx` (matchShortcut('palette'),
+  // remapeável pelo usuário). Não registrar outro aqui: o toggle rodaria duas
+  // vezes e a paleta nunca fecharia.
+
   const runCustom = (id: string): void => {
     const st = useStore.getState()
     if (!st.current) return
-    // Mesmo contexto do dialog: tokens {{repo}}, {{branch}}, {{file}}, {{commit}}.
     void window.treeline
       .runCustomAction(st.current, id, {
         repo: st.current,
@@ -90,10 +93,9 @@ export default function CommandPalette() {
       { label: tr('pal.about'), hint: 'view', run: () => openDlg('about') },
       { label: tr('pal.toggleSidebar'), hint: 'view', run: toggleSidebar },
       { label: tr('pal.customActions'), hint: 'view', run: () => openDlg('custom') },
-      // id no key: dois custom actions podem ter o mesmo nome.
       ...custom.map((a) => ({ id: `custom:${a.id}`, label: `▶ ${a.name}`, hint: 'custom', run: () => runCustom(a.id) })),
       { label: tr('pal.settings'), hint: 'view', run: openSettings },
-      { label: tr('common.refresh'), hint: 'view', run: refresh },
+      { label: tr('common.refresh'), hint: 'view', run: refresh }
     ],
     [custom, doFetch, doPull, doPush, doPushForce, openDlg, openSettings, refresh, stageAll, toggleSidebar, toggleTerminal, tr, unstageAll]
   )

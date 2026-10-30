@@ -52,6 +52,35 @@ export function conflictErr(key: string, e: unknown, lang: UILang): Error {
   return e instanceof Error ? e : new Error(msg)
 }
 
+/** Erro padrão em operações git - mensagens amigáveis em Português/Inglês.
+ *  Converte erros brutos do git em orientação acionável para o usuário.
+ */
+export function gitOpError(op: string, e: unknown, lang: UILang): Error {
+  const msg = e instanceof Error ? e.message : String(e)
+  // Autenticação/credenciais
+  if (/could not read Username|terminal prompts disabled|authentication failed|invalid username|credential/i.test(msg)) {
+    return new Error(mx(lang, 'authFail', { op, d: msg.split('\n')[0] as string }))
+  }
+  // Branches divergentes
+  if (/diverg|non-fast-forward|cannot fast-forward|fast-forward.*failed/i.test(msg)) {
+    return new Error(mx(lang, 'pullDivergent', { op, d: msg.split('\n')[0] as string }))
+  }
+  // Conflitos de merge/rebase
+  if (/CONFLICT|conflict|needs merge|failed to merge/i.test(msg)) {
+    return new Error(mx(lang, 'gitConflict', { op, d: msg.split('\n')[0] as string }))
+  }
+  // Comando não encontrado ou repo inválido
+  if (/not a git repository|not found|no such file|ENOENT/i.test(msg)) {
+    return new Error(mx(lang, 'gitNotARepo', { op }))
+  }
+  // Tempo esgotado
+  if (/timed out|timeout|deadline exceeded/i.test(msg)) {
+    return new Error(mx(lang, 'gitTimeout', { op }))
+  }
+  // Erro genérico - retorna o original
+  return e instanceof Error ? e : new Error(msg)
+}
+
 /** Arquivos ainda unmerged (`git ls-files -u`). Continuar a operação com um
  * destes no index cria um commit que carrega os marcadores de conflito —
  * por isso abortamos antes, com o nome do arquivo na mensagem. */
